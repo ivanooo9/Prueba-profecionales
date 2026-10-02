@@ -1,0 +1,115 @@
+:root {
+  --surface: #ffffff;
+  --background: #f8f9fa;
+  --slate-400: #9ca3af;
+  --slate-600: #4b5563;
+  --slate-800: #1f2937;
+  --slate-900: #111827;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --sidebar: #111827;
+  --sidebar-hover: #1f2937;
+  --border: #e5e7eb;
+  --warm-100: #f8d9c0;
+  --warm-300: #eabc8d;
+  --warm-500: #b87b59;
+  --warm-700: #8f5d40;
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #e11d48;
+  --info: #0284c7;
+}
+
+/* Palette layer for Tailwind's runtime utilities. Semantic colors remain intact. */
+body,
+#root {
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+.bg-slate-50,
+.bg-slate-100 { background-color: var(--background) !important; }
+.bg-slate-200 { background-color: var(--border) !important; }
+.bg-slate-900 { background-color: var(--slate-800) !important; }
+.bg-slate-950 { background-color: var(--sidebar) !important; }
+
+/* Clinical blue remains the interaction color; warm tones are reserved for accents. */
+.bg-sky-600 { background-color: var(--primary) !important; }
+.bg-sky-700,
+.hover\:bg-sky-700:hover { background-color: var(--primary-hover) !important; }
+.bg-sky-50 { background-color: #eff6ff !important; }
+.text-sky-600,
+.text-sky-700,
+.text-sky-800 { color: var(--primary-hover) !important; }
+.border-sky-200,
+.border-sky-300 { border-color: #bae6fd !important; }
+.hover\:border-sky-300:hover { border-color: #7dd3fc !important; }
+.hover\:bg-sky-50:hover { background-color: #e0f2fe !important; }
+
+.warm-accent { background-color: var(--warm-100); color: var(--warm-700); }
+.warm-accent-border { border-color: var(--warm-300); }
+
+.text-slate-900,
+.text-slate-950 { color: var(--text-primary) !important; }
+.text-slate-800,
+.text-slate-700 { color: var(--slate-800) !important; }
+.text-slate-600,
+.text-slate-500 { color: var(--text-secondary) !important; }
+.text-slate-400 { color: var(--text-muted) !important; }
+
+.border-slate-100,
+.border-slate-200,
+.border-slate-300 { border-color: var(--border) !important; }
+
+.hover\:bg-slate-100:hover,
+.hover\:bg-slate-200\/60:hover { background-color: #f3f4f6 !important; }
+.hover\:bg-slate-800:hover,
+.hover\:bg-slate-800\/60:hover { background-color: var(--sidebar-hover) !important; }
+.hover\:text-slate-900:hover,
+.hover\:text-slate-700:hover { color: var(--text-primary) !important; }
+
+input,
+textarea,
+select {
+  color: var(--text-primary);
+  background-color: var(--surface);
+  border-color: var(--border);
+}
+
+input,
+textarea { background-color: var(--surface); }
+
+input::placeholder,
+textarea::placeholder { color: var(--text-muted); opacity: 1; }
+
+*:focus-visible {
+  outline-color: var(--primary);
+}
+
+/* Custom Styles & Scrollbars for Gesture Medical System */
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+code, kbd, samp, pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Scrollbar for Medical Log */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--slate-800);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--slate-600);
+}

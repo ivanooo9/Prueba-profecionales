@@ -1,0 +1,113 @@
+:root {
+  --color-legal-burgundy: #2c080e;
+  --color-legal-gold: #c89e5b;
+  --color-legal-ivory: #f8f6f0;
+  --color-legal-ink: #1f1b1c;
+  --color-legal-muted: #726c6b;
+  --color-legal-stone: #e8e3da;
+  --color-legal-success: #587e5a;
+  --color-legal-alert: #a63a3a;
+}
+
+@layer base {
+  body {
+    color: #1f1b1c;
+    background: #f8f6f0;
+  }
+}
+
+  .bg-slate-50 { background-color: #f8f6f0 !important; }
+  .bg-slate-100 { background-color: #f1eee7 !important; }
+  .bg-slate-200 { background-color: #e8e3da !important; }
+  .bg-slate-800,
+  .bg-slate-900,
+  .bg-slate-950 { background-color: #2c080e !important; }
+
+  .text-slate-950,
+  .text-slate-900 { color: #1f1b1c !important; }
+  .text-slate-800,
+  .text-slate-700,
+  .text-slate-600 { color: #403a3a !important; }
+  .text-slate-500,
+  .text-slate-400 { color: #726c6b !important; }
+  .text-slate-300,
+  .text-slate-200 { color: #d8d0c8 !important; }
+
+  .border-slate-100,
+  .border-slate-200,
+  .border-slate-300 { border-color: #e8e3da !important; }
+  .border-slate-700,
+  .border-slate-800 { border-color: rgba(200, 158, 91, 0.24) !important; }
+
+  .bg-amber-50,
+  .bg-amber-100 { background-color: #f5ead7 !important; }
+  .bg-amber-400,
+  .bg-amber-500 { background-color: #c89e5b !important; }
+  .text-amber-400,
+  .text-amber-500,
+  .text-amber-600,
+  .text-amber-700,
+  .text-amber-800,
+  .text-amber-900 { color: #8c672f !important; }
+  .border-amber-200,
+  .border-amber-300,
+  .border-amber-400,
+  .border-amber-500 { border-color: #c89e5b !important; }
+
+  .bg-rose-50,
+  .bg-rose-100 { background-color: #f6e5e2 !important; }
+  .bg-rose-500 { background-color: #a63a3a !important; }
+  .text-rose-500,
+  .text-rose-600,
+  .text-rose-700,
+  .text-rose-800,
+  .text-rose-950 { color: #a63a3a !important; }
+  .border-rose-200,
+  .border-rose-300 { border-color: #d59a96 !important; }
+
+  .bg-emerald-50,
+  .bg-emerald-100 { background-color: #e8f0e6 !important; }
+  .bg-emerald-600,
+  .bg-emerald-700 { background-color: #587e5a !important; }
+  .text-emerald-600,
+  .text-emerald-700,
+  .text-emerald-800,
+  .text-emerald-900,
+  .text-emerald-950 { color: #587e5a !important; }
+  .border-emerald-200,
+  .border-emerald-300 { border-color: #a9c0a5 !important; }
+
+  .hover\:bg-slate-800:hover,
+  .hover\:bg-slate-700:hover { background-color: #45141b !important; }
+  .hover\:bg-amber-400:hover { background-color: #d4ae70 !important; }
+  .hover\:bg-amber-50:hover { background-color: #f5ead7 !important; }
+  .hover\:bg-rose-700:hover { background-color: #8d3030 !important; }
+  .hover\:bg-emerald-700:hover { background-color: #476c4a !important; }
+
+/* Custom scrollbar for modern browsers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c89e5b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a98248;
+}
+
+@media print {
+  body {
+    background: white !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+}
