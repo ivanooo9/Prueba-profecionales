@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="h-full font-sans text-slate-800 bg-slate-50 flex flex-col min-h-screen">
+
+  <%- include('partials/header') %>
+
+  <main class="flex-grow flex flex-col items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+    <!-- Breadcrumbs / Migas de Pan (Nielsen H1 & H3) -->
+    <div class="max-w-2xl w-full mb-6">
+      <nav class="flex items-center justify-between flex-wrap gap-3 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm text-sm" aria-label="Migas de pan">
+        <ol class="flex items-center flex-wrap gap-2 text-slate-600 font-medium list-none p-0 m-0">
+          <li class="inline-flex items-center">
+            <a href="/" class="text-slate-700 hover:text-[#0A3C84] font-semibold transition">Inicio</a>
+          </li>
+          <li class="text-slate-300">/</li>
+          <li class="inline-flex items-center">
+            <button type="button" onclick="openAccountTypeModal()" class="text-slate-700 hover:text-[#0A3C84] font-semibold transition cursor-pointer bg-transparent border-0 p-0">Crear Cuenta</button>
+          </li>
+          <li class="text-slate-300">/</li>
+          <li class="inline-flex items-center font-bold text-[#0A3C84]" aria-current="page">
+            <span id="bc-student-step-text">Registro Estudiante (Paso 1 de 3)</span>
+          </li>
+        </ol>
+        <button type="button" onclick="openAccountTypeModal()" class="text-slate-500 hover:text-[#0A3C84] text-xs font-semibold transition cursor-pointer bg-transparent border-0 p-0">
+          Cambiar perfil
+        </button>
+      </nav>
+    </div>
+
+    <div class="max-w-2xl w-full bg-white rounded-3xl border border-slate-200 shadow-lg p-6 sm:p-10 space-y-8">
+      
+      <!-- Top Title -->
+      <div class="text-center space-y-3">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Registro de Estudiante</h1>
+        <p class="text-slate-600 text-sm sm:text-base max-w-lg mx-auto leading-relaxed">
+          Crea tu cuenta académica para acceder a descuentos en conversatorios y cursos.
+        </p>
+      </div>
+
+      <!-- Error Alert -->
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium flex items-center gap-3">
+          <i class="fa-solid fa-circle-exclamation text-rose-500 text-base"></i>
+          <span><%= error %></span>
+        </div>
+      <% } %>
+
+      <!-- Stepper Progress (Nielsen H1 & H3) -->
+      <div class="flex items-center justify-between border-b border-slate-200 pb-4 text-sm font-bold" role="tablist" aria-label="Pasos del registro de estudiante">
+        <button type="button" onclick="goToStep(1)" id="step-indicator-1" class="flex items-center gap-2.5 text-blue-600 border-b-2 border-blue-600 pb-3 bg-transparent border-t-0 border-x-0 cursor-pointer p-0">
+          <span class="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">1</span>
+          <span class="hidden sm:inline">Cuenta y Contacto</span>
+        </button>
+        <button type="button" onclick="goToStep(2)" id="step-indicator-2" class="flex items-center gap-2.5 text-slate-400 border-b-2 border-transparent pb-3 bg-transparent border-t-0 border-x-0 cursor-pointer p-0">
+          <span class="w-7 h-7 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold">2</span>
+          <span class="hidden sm:inline">Información Académica</span>
+        </button>
+        <button type="button" onclick="goToStep(3)" id="step-indicator-3" class="flex items-center gap-2.5 text-slate-400 border-b-2 border-transparent pb-3 bg-transparent border-t-0 border-x-0 cursor-pointer p-0">
+          <span class="w-7 h-7 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold">3</span>
+          <span class="hidden sm:inline">Foto y Perfil</span>
+        </button>
+      </div>
+
+      <% const fd = (typeof formData !== 'undefined' && formData) ? formData : {}; %>
+      <form id="student-wizard-form" action="/registro-estudiante" method="POST" novalidate onsubmit="return validateFinalStep()" class="space-y-6 text-sm text-slate-700">
+        
+        <!-- STEP 1: Datos de Acceso y Ubicación -->
+        <div id="wizard-step-1" class="space-y-5">
+          <div class="border-b border-slate-100 pb-2">
+            <h2 class="font-bold text-slate-900 text-base">Paso 1: Datos de Acceso y Contacto</h2>
+            <p class="text-xs text-slate-500">Ingresa tus credenciales para ingresar a la plataforma.</p>
+          </div>
+
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Nombre Completo *</label>
+            <input type="text" id="input-name" name="name" required placeholder="Ej: María Fernanda López" value="<%= fd.name || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Correo Electrónico *</label>
+              <input type="email" id="input-email" name="email" required placeholder="correo@ejemplo.com" value="<%= fd.email || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+            </div>
+
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Contraseña *</label>
+              <div class="relative">
+                <input type="password" id="input-password" name="password" required placeholder="Mínimo 6 caracteres" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 pl-4 pr-11 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+                <button type="button" onclick="togglePasswordVisibility('input-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer bg-transparent border-0 p-1">
+                  <i class="fa-solid fa-eye text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Teléfono / Celular</label>
+              <input type="tel" name="telefono" placeholder="0999999999" value="<%= fd.telefono || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+            </div>
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Provincia</label>
+              <input type="text" name="provincia" placeholder="Ej: Pichincha" value="<%= fd.provincia || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+            </div>
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Ciudad</label>
+              <input type="text" name="ciudad" placeholder="Ej: Quito" value="<%= fd.ciudad || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+            </div>
+          </div>
+
+          <div class="pt-4 flex justify-end">
+            <button type="button" onclick="goToStep(2)" class="bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3.5 px-7 rounded-xl shadow-md transition text-sm sm:text-base flex items-center gap-2 cursor-pointer">
+              Siguiente Paso <i class="fa-solid fa-arrow-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 2: Información Académica y Profesión/Especialidad -->
+        <div id="wizard-step-2" class="space-y-5 hidden">
+          <div class="border-b border-slate-100 pb-2">
+            <h2 class="font-bold text-slate-900 text-base">Paso 2: Información Académica y Especialidad</h2>
+            <p class="text-xs text-slate-500">Selecciona tu institución educativa y área de estudio.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            <!-- Combobox Universidad -->
+            <div class="relative">
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Universidad / Instituto *</label>
+              <input type="hidden" id="select-university-id" name="universityId" value="<%= fd.universityId || '' %>">
+              
+              <input type="text" id="uni-search-input" autocomplete="off" placeholder="Escribe para buscar tu universidad..." onfocus="showUniDropdown()" oninput="filterUniDropdown()" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+
+              <!-- Dropdown List Container -->
+              <div id="uni-search-results" class="hidden absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl z-50 divide-y divide-slate-100">
+                <!-- Javascript populated -->
+              </div>
+
+              <input type="text" id="input-institucion-custom" name="institucionEducativa" value="<%= fd.institucionEducativa || '' %>" placeholder="Escribe el nombre de tu institución..." class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal mt-2 hidden">
+            </div>
+
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Estado de la Carrera *</label>
+              <select name="estadoCarrera" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+                <option value="EN_CURSO" <%= fd.estadoCarrera === 'EN_CURSO' ? 'selected' : '' %>>En Curso (Estudiante Activo)</option>
+                <option value="EGRESADO" <%= fd.estadoCarrera === 'EGRESADO' ? 'selected' : '' %>>Egresado (Pendiente de Titulación)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Área / Profesión de Interés</label>
+              <select id="select-profesion" name="profesionId" onchange="onProfessionChange(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+                <option value="">-- Seleccionar Área --</option>
+                <% if (typeof professions !== 'undefined' && professions && professions.length > 0) { %>
+                  <% professions.forEach(function(p) { %>
+                    <option value="<%= p.id %>" <%= fd.profesionId == p.id ? 'selected' : '' %>><%= p.nombre %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Especialidad Principal</label>
+              <select id="select-especialidad" name="especialidadNombre" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+                <option value="">-- Selecciona primero una profesión --</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Carrera que estudias *</label>
+            <input type="text" id="input-carrera" name="carrera" required placeholder="Ej: Medicina Humana, Derecho, Sistemas..." value="<%= fd.carrera || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal text-slate-800">
+          </div>
+
+          <div class="pt-4 flex items-center justify-between">
+            <button type="button" onclick="goToStep(1)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-3.5 px-6 rounded-xl transition flex items-center gap-2 cursor-pointer text-sm">
+              <i class="fa-solid fa-arrow-left text-xs"></i> Anterior
+            </button>
+            <button type="button" onclick="goToStep(3)" class="bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3.5 px-7 rounded-xl shadow-md transition flex items-center gap-2 text-sm sm:text-base cursor-pointer">
+              Siguiente Paso <i class="fa-solid fa-arrow-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 3: Foto de Perfil y Presentación -->
+        <div id="wizard-step-3" class="space-y-5 hidden">
+          <div class="border-b border-slate-100 pb-2">
+            <h2 class="font-bold text-slate-900 text-base">Paso 3: Foto de Perfil y Presentación</h2>
+            <p class="text-xs text-slate-500">Agrega una foto y una breve descripción sobre ti.</p>
+          </div>
+
+          <!-- Avatar Uploader -->
+          <div>
+            <label class="block text-slate-800 font-semibold mb-2 text-sm">Foto de Perfil *</label>
+            <div class="flex items-center gap-5">
+              <div class="w-20 h-20 rounded-2xl bg-slate-100 border border-slate-300 overflow-hidden shrink-0 flex items-center justify-center">
+                <img id="avatar-preview" src="<%= fd.fotoBase64 || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200' %>" alt="Vista previa" class="w-full h-full object-cover">
+              </div>
+              <div class="space-y-1.5 flex-grow">
+                <input type="file" id="input-avatar-file" accept="image/*" class="block w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-[#0A3C84] hover:file:bg-blue-100 cursor-pointer">
+                <input type="hidden" name="fotoBase64" id="input-avatar-base64" value="<%= fd.fotoBase64 || '' %>">
+                <p class="text-xs text-slate-500">Formato JPG o PNG, fotografía cuadrada de rostro.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Carnet Estudiantil / Certificado de Matrícula Uploader (OBLIGATORIO) -->
+          <div>
+            <label class="block text-slate-800 font-semibold mb-2 text-sm">Carnet Estudiantil o Certificado de Matrícula (Foto o PDF) *</label>
+            <div class="flex items-center gap-5">
+              <div class="w-20 h-20 rounded-2xl bg-blue-50 border border-blue-200 overflow-hidden shrink-0 flex items-center justify-center text-[#0A3C84] text-2xl font-bold" id="carnet-preview-box">
+                <i class="fa-solid fa-id-card" id="carnet-icon"></i>
+                <img id="carnet-preview-img" class="w-full h-full object-cover hidden">
+              </div>
+              <div class="space-y-1.5 flex-grow">
+                <input type="file" id="input-carnet-file" accept="image/*,.pdf" class="block w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-[#0A3C84] hover:file:bg-blue-100 cursor-pointer">
+                <input type="hidden" name="carnetDocBase64" id="input-carnet-base64" value="<%= fd.carnetDocBase64 || '' %>">
+                <p class="text-xs text-slate-500">Documento obligatorio para verificación administrativa (Foto JPG/PNG o archivo PDF).</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Presentación / Biografía Breve *</label>
+            <textarea id="input-bio" name="bio" rows="3" required placeholder="Cuéntanos sobre tus intereses académicos, proyectos o metas..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 outline-none focus:border-[#0A3C84] focus:bg-white transition text-sm sm:text-base font-normal leading-relaxed text-slate-800"><%= fd.bio || '' %></textarea>
+          </div>
+
+          <div class="pt-4 flex items-center justify-between">
+            <button type="button" onclick="goToStep(2)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-3.5 px-6 rounded-xl transition flex items-center gap-2 cursor-pointer text-sm">
+              <i class="fa-solid fa-arrow-left text-xs"></i> Anterior
+            </button>
+            <button type="submit" class="bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3.5 px-8 rounded-xl shadow-lg transition flex items-center gap-2 text-sm sm:text-base cursor-pointer">
+              Completar Registro <i class="fa-solid fa-check ml-1"></i>
+            </button>
+          </div>
+        </div>
+
+        <p class="text-center text-sm text-slate-600 font-medium pt-2">
+          ¿Ya tienes una cuenta? <a href="/login" class="text-[#0A3C84] font-bold hover:underline">Iniciar Sesión</a>
+        </p>
+      </form>
+    </div>
+  </main>
+
+  <!-- Modal Alerta Personalizada -->
+  <div id="custom-alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[3000] flex items-center justify-center p-4 hidden transition-opacity duration-300">
+    <div class="bg-slate-900 text-white rounded-3xl max-w-sm w-full p-6 sm:p-8 space-y-4 border border-slate-800 shadow-2xl text-center relative">
+      <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl mx-auto border border-amber-500/30">
+        <i class="fa-solid fa-circle-exclamation"></i>
+      </div>
+      <div class="space-y-2">
+        <h4 class="text-base font-extrabold text-white">Atención</h4>
+        <p id="custom-alert-message" class="text-xs text-slate-300 font-medium leading-relaxed"></p>
+      </div>
+      <div class="pt-2">
+        <button type="button" onclick="closeCustomAlertModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition cursor-pointer shadow-md">
+          Aceptar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/footer') %>
+
+  <script>
+    // Data from DB
+    const professionsData = <%- JSON.stringify(typeof professions !== 'undefined' ? professions : []) %>;
+    const universitiesData = <%- JSON.stringify(typeof universities !== 'undefined' ? universities : []) %>;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const initialStep = <%= typeof activeStep !== 'undefined' ? activeStep : 1 %>;
+      if (initialStep > 1) {
+        goToStep(initialStep);
+      }
+    });
+
+    // Custom Modal Alert Helper
+    function showModalAlert(msg) {
+      document.getElementById('custom-alert-message').innerText = msg;
+      document.getElementById('custom-alert-modal').classList.remove('hidden');
+    }
+
+    function closeCustomAlertModal() {
+      document.getElementById('custom-alert-modal').classList.add('hidden');
+    }
+
+    // Searchable Combobox for Universities
+    function showUniDropdown() {
+      filterUniDropdown();
+      document.getElementById('uni-search-results').classList.remove('hidden');
+    }
+
+    function filterUniDropdown() {
+      const searchInput = document.getElementById('uni-search-input').value.toLowerCase().trim();
+      const resultsContainer = document.getElementById('uni-search-results');
+      resultsContainer.innerHTML = '';
+
+      const filtered = universitiesData.filter(u => 
+        u.nombre.toLowerCase().includes(searchInput) || 
+        (u.siglas && u.siglas.toLowerCase().includes(searchInput)) ||
+        (u.ciudad && u.ciudad.toLowerCase().includes(searchInput)) ||
+        (u.provincia && u.provincia.toLowerCase().includes(searchInput))
+      );
+
+      if (filtered.length > 0) {
+        filtered.forEach(u => {
+          const div = document.createElement('div');
+          div.className = 'p-3 hover:bg-slate-50 transition cursor-pointer flex items-center justify-between gap-2';
+          div.onclick = function() {
+            selectUniOption(u.id, u.nombre + (u.siglas ? ' (' + u.siglas + ')' : ''), u.nombre);
+          };
+          div.innerHTML = `
+            <div>
+              <div class="font-extrabold text-slate-900 text-xs">${u.nombre}</div>
+              <div class="text-[10px] text-slate-400 font-medium">${u.ciudad ? u.ciudad + ', ' : ''}${u.provincia || ''}</div>
+            </div>
+            ${u.siglas ? `<span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-black text-[9px] shrink-0">${u.siglas}</span>` : ''}
+          `;
+          resultsContainer.appendChild(div);
+        });
+      } else {
+        const div = document.createElement('div');
+        div.className = 'p-3 text-slate-400 text-xs font-medium text-center';
+        div.innerText = 'No se encontraron instituciones con ese nombre.';
+        resultsContainer.appendChild(div);
+      }
+
+      // Add "Otra institución" Option
+      const otraDiv = document.createElement('div');
+      otraDiv.className = 'p-3 bg-blue-50/50 hover:bg-blue-50 transition cursor-pointer font-bold text-blue-700 text-xs flex items-center gap-2 border-t border-slate-100';
+      otraDiv.onclick = function() {
+        selectUniOption('OTRA', 'Otra institución (Ingresar manualmente)', '');
+      };
+      otraDiv.innerHTML = `<i class="fa-solid fa-pen-to-square text-xs"></i> Otra institución (Ingresar manualmente)`;
+      resultsContainer.appendChild(otraDiv);
+    }
+
+    function selectUniOption(id, label, nombreOriginal) {
+      document.getElementById('select-university-id').value = id;
+      document.getElementById('uni-search-input').value = label;
+      document.getElementById('uni-search-results').classList.add('hidden');
+
+      const customInput = document.getElementById('input-institucion-custom');
+      if (id === 'OTRA') {
+        customInput.classList.remove('hidden');
+        customInput.required = true;
+        customInput.focus();
+      } else {
+        customInput.classList.add('hidden');
+        customInput.required = false;
+        customInput.value = nombreOriginal;
+      }
+    }
+
+    // Close Uni Dropdown on click outside
+    document.addEventListener('click', function(e) {
+      const container = document.getElementById('uni-search-results');
+      const input = document.getElementById('uni-search-input');
+      if (container && !container.contains(e.target) && e.target !== input) {
+        container.classList.add('hidden');
+      }
+    });
+
+    function setStudentFieldError(id, msg) {
+      const input = document.getElementById(id);
+      let span = document.getElementById('err-' + id);
+      if (!span && input) {
+        span = document.createElement('span');
+        span.id = 'err-' + id;
+        span.className = 'text-rose-500 text-[11px] font-bold mt-1 block';
+        const parent = input.closest('.relative') || input.parentNode;
+        if (parent) parent.appendChild(span);
+      }
+      if (span) {
+        span.innerText = msg || '';
+        if (msg) {
+          span.classList.remove('hidden');
+          span.style.display = 'block';
+        } else {
+          span.classList.add('hidden');
+          span.style.display = 'none';
+        }
+      }
+      if (input) {
+        if (msg) {
+          input.classList.add('border-rose-500', 'bg-rose-50/50', 'ring-2', 'ring-rose-200');
+          input.classList.remove('border-slate-200', 'bg-slate-50');
+        } else {
+          input.classList.remove('border-rose-500', 'bg-rose-50/50', 'ring-2', 'ring-rose-200');
+          input.classList.add('border-slate-200', 'bg-slate-50');
+        }
+      }
+    }
+
+    function clearStudentFieldError(id) {
+      setStudentFieldError(id, '');
+    }
+
+    // Step Navigation Validation
+    function goToStep(step) {
+      if (step === 2) {
+        const nameInput = document.getElementById('input-name');
+        const emailInput = document.getElementById('input-email');
+        const passwordInput = document.getElementById('input-password');
+
+        const name = nameInput ? nameInput.value.trim() : '';
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+
+        let hasErr = false;
+
+        if (!name) {
+          setStudentFieldError('input-name', 'Por favor ingresa tu nombre completo.');
+          hasErr = true;
+        } else if (/\d/.test(name)) {
+          setStudentFieldError('input-name', 'El nombre no puede contener números.');
+          hasErr = true;
+        } else {
+          clearStudentFieldError('input-name');
+        }
+
+        if (!email) {
+          setStudentFieldError('input-email', 'Por favor ingresa tu correo electrónico.');
+          hasErr = true;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          setStudentFieldError('input-email', 'Ingresa un correo electrónico válido (ejemplo@dominio.com).');
+          hasErr = true;
+        } else {
+          clearStudentFieldError('input-email');
+        }
+
+        if (!password) {
+          setStudentFieldError('input-password', 'Por favor ingresa una contraseña.');
+          hasErr = true;
+        } else if (password.length < 6) {
+          setStudentFieldError('input-password', 'La contraseña debe tener al menos 6 caracteres.');
+          hasErr = true;
+        } else {
+          clearStudentFieldError('input-password');
+        }
+
+        if (hasErr) {
+          showModalAlert('Por favor corrige los campos marcados en rojo en el Paso 1 (Nombre, Correo o Contraseña).');
+          return;
+        }
+      }
+
+      if (step === 3) {
+        const uniId = document.getElementById('select-university-id').value;
+        const customInput = document.getElementById('input-institucion-custom');
+        const carreraInput = document.getElementById('input-carrera');
+        const carrera = carreraInput ? carreraInput.value.trim() : '';
+
+        const hasUni = (uniId && uniId !== 'OTRA') || (uniId === 'OTRA' && customInput && customInput.value.trim());
+
+        let hasErr = false;
+
+        if (!hasUni) {
+          setStudentFieldError('uni-search-input', 'Por favor selecciona tu Universidad o Instituto.');
+          hasErr = true;
+        } else {
+          clearStudentFieldError('uni-search-input');
+        }
+
+        if (!carrera) {
+          setStudentFieldError('input-carrera', 'Por favor ingresa la carrera que estás estudiando.');
+          hasErr = true;
+        } else {
+          clearStudentFieldError('input-carrera');
+        }
+
+        if (hasErr) {
+          showModalAlert('Por favor completa tu Universidad y Carrera en el Paso 2.');
+          return;
+        }
+      }
+
+      // Hide all steps
+      [1, 2, 3].forEach(s => {
+        document.getElementById('wizard-step-' + s).classList.add('hidden');
+        const indicator = document.getElementById('step-indicator-' + s);
+        indicator.classList.remove('text-blue-600', 'border-blue-600');
+        indicator.classList.add('text-slate-400', 'border-transparent');
+        const numCircle = indicator.querySelector('span');
+        numCircle.classList.remove('bg-blue-600', 'text-white');
+        numCircle.classList.add('bg-slate-200', 'text-slate-600');
+      });
+
+      // Show current step
+      document.getElementById('wizard-step-' + step).classList.remove('hidden');
+      const activeIndicator = document.getElementById('step-indicator-' + step);
+      activeIndicator.classList.add('text-blue-600', 'border-blue-600');
+      activeIndicator.classList.remove('text-slate-400', 'border-transparent');
+      const activeCircle = activeIndicator.querySelector('span');
+      activeCircle.classList.add('bg-blue-600', 'text-white');
+      activeCircle.classList.remove('bg-slate-200', 'text-slate-600');
+
+      // Update Nielsen Breadcrumb label
+      const studentStepNames = {
+        1: "Paso 1: Cuenta & Ubicación",
+        2: "Paso 2: Formación Académica",
+        3: "Paso 3: Foto & Presentación"
+      };
+      const bcStudentText = document.getElementById('bc-student-step-text');
+      if (bcStudentText && studentStepNames[step]) {
+        bcStudentText.textContent = studentStepNames[step];
+      }
+    }
+
+    function validateFinalStep() {
+      // First ensure Step 1 and Step 2 fields are valid
+      const name = document.getElementById('input-name').value.trim();
+      const email = document.getElementById('input-email').value.trim();
+      const password = document.getElementById('input-password').value;
+
+      if (!name || !email || !password || password.length < 6) {
+        goToStep(1);
+        showModalAlert('Faltan datos obligatorios en el Paso 1 (Nombre, Correo o Contraseña).');
+        return false;
+      }
+
+      const uniId = document.getElementById('select-university-id').value;
+      const customInput = document.getElementById('input-institucion-custom');
+      const carrera = document.getElementById('input-carrera').value.trim();
+      const hasUni = (uniId && uniId !== 'OTRA') || (uniId === 'OTRA' && customInput && customInput.value.trim());
+
+      if (!hasUni || !carrera) {
+        goToStep(2);
+        showModalAlert('Faltan datos obligatorios en el Paso 2 (Universidad o Carrera).');
+        return false;
+      }
+
+      const avatarBase64 = document.getElementById('input-avatar-base64').value;
+      const avatarFileInput = document.getElementById('input-avatar-file');
+      const bioInput = document.getElementById('input-bio');
+      const bio = bioInput ? bioInput.value.trim() : '';
+
+      const hasAvatar = (avatarBase64 && avatarBase64.startsWith('data:image')) || (avatarFileInput && avatarFileInput.files && avatarFileInput.files.length > 0);
+
+      let hasErr = false;
+
+      if (!hasAvatar) {
+        setStudentFieldError('input-avatar-file', 'La foto de perfil es obligatoria.');
+        hasErr = true;
+      } else {
+        clearStudentFieldError('input-avatar-file');
+      }
+
+      const carnetBase64 = document.getElementById('input-carnet-base64').value;
+      const carnetFileInput = document.getElementById('input-carnet-file');
+      const hasCarnet = (carnetBase64 && carnetBase64.startsWith('data:')) || (carnetFileInput && carnetFileInput.files && carnetFileInput.files.length > 0);
+
+      if (!hasCarnet) {
+        setStudentFieldError('input-carnet-file', 'Es obligatorio subir la foto o PDF de tu carnet estudiantil o matrícula.');
+        hasErr = true;
+      } else {
+        clearStudentFieldError('input-carnet-file');
+      }
+
+      if (!bio || bio.length < 10) {
+        setStudentFieldError('input-bio', 'La presentación debe tener al menos 10 caracteres.');
+        hasErr = true;
+      } else {
+        clearStudentFieldError('input-bio');
+      }
+
+      if (hasErr) {
+        showModalAlert('Por favor sube tu foto de perfil, carnet estudiantil y escribe tu biografía breve en el Paso 3.');
+        return false;
+      }
+
+      return true;
+    }
+
+    function onProfessionChange(profId) {
+      const selectSpec = document.getElementById('select-especialidad');
+      selectSpec.innerHTML = '<option value="">-- Seleccionar Especialidad --</option>';
+
+      if (!profId) return;
+
+      const prof = professionsData.find(p => p.id === parseInt(profId));
+      if (prof && prof.specialties && prof.specialties.length > 0) {
+        prof.specialties.forEach(sp => {
+          const opt = document.createElement('option');
+          opt.value = sp.nombre;
+          opt.textContent = sp.nombre;
+          selectSpec.appendChild(opt);
+        });
+      } else {
+        const opt = document.createElement('option');
+        opt.value = "General";
+        opt.textContent = "General / Área Global";
+        selectSpec.appendChild(opt);
+      }
+    }
+
+    function togglePasswordVisibility(id, btn) {
+      const input = document.getElementById(id);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+
+    // Avatar FileReader loader
+    const avatarFileInput = document.getElementById('input-avatar-file');
+    const avatarHiddenInput = document.getElementById('input-avatar-base64');
+    const avatarPreviewImg = document.getElementById('avatar-preview');
+
+    if (avatarFileInput) {
+      avatarFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          avatarHiddenInput.value = evt.target.result;
+          if (avatarPreviewImg) avatarPreviewImg.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Carnet / Matrícula FileReader loader
+    const carnetFileInput = document.getElementById('input-carnet-file');
+    const carnetHiddenInput = document.getElementById('input-carnet-base64');
+    const carnetPreviewImg = document.getElementById('carnet-preview-img');
+    const carnetIcon = document.getElementById('carnet-icon');
+
+    if (carnetFileInput) {
+      carnetFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          carnetHiddenInput.value = evt.target.result;
+          if (file.type.startsWith('image/')) {
+            if (carnetPreviewImg) {
+              carnetPreviewImg.src = evt.target.result;
+              carnetPreviewImg.classList.remove('hidden');
+            }
+            if (carnetIcon) carnetIcon.classList.add('hidden');
+          } else {
+            if (carnetPreviewImg) carnetPreviewImg.classList.add('hidden');
+            if (carnetIcon) {
+              carnetIcon.className = 'fa-solid fa-file-pdf text-rose-600 text-3xl';
+              carnetIcon.classList.remove('hidden');
+            }
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  </script>
+
+</body>
+</html>

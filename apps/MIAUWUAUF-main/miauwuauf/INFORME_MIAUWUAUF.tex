@@ -1,0 +1,335 @@
+\documentclass[12pt,a4paper,oneside]{report}
+
+% --- PAQUETES ---
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{setspace}
+\usepackage{tcolorbox}
+\usepackage{fancyhdr}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, babel, shadow, calc}
+
+% --- CONFIGURACIÓN DE ESTILO ---
+\setstretch{1.3} % Aumentado para mejor legibilidad y extensión
+\setlength{\parskip}{0.8em}
+\setlength{\parindent}{0pt}
+
+% Colores Corporativos
+\definecolor{miauPrimary}{RGB}{66, 133, 244}
+\definecolor{miauSecondary}{RGB}{234, 67, 53}
+\definecolor{miauDark}{RGB}{33, 33, 33}
+\definecolor{miauGray}{RGB}{240, 240, 240}
+\definecolor{codeGreen}{RGB}{0, 150, 0}
+\definecolor{codePurple}{RGB}{150, 0, 150}
+
+% Configuración de cabeceras
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textit{Miau Wuauf - Informe Técnico}}
+\fancyhead[R]{Erick Morales \& Lander Gonzales}
+\fancyfoot[C]{\thepage}
+
+% Configuración de títulos
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{miauDark}}{}{0pt}{\Huge\titlerule\vspace{0.5cm}}
+\titlespacing*{\chapter}{0pt}{-30pt}{30pt}
+
+% Estilo de diagramas TikZ
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3.5cm, minimum height=1.2cm,text centered, draw=black, fill=blue!20, shadow={opacity=0.3}]
+\tikzstyle{process} = [rectangle, minimum width=4cm, minimum height=1.2cm, text centered, draw=black, fill=orange!20, shadow={opacity=0.3}]
+\tikzstyle{io} = [trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=3.5cm, minimum height=1.2cm, text centered, draw=black, fill=purple!20, shadow={opacity=0.3}]
+\tikzstyle{decision} = [diamond, minimum width=3.5cm, minimum height=1.2cm, text centered, draw=black, fill=green!20, shadow={opacity=0.3}]
+\tikzstyle{arrow} = [thick,->,>=stealth, miauPrimary]
+
+% Configuración de Listings para código
+\lstset{
+  backgroundcolor=\color{miauGray},
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{blue},
+  commentstyle=\color{codeGreen},
+  stringstyle=\color{codePurple},
+  breaklines=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+  tabsize=2,
+  captionpos=b
+}
+
+\begin{document}
+
+% --- PORTADA ---
+\begin{titlepage}
+    \centering
+    \vspace*{1.5cm}
+    
+    {\Huge \textbf{INFORME TÉCNICO Y DE INGENIERÍA}} \\[0.5cm]
+    {\Huge \textbf{PROYECTO: MIAU WUAUF}} \\[2cm]
+    
+    \includegraphics[width=0.4\textwidth]{image_3313de.png} \\[2cm]
+    
+    {\Large \textbf{Arquitectura de Software, Estandarización UI/UX, Ingeniería de Datos y Gestión Operativa para Bienestar Animal}} \\[2.5cm]
+    
+    \vfill
+    
+    \begin{tcolorbox}[colback=white, colframe=miauDark, title=Identificación del Documento, arc=5mm]
+        \large
+        \renewcommand{\arraystretch}{1.8}
+        \begin{tabular}{>{\bfseries}l l}
+            Código del Proyecto: & MW-2026-V1 \\
+            Autores: & Erick Morales (Especialista Frontend \& UI/UX) \\
+                     & Lander Gonzales (Especialista Backend \& Datos) \\
+            Localización: & Loja, Ecuador - 2026 \\
+            Versión del Sistema: & 1.0.4-stable \\
+        \end{tabular}
+    \end{tcolorbox}
+    
+    \vspace{1cm}
+    \rule{\textwidth}{2pt} \\
+    \textit{Este documento es confidencial y ha sido elaborado como evidencia técnica de ingeniería de software.}
+\end{titlepage}
+
+% --- RESUMEN EJECUTIVO ---
+\pagenumbering{roman}
+\chapter*{Resumen Ejecutivo}
+\addcontentsline{toc}{chapter}{Resumen Ejecutivo}
+
+El presente documento constituye el informe técnico detallado del proyecto \textbf{MIAU WUAUF}, una solución de software de vanguardia diseñada para revolucionar la gestión de fundaciones de rescate animal y clínicas veterinarias. A través de este informe, se expone de manera exhaustiva el ciclo de vida del desarrollo, desde la concepción de la interfaz de usuario hasta la implementación de una arquitectura de software robusta, escalable y orientada a la eficiencia.
+
+La plataforma se ha desarrollado adoptando el paradigma de Aplicación de Página Única (SPA) mediante el uso de \textbf{Next.js 16} y \textbf{React 19}, integrando técnicas avanzadas de renderizado híbrido para optimizar tanto la experiencia del usuario (tiempos de carga reducidos) como el posicionamiento en buscadores (SEO). La capa de presentación fue construida con \textbf{Tailwind CSS 4}, logrando una interfaz responsiva, accesible y de alto impacto visual.
+
+Además del flujo tradicional de adopción, el sistema introduce innovaciones como la gestión de historiales médicos interactivos, el seguimiento preventivo de vacunación y un modelo de suscripción (SaaS) que viabiliza económicamente a la fundación mediante planes de protección y tecnología GPS. Este documento detalla la estructura de datos subyacente, los protocolos de seguridad implementados y las proyecciones de escalabilidad para futuras versiones.
+
+\clearpage
+\clearpage
+\tableofcontents
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables
+\clearpage
+\clearpage
+
+% --- CUERPO DEL DOCUMENTO ---
+\pagenumbering{arabic}
+
+\chapter{Introducción y Justificación}
+
+\section{Contexto del Problema}
+En la actualidad, la cantidad de animales en situación de abandono ha crecido exponencialmente, superando las capacidades operativas de los refugios tradicionales que aún dependen de métodos analógicos para su gestión. El proyecto \textbf{Miau Wuauf} responde a este desafío mediante una integración vertical de tecnología diseñada específicamente para el bienestar animal.
+
+\subsection{El Problema de la Fragmentación}
+La mayoría de las fundaciones gestionan sus datos en silos informativos. Por ejemplo, los registros médicos están en carpetas físicas mientras que las solicitudes de adopción llegan por redes sociales. Esta fragmentación causa:
+\begin{itemize}
+    \item \textbf{Ineficiencia Operativa:} El personal dedica más tiempo a buscar datos que a cuidar animales.
+    \item \textbf{Errores en Salud:} Falta de recordatorios para vacunas críticas genera brotes en los refugios.
+    \item \textbf{Falta de Transparencia:} Los adoptantes potenciales pierden interés debido a la lentitud del proceso.
+\end{itemize}
+
+\section{Propuesta de Valor de Miau Wuauf}
+Nuestra plataforma unifica estos mundos en una interfaz coherente. No es simplemente un sitio web; es un \textbf{ERP (Enterprise Resource Planning)} ligero adaptado para animales. La justificación de invertir en una ingeniería de este nivel radica en la dignificación de los procesos de rescate y la profesionalización del cuidado veterinario preventivo.
+
+\chapter{Metodología de Desarrollo y Gestión}
+
+El desarrollo se llevó a cabo bajo una metodología ágil personalizada que permitió la entrega continua de valor.
+
+\section{El Equipo de Ingeniería}
+\begin{itemize}
+    \item \textbf{Erick Morales:} Lideró el diseño de la arquitectura de componentes y la estandarización visual. Su enfoque en \textit{Atomic Design} permitió que la UI sea extremadamente mantenible.
+    \item \textbf{Lander Gonzales:} Se encargó de la definición de los esquemas de datos y la orquestación de los servicios de negocio (\texttt{AdminService}). Su trabajo garantizó la integridad de los registros médicos.
+\end{itemize}
+
+\section{Ciclo de Vida de Software (SDLC)}
+Implementamos un ciclo iterativo dividido en tres fases principales:
+\begin{enumerate}
+    \item \textbf{Fase de Prototipado (UI/UX):} Definición de la paleta de colores y flujos de usuario.
+    \item \textbf{Fase de Construcción (Sprint de Desarrollo):} Codificación de los módulos de adopción, blogs y dashboards médicos.
+    \item \textbf{Fase de Integración y Pruebas:} Validación de la persistencia reactiva en LocalStorage.
+\end{enumerate}
+
+\chapter{Análisis Detallado de Requerimientos}
+
+\section{Requerimientos Funcionales}
+\begin{longtable}{llp{9cm}}
+\caption{Requerimientos Funcionales de la plataforma Miau Wuauf.} \label{tab:requerimientos} \\
+\toprule
+\textbf{Código} & \textbf{Requerimiento} & \textbf{Descripción} \\ \midrule
+RF-01 & Registro de Mascotas & Permitir a los administradores subir fotos, descripción y estado clínico de cada animal. \\
+RF-02 & Gestión de Adopciones & Sistema de formularios digitales para postulantes con seguimiento de estado. \\
+RF-03 & Dashboard Médico & Interfaz para veterinarios donde pueden registrar vacunas y tratamientos. \\
+RF-04 & Blog Educativo & Repositorio de artículos gestionables por el personal de la fundación. \\
+RF-05 & Planes de Protección & Módulo de suscripción para dueños de mascotas con beneficios diferenciados. \\ \bottomrule
+\end{longtable}
+
+\section{Requerimientos No Funcionales}
+\begin{itemize}
+    \item \textbf{Rendimiento:} El LCP (\textit{Largest Contentful Paint}) debe ser menor a 2.5 segundos.
+    \item \textbf{Accesibilidad:} El sistema debe cumplir con el nivel AA de la WCAG 2.1.
+    \item \textbf{Responsividad:} La interfaz debe ser fluida desde pantallas de 320px hasta 4K.
+\end{itemize}
+
+\chapter{Arquitectura del Sistema y Persistencia}
+
+\section{Diagrama de Flujo de Datos (DFD)}
+
+\begin{center}
+\begin{tikzpicture}[node distance=2.5cm]
+    \node (user) [startstop] {Usuario / Admin};
+    \node (ui) [process, below of=user] {Interfaz React (Next.js)};
+    \node (logic) [decision, below of=ui] {Business Logic (Zod)};
+    \node (service) [process, left of=logic, xshift=-3cm] {Service Layer};
+    \node (storage) [io, below of=service] {LocalStorage Persistence};
+    
+    \draw [arrow] (user) -- (ui);
+    \draw [arrow] (ui) -- (logic);
+    \draw [arrow] (logic) -- node[anchor=south] {Válido} (service);
+    \draw [arrow] (service) -- (storage);
+    \draw [arrow] (logic) -| node[anchor=west, xshift=1cm] {Erróneo} (ui);
+\end{tikzpicture}
+\captionof{figure}{Arquitectura de flujo y validación de datos en Miau Wuauf.}
+\end{center}
+
+\section{Análisis de Componentes Críticos}
+El uso del \textit{App Router} en Next.js 16 permite que secciones como el catálogo de adopciones se generen de manera estática, mientras que el dashboard administrativo se hidrata de manera dinámica para interactuar con la persistencia local.
+
+\chapter{Diseño e Interfaz de Usuario (UI/UX)}
+
+El diseño visual es la cara visible de la calidad técnica. Erick Morales implementó un sistema de diseño basado en \textbf{Tokens de Color} y tipografía dinámica.
+
+\section{Análisis de Pantallas Principales}
+
+\subsection{Landing Page (Hero)}
+Se diseñó como una invitación emocional. El uso de la tipografía "Miau Wuauf" en gran formato atrae inmediatamente la atención del visitante.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{image_3313de.png}
+    \caption{Diseño del Hero Section orientado a la conversión emocional.}
+\end{figure}
+
+\subsection{Estructura de Servicios}
+Dividimos la oferta en bloques lógicos. Esto facilita que el usuario encuentre rápidamente lo que busca (Vacunas, GPS, Eventos).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{image_33139e.png}
+    \caption{Modularización de servicios mediante cuadrículas responsivas.}
+\end{figure}
+
+\section{Psicología del Color en el Proyecto}
+Utilizamos tonos pasteles suaves combinados con un azul corporativo para representar la tranquilidad de los hogares y la seriedad del servicio médico veterinario.
+
+\chapter{Ingeniería de Desarrollo (Módulos)}
+
+\section{Módulo de Salud Veterinaria}
+Es el módulo con mayor densidad de información. Lander Gonzales diseñó las estructuras que permiten representar esquemas de vacunación complejos de forma legible.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{image_331363.png}
+    \caption{Dashboard médico para el seguimiento de inmunización preventiva.}
+\end{figure}
+
+\section{Módulo de Planes (SaaS)}
+La sostenibilidad financiera se gestiona aquí. Los planes actúan como un modelo de negocio social.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{image_3313bf.png}
+    \caption{Interfaz de selección de planes de protección para mascotas.}
+\end{figure}
+
+\chapter{Manual del Administrador}
+
+\section{Gestión de Adopciones}
+Para procesar una adopción:
+\begin{enumerate}
+    \item Acceder al panel de administración.
+    \item Revisar el listado de solicitudes pendientes.
+    \item Abrir el perfil del candidato para ver sus respuestas.
+    \item Aprobar o denegar con un clic.
+\end{enumerate}
+
+\section{Mantenimiento del Blog}
+El sistema permite al administrador crear nuevos artículos simplemente completando un formulario con título, texto y una imagen destacada.
+
+\chapter{Manual Técnico y Despliegue}
+
+\section{Instalación en Entorno Local}
+\begin{lstlisting}[language=bash]
+# Clonar repositorio
+git clone https://github.com/admin/miauwuauf.git
+
+# Instalar dependencias
+npm install --legacy-peer-deps
+
+# Iniciar servidor de desarrollo
+npm run dev
+\end{lstlisting}
+
+\section{Variables de Entorno}
+Se requiere un archivo \texttt{.env} con las siguientes definiciones básicas:
+\begin{lstlisting}
+NEXT_PUBLIC_API_URL=http://localhost:3000
+STORAGE_ENCRYPTION_KEY=mw_top_secret
+\end{lstlisting}
+
+\chapter{Pruebas y Control de Calidad (QA)}
+
+\section{Pruebas de Componentes}
+Se verificó que cada botón y modal de Radix UI responda correctamente a eventos de clic y teclado (accesibilidad).
+
+\section{Pruebas de Carga}
+Utilizamos herramientas de emulación para asegurar que el scroll infinito del catálogo de adopción no cause fugas de memoria en dispositivos móviles con recursos limitados.
+
+\chapter{Glosario de Términos Técnicos}
+\begin{description}
+    \item[SPA:] Single Page Application. Aplicación que no recarga páginas completas.
+    \item[Zod:] Librería de validación de esquemas para TypeScript.
+    \item[Tailwind CSS:] Framework de clases de utilidad para diseño visual rápido.
+    \item[LocalStorage:] Almacenamiento persistente en el navegador del cliente.
+\end{description}
+
+\chapter{Conclusiones y Roadmap}
+
+\section{Resultados Técnicos}
+El sistema entregado por Erick Morales y Lander Gonzales es una base sólida para el futuro de la fundación. Se ha logrado un balance perfecto entre diseño estético y funcionalidad técnica.
+
+\section{Roadmap Estratégico}
+\begin{enumerate}
+    \item \textbf{Integración IoT (GPS):} Visualización en tiempo real de la ubicación de los animales protegidos.
+    \item \textbf{Sincronización Cloud:} Migración de LocalStorage a una base de datos distribuida en la nube.
+\end{enumerate}
+
+\appendix
+\chapter{Anexos de Código}
+
+\section{Lógica del Servicio Administrativo}
+A continuación un fragmento del núcleo de persistencia:
+
+\begin{lstlisting}[language=JavaScript]
+export const AdminService = {
+  get: (key, defaultValue) => {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  },
+  save: (key, value) => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+};
+\end{lstlisting}
+
+\chapter*{Declaración Final}
+\addcontentsline{toc}{chapter}{Declaración Final}
+Loja, Marzo 2026. Firmado por los ingenieros responsables.
+
+\end{document}

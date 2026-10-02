@@ -1,0 +1,284 @@
+<!-- Modal 1: Selector de Tipo de Cuenta -->
+<div id="modal-account-type" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 hidden transition-opacity duration-300">
+  <div class="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 space-y-6 border border-slate-100 shadow-2xl relative overflow-hidden my-auto max-h-[90vh] overflow-y-auto">
+    
+    <!-- Close Button -->
+    <button onclick="closeAccountTypeModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition cursor-pointer">
+      <i class="fa-solid fa-xmark text-sm"></i>
+    </button>
+
+    <!-- Modal Header -->
+    <div class="text-center space-y-3 pt-2">
+      <div class="flex justify-center pb-1">
+        <% const customModalLoginLogo = (typeof systemConfig !== 'undefined' && systemConfig) ? systemConfig.loginLogo : null; %>
+        <% const modalNavbarLogo = (typeof systemConfig !== 'undefined' && systemConfig) ? systemConfig.systemLogo : null; %>
+        <% if (customModalLoginLogo) { %>
+          <img src="<%= customModalLoginLogo %>" alt="<%= systemConfig.systemName || 'Profesionales Ecuador' %>" class="h-20 max-w-[280px] object-contain">
+        <% } else if (modalNavbarLogo) { %>
+          <div class="inline-flex items-center justify-center px-5 py-2.5 rounded-2xl bg-slate-950 shadow-md border border-slate-800">
+            <img src="<%= modalNavbarLogo %>" alt="<%= systemConfig.systemName || 'Profesionales Ecuador' %>" class="h-14 max-w-[240px] object-contain">
+          </div>
+        <% } else { %>
+          <span class="text-4xl font-extrabold tracking-tight text-slate-900">P<span class="text-[#0A3C84]">.</span>ec</span>
+        <% } %>
+      </div>
+      <!-- Modal Step Breadcrumb (Nielsen H1 & H3) -->
+      <nav class="flex items-center justify-center gap-2 text-sm text-slate-500 font-medium pb-1" aria-label="Progreso de selección">
+        <span class="text-slate-400">Inicio</span>
+        <span class="text-slate-300">/</span>
+        <span class="text-slate-400">Crear Cuenta</span>
+        <span class="text-slate-300">/</span>
+        <span class="font-bold text-[#0A3C84]">Paso 1: Elegir Perfil</span>
+      </nav>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Crear una Cuenta</h2>
+      <p class="text-slate-600 text-sm sm:text-base max-w-lg mx-auto">
+        Elige el tipo de cuenta que mejor se adapte a tus necesidades.
+      </p>
+    </div>
+
+    <!-- 3 Account Type Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
+      
+      <!-- Card 1: Cliente -->
+      <div class="border border-slate-200 hover:border-blue-400 bg-white rounded-2xl p-6 space-y-4 flex flex-col justify-between transition duration-200 shadow-sm hover:shadow-md">
+        <div class="space-y-2.5">
+          <div class="w-12 h-12 rounded-xl bg-blue-100 text-[#0A3C84] flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <h3 class="font-bold text-slate-900 text-lg">Cliente / Paciente</h3>
+          <p class="text-slate-600 text-sm leading-relaxed">
+            Reserva citas profesionales, participa en conversatorios y cursos, y gestiona tus certificados digitales.
+          </p>
+        </div>
+        <div class="space-y-2 pt-2">
+          <button onclick="selectAccountType('CLIENT')" class="w-full bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3 px-4 rounded-xl text-sm transition shadow-sm cursor-pointer">
+            Crear Cuenta Cliente
+          </button>
+          <button onclick="openBenefitsModal('CLIENT')" class="w-full bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2.5 px-3 rounded-xl text-xs transition border border-slate-200 cursor-pointer">
+            Ver Beneficios
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: Estudiante -->
+      <div class="border border-slate-200 hover:border-blue-400 bg-white rounded-2xl p-6 space-y-4 flex flex-col justify-between transition duration-200 shadow-sm hover:shadow-md">
+        <div class="space-y-2.5">
+          <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-graduation-cap"></i>
+          </div>
+          <h3 class="font-bold text-slate-900 text-lg">Estudiante</h3>
+          <p class="text-slate-600 text-sm leading-relaxed">
+            Tarifas reducidas en eventos y cursos, vitrina de proyectos, pasantías y pase directo a Profesional al egresar.
+          </p>
+        </div>
+        <div class="space-y-2 pt-2">
+          <button onclick="selectAccountType('STUDENT')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition shadow-sm cursor-pointer">
+            Crear Cuenta Estudiante
+          </button>
+          <button onclick="openBenefitsModal('STUDENT')" class="w-full bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2.5 px-3 rounded-xl text-xs transition border border-slate-200 cursor-pointer">
+            Ver Beneficios
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 3: Profesional -->
+      <div class="border border-slate-200 hover:border-amber-400 bg-white rounded-2xl p-6 space-y-4 flex flex-col justify-between transition duration-200 shadow-sm hover:shadow-md">
+        <div class="space-y-2.5">
+          <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-user-tie"></i>
+          </div>
+          <h3 class="font-bold text-slate-900 text-lg">Perfil Profesional</h3>
+          <p class="text-slate-600 text-sm leading-relaxed">
+            Directorio nacional, agenda de citas automatizada, publicación de artículos, facturación SRI y perfil personalizado.
+          </p>
+        </div>
+        <div class="space-y-2 pt-2">
+          <button onclick="selectAccountType('PROFESSIONAL')" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl text-sm transition shadow-sm cursor-pointer">
+            Crear Perfil Profesional
+          </button>
+          <button onclick="openBenefitsModal('PROFESSIONAL')" class="w-full bg-white hover:bg-slate-100 text-slate-700 font-semibold py-2.5 px-3 rounded-xl text-xs transition border border-slate-200 cursor-pointer">
+            Ver Beneficios
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Comparative Modal Callout Footer -->
+    <div class="border-t border-slate-100 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
+      <span class="text-slate-600 text-center sm:text-left">
+        ¿No estás seguro de qué tipo de cuenta necesitas?
+      </span>
+      <button onclick="openBenefitsModal('ALL')" class="text-[#0A3C84] hover:underline font-bold flex items-center gap-1.5 cursor-pointer shrink-0">
+        Comparar todos los beneficios <i class="fa-solid fa-arrow-right text-xs"></i>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal 2: Comparativa de Beneficios por Rol -->
+<div id="modal-benefits-comparison" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2100] flex items-center justify-center p-4 hidden transition-opacity duration-300">
+  <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 border border-slate-100 shadow-2xl relative my-auto max-h-[90vh] overflow-y-auto">
+    
+    <!-- Close Button -->
+    <button onclick="closeBenefitsModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition cursor-pointer">
+      <i class="fa-solid fa-xmark text-sm"></i>
+    </button>
+
+    <!-- Modal Header -->
+    <div class="text-center space-y-2 pt-2">
+      <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-extrabold border border-amber-200">
+        <i class="fa-solid fa-star text-amber-500"></i> Beneficios de la Plataforma
+      </span>
+      <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Beneficios por Tipo de Cuenta</h2>
+      <p class="text-slate-500 text-xs sm:text-sm max-w-xl mx-auto font-medium">
+        Compara las funciones y ventajas exclusivas incluidas para cada rol en Profesionales Ecuador.
+      </p>
+    </div>
+
+    <!-- Tabs Header -->
+    <div class="flex border-b border-slate-200 gap-2 text-xs font-bold" id="benefits-tabs-header">
+      <button onclick="switchBenefitsTab('CLIENT')" id="tab-btn-client" class="px-4 py-2.5 border-b-2 border-[#0A3C84] text-[#0A3C84] flex items-center gap-2 transition cursor-pointer">
+        <i class="fa-solid fa-user"></i> Cliente
+      </button>
+      <button onclick="switchBenefitsTab('STUDENT')" id="tab-btn-student" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition cursor-pointer">
+        <i class="fa-solid fa-graduation-cap text-blue-600"></i> Estudiante
+      </button>
+      <button onclick="switchBenefitsTab('PROFESSIONAL')" id="tab-btn-professional" class="px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition cursor-pointer">
+        <i class="fa-solid fa-user-tie text-amber-600"></i> Perfil Profesional
+      </button>
+    </div>
+
+    <!-- Benefits Tab Content 1: Cliente -->
+    <div id="benefits-tab-client" class="benefits-tab-pane space-y-4">
+      <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-100 flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-blue-600 text-xl"></i>
+        <div>
+          <h4 class="font-extrabold text-slate-900 text-xs">Cuenta Cliente 100% Gratuita</h4>
+          <p class="text-[11px] text-slate-600">Ideal para usuarios que buscan reservar citas y capacitarse.</p>
+        </div>
+      </div>
+      <ul class="space-y-2.5 text-xs text-slate-700 font-medium">
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Agendamiento directo de citas médicas y profesionales.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Acceso a conversatorios en vivo y aula virtual de cursos.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Descarga de certificados digitales validados mediante código QR.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Historial unificado de atenciones y certificaciones.</li>
+      </ul>
+      <div class="pt-3">
+        <button onclick="selectAccountType('CLIENT')" class="w-full bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3 px-4 rounded-xl text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer">
+          Registrarme como Cliente <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Benefits Tab Content 2: Estudiante -->
+    <div id="benefits-tab-student" class="benefits-tab-pane hidden space-y-4">
+      <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-100 flex items-center gap-3">
+        <i class="fa-solid fa-graduation-cap text-blue-600 text-xl"></i>
+        <div>
+          <h4 class="font-extrabold text-slate-900 text-xs">Descuentos y Vitrina Académica</h4>
+          <p class="text-[11px] text-slate-600">Diseñada para universitarios e institutos superiores en Ecuador.</p>
+        </div>
+      </div>
+      <ul class="space-y-2.5 text-xs text-slate-700 font-medium">
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> <strong>Descuentos exclusivos</strong> en conversatorios y cursos de capacitación.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Perfil público de estudiante con registro de universidad, carrera y estado ("En Curso" o "Egresado").</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Vitrina para publicar proyectos académicos, pasantías y capacitaciones externas.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> <strong>Solicitud de Transición a Perfil Profesional</strong> al culminar tus estudios.</li>
+      </ul>
+      <div class="pt-3">
+        <button onclick="selectAccountType('STUDENT')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer">
+          Registrarme como Estudiante <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Benefits Tab Content 3: Profesional -->
+    <div id="benefits-tab-professional" class="benefits-tab-pane hidden space-y-4">
+      <div class="bg-amber-50 p-4 rounded-2xl border border-amber-200 flex items-center gap-3">
+        <i class="fa-solid fa-user-tie text-amber-700 text-xl"></i>
+        <div>
+          <h4 class="font-extrabold text-slate-900 text-xs">Presencia y Gestión Profesional</h4>
+          <p class="text-[11px] text-slate-600">Para profesionales titulados que buscan clientes y pacientes.</p>
+        </div>
+      </div>
+      <ul class="space-y-2.5 text-xs text-slate-700 font-medium">
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Presencia destacada en el directorio profesional nacional por especialidad.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Sistema de agendamiento online de citas con notificación por WhatsApp e email.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Publicación de artículos de opinión y revistas científicas.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Generación automatizada de facturas electrónicas SRI y cobros online.</li>
+        <li class="flex items-start gap-2.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> Plantilla ejecutiva y subdominio profesional personalizado.</li>
+      </ul>
+      <div class="pt-3">
+        <button onclick="selectAccountType('PROFESSIONAL')" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer">
+          Crear Perfil Profesional <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function openAccountTypeModal() {
+    const modal = document.getElementById('modal-account-type');
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function closeAccountTypeModal() {
+    const modal = document.getElementById('modal-account-type');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function openBenefitsModal(role) {
+    const modal = document.getElementById('modal-benefits-comparison');
+    if (modal) modal.classList.remove('hidden');
+    if (role && role !== 'ALL') {
+      switchBenefitsTab(role);
+    }
+  }
+
+  function closeBenefitsModal() {
+    const modal = document.getElementById('modal-benefits-comparison');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function switchBenefitsTab(role) {
+    document.querySelectorAll('.benefits-tab-pane').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[id^="tab-btn-"]').forEach(el => {
+      el.classList.remove('border-[#0A3C84]', 'text-[#0A3C84]');
+      el.classList.add('border-transparent', 'text-slate-500');
+    });
+
+    const targetTab = document.getElementById('benefits-tab-' + role.toLowerCase());
+    const targetBtn = document.getElementById('tab-btn-' + role.toLowerCase());
+    
+    if (targetTab) targetTab.classList.remove('hidden');
+    if (targetBtn) {
+      targetBtn.classList.add('border-[#0A3C84]', 'text-[#0A3C84]');
+      targetBtn.classList.remove('border-transparent', 'text-slate-500');
+    }
+  }
+
+  function selectAccountType(role) {
+    closeAccountTypeModal();
+    closeBenefitsModal();
+
+    if (role === 'CLIENT') {
+      if (window.location.pathname === '/login') {
+        if (typeof toggleForm === 'function') {
+          toggleForm('register');
+        } else {
+          window.location.href = '/login?mode=register';
+        }
+      } else {
+        window.location.href = '/login?mode=register';
+      }
+    } else if (role === 'STUDENT') {
+      window.location.href = '/registro-estudiante';
+    } else if (role === 'PROFESSIONAL') {
+      window.location.href = '/preinscripcion';
+    }
+  }
+</script>

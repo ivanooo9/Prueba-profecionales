@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bgLight flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  <%- include('partials/header') %>
+
+  <!-- Main Container -->
+  <main class="flex-grow max-w-7xl mx-auto w-full px-6 md:px-12 py-12 flex flex-col gap-10">
+
+    <!-- Breadcrumb & Back Link -->
+    <div class="flex items-center justify-between">
+      <a href="/cursos" class="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition text-xs font-bold font-sans">
+        <i class="fa-solid fa-arrow-left text-[10px]"></i> Volver a Cursos Académicos
+      </a>
+      <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 border border-slate-200 px-3 py-1 rounded-full"><%= curso.gratuito ? 'Curso Gratuito' : 'Curso Certificado' %></span>
+    </div>
+
+    <!-- Layout Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Left Column (Span 7) - Main Details & Curriculum Accordion -->
+      <div class="lg:col-span-7 flex flex-col gap-8">
+        
+        <!-- Banner and Intro -->
+        <div class="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-sm">
+          <div class="h-64 md:h-80 overflow-hidden bg-slate-100 relative">
+            <img src="<%= curso.banner || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800' %>" alt="<%= curso.titulo %>" class="w-full h-full object-cover">
+          </div>
+          
+          <div class="p-6 md:p-8 flex flex-col gap-4">
+            <div>
+              <span class="text-[#0252A4] font-extrabold text-[10px] uppercase tracking-widest"><%= curso.areaProfesional || 'Educación Continua' %></span>
+              <h1 class="text-2xl md:text-3xl font-black text-slate-900 leading-tight uppercase tracking-tight mt-1"><%= curso.titulo %></h1>
+              <p class="text-brand-blue text-xs font-bold mt-1.5"><%= curso.slogan || 'Programa de Capacitación Académica' %></p>
+            </div>
+            
+            <div class="text-slate-500 text-xs md:text-sm font-semibold leading-relaxed pt-2 border-t border-slate-50 prose max-w-none">
+              <%- (curso.descripcion || 'No hay descripción adicional disponible para este curso.').replace(/\n/g, '<br>') %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Curriculum / Temario Dynamic Accordion -->
+        <div class="bg-white border border-slate-100 rounded-[32px] p-6 md:p-8 shadow-sm flex flex-col gap-6">
+          <div>
+            <h3 class="text-lg font-black text-slate-900 font-sans uppercase tracking-tight">Temario y Unidades</h3>
+            <span class="text-[10px] text-slate-400 font-semibold mt-0.5 block">Revise el contenido programático desarrollado por nuestros expertos.</span>
+          </div>
+
+          <div class="flex flex-col gap-4">
+            <% if (curso.modules && curso.modules.length > 0) { %>
+              <% curso.modules.forEach(function(mod, idx) { %>
+                <div class="border border-slate-150 rounded-2xl overflow-hidden bg-slate-50/50">
+                  <!-- Header Accordion -->
+                  <button onclick="toggleAccordion(<%= mod.id %>)" class="w-full text-left px-5 py-4 font-sans font-black text-xs text-slate-900 uppercase flex items-center justify-between hover:bg-slate-50 transition cursor-pointer">
+                    <span class="flex items-center gap-2.5">
+                      <span class="w-6 h-6 rounded-lg bg-[#0252A4]/10 text-[#0252A4] flex items-center justify-center text-[10px] font-black"><%= idx + 1 %></span>
+                      <%= mod.titulo %>
+                    </span>
+                    <i class="fa-solid fa-chevron-down text-slate-400 transition" id="arrow-<%= mod.id %>"></i>
+                  </button>
+                  
+                  <!-- Content Body -->
+                  <div class="hidden border-t border-slate-150/70 bg-white" id="content-<%= mod.id %>">
+                    <% if (mod.lessons && mod.lessons.length > 0) { %>
+                      <div class="divide-y divide-slate-50">
+                        <% mod.lessons.forEach(function(les) { %>
+                          <div class="px-5 py-3.5 text-xs flex justify-between items-center gap-3">
+                            <div class="min-w-0">
+                              <span class="font-bold text-slate-800 block leading-tight"><i class="fa-regular fa-circle-play text-[#0252A4] mr-2"></i> <%= les.titulo %></span>
+                              <% if (les.descripcion) { %>
+                                <p class="text-[10px] text-slate-450 mt-1 font-semibold pl-6"><%= les.descripcion %></p>
+                              <% } %>
+                            </div>
+                            <span class="text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1 font-bold flex-shrink-0">Clase</span>
+                          </div>
+                        <% }); %>
+                      </div>
+                    <% } else { %>
+                      <div class="px-5 py-6 text-center text-slate-400 text-xs italic font-semibold">No se registran clases cargadas.</div>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <div class="border border-dashed border-slate-150 rounded-2xl p-8 text-center text-slate-400 italic text-xs font-semibold">
+                El temario de este curso está siendo desarrollado y se publicará pronto.
+              </div>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Instructors / Docentes -->
+        <% if (curso.speakers && curso.speakers.length > 0) { %>
+          <div class="bg-white border border-slate-100 rounded-[32px] p-6 md:p-8 shadow-sm flex flex-col gap-5">
+            <h3 class="text-base font-black text-slate-900 uppercase tracking-tight">Docentes e Instructores</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <% curso.speakers.forEach(function(sp) { %>
+                <div class="flex items-center gap-4 border border-slate-100 bg-slate-50/50 p-4 rounded-2xl shadow-inner">
+                  <div class="w-12 h-12 rounded-full overflow-hidden bg-slate-200 flex-shrink-0">
+                    <img src="<%= sp.foto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150' %>" alt="<%= sp.nombre %>" class="w-full h-full object-cover">
+                  </div>
+                  <div>
+                    <span class="font-extrabold text-slate-900 text-xs block leading-tight"><%= sp.nombre %></span>
+                    <span class="text-[10px] text-[#0252A4] font-black uppercase mt-0.5 block tracking-wider"><%= sp.profesion || 'Docente' %></span>
+                    <% if (sp.slogan) { %>
+                      <span class="text-[10px] text-slate-400 mt-1 block leading-snug font-semibold italic">"<%= sp.slogan %>"</span>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        <% } %>
+
+      </div>
+
+      <!-- Right Column (Span 5) - Details and Buy Actions -->
+      <div class="lg:col-span-5 flex flex-col gap-6">
+        
+        <!-- Registration & Price Card -->
+        <div class="bg-white border border-slate-100 p-6 rounded-[32px] shadow-lg shadow-slate-200/50 flex flex-col gap-5 relative overflow-hidden group">
+          <div class="flex items-center justify-between border-b border-slate-50 pb-4">
+            <h4 class="text-xs font-black uppercase tracking-widest text-[#0252A4]">Inscripción Académica</h4>
+            <div class="w-8 h-8 rounded-lg bg-[#0252A4]/5 text-[#0252A4] flex items-center justify-center text-xs">
+              <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3 font-sans text-xs text-slate-700 font-bold border-b border-slate-50 pb-4">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-450">Modalidad:</span>
+              <span class="text-slate-900">Aula Virtual Online</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-450">Estructura:</span>
+              <span class="text-slate-900"><%= curso.modules ? curso.modules.length : 0 %> Unidades / <%= curso.modules ? curso.modules.reduce((acc, m) => acc + (m.lessons ? m.lessons.length : 0), 0) : 0 %> Lecciones</span>
+            </div>
+            <% if (curso.certificateDesign && curso.certificateDesign.horas) { %>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-450">Acreditación:</span>
+                <span class="text-slate-900 font-mono"><%= curso.certificateDesign.horas %> Horas Académicas</span>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Price & Action CTA -->
+          <div class="flex flex-col gap-4 mt-2">
+            <div class="text-center">
+              <span class="text-[10px] text-slate-400 font-black uppercase tracking-wider block">Inversión del Curso</span>
+              <% if (curso.gratuito) { %>
+                <span class="text-3xl font-black text-emerald-600 block mt-1 leading-none uppercase">Gratuito</span>
+              <% } else { %>
+                <% if (hasActiveDiscount) { %>
+                  <div class="flex flex-col items-center gap-1 mt-1 leading-none">
+                    <span class="text-slate-450 line-through text-xs font-semibold font-mono">$<%= originalPrice.toFixed(2) %> USD</span>
+                    <span class="text-3.5xl font-black text-rose-600 block font-mono">$<%= price.toFixed(2) %> <span class="text-xs text-rose-500 font-bold font-sans">USD (-<%= discountPercent %>% OFF)</span></span>
+                  </div>
+                <% } else { %>
+                  <span class="text-3.5xl font-black text-slate-900 block mt-1 leading-none font-mono">$<%= price.toFixed(2) %> <span class="text-xs text-slate-450 font-bold font-sans">USD</span></span>
+                <% } %>
+              <% } %>
+            </div>
+
+            <!-- Enrollment buttons -->
+            <% if (isEnrolled) { %>
+              <div class="flex flex-col gap-3">
+                <a href="/cursos/<%= curso.id %>/aula<%= typeof nextLessonId !== 'undefined' && nextLessonId ? '?lesson=' + nextLessonId : '' %>" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                  <i class="fa-solid fa-play"></i> <%= typeof ctaButtonLabel !== 'undefined' ? ctaButtonLabel : 'Ingresar al Aula Virtual' %>
+                </a>
+
+                <% if (hasCertificate) { %>
+                  <% if (typeof acquiredCertificateCode !== 'undefined' && acquiredCertificateCode) { %>
+                    <a href="/certificados/<%= acquiredCertificateCode %>" target="_blank" class="w-full bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+                      <i class="fa-solid fa-award"></i> Ver Certificado
+                    </a>
+                  <% } else { %>
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl py-3 px-5 text-emerald-800 text-xs font-bold flex items-center justify-center gap-2">
+                      <i class="fa-solid fa-award text-emerald-600"></i> Certificado Obtenido
+                    </div>
+                  <% } %>
+                <% } else if (certificatePending) { %>
+                  <div class="bg-amber-50 border border-amber-200 rounded-2xl py-3.5 px-5 text-amber-800 text-xs font-bold flex items-center justify-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-clock-rotate-left text-amber-600 text-sm animate-pulse"></i>
+                    Estamos validando tu pago
+                  </div>
+                <% } else { %>
+                  <button type="button" onclick="openCertProgressModal()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                    <i class="fa-solid fa-award"></i> Progreso del Certificado (<%= typeof progressPct !== 'undefined' ? progressPct : 0 %>%)
+                  </button>
+                <% } %>
+              </div>
+            <% } else { %>
+              <% if (curso.gratuito) { %>
+                <% if (user) { %>
+                  <button type="button" onclick="openFreeCertModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                    <i class="fa-solid fa-user-plus"></i> Inscribirse Gratis
+                  </button>
+                <% } else { %>
+                  <form action="/cursos/<%= curso.id %>/inscribirse" method="POST" class="w-full">
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                      <i class="fa-solid fa-user-plus"></i> Inscribirse Gratis
+                    </button>
+                  </form>
+                <% } %>
+              <% } else { %>
+                <button onclick="handleEnrollmentClick()" class="w-full bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                  <i class="fa-solid fa-cart-shopping"></i> Matricularse e Iniciar Curso
+                </button>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL: LOGIN / REGISTER (Unified Auth) -->
+  <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-[24px] max-w-sm w-full p-6 shadow-xl border border-slate-100 flex flex-col gap-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-50 pb-3">
+        <h4 class="font-black text-slate-900 text-sm" id="auth-modal-title">Iniciar Sesión</h4>
+        <button onclick="closeAuthModal()" class="w-7 h-7 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Auth Tabs Toggle -->
+      <div class="flex bg-slate-100 p-1 rounded-xl">
+        <button onclick="switchAuthTab('login')" id="auth-tab-login" class="flex-1 text-center py-2 text-[10px] font-black uppercase rounded-lg bg-white text-[#5A7AF3] shadow-sm transition">Ingreso</button>
+        <button onclick="switchAuthTab('register')" id="auth-tab-register" class="flex-1 text-center py-2 text-[10px] font-black uppercase rounded-lg text-slate-500 hover:text-slate-800 transition">Registro</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="auth-login-form" class="flex flex-col gap-3 font-sans">
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Correo Electrónico</label>
+          <input type="email" id="login-email" required placeholder="ejemplo@correo.com" class="bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-4 pr-10 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+            <button type="button" onclick="togglePasswordVisibility('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer bg-transparent border-none p-0 leading-none">
+              <i class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-3.5 px-6 rounded-xl text-xs shadow-md transition mt-2 cursor-pointer">Ingresar y Continuar</button>
+      </form>
+
+      <!-- Register Form (Hidden by default) -->
+      <form id="auth-register-form" class="flex flex-col gap-3 font-sans hidden">
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre Completo</label>
+          <input type="text" id="register-name" required placeholder="Ej: Emma Mendieta" class="bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Correo Electrónico</label>
+          <input type="email" id="register-email" required placeholder="ejemplo@correo.com" class="bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="register-password" required placeholder="Min. 6 caracteres" class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-4 pr-10 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+            <button type="button" onclick="togglePasswordVisibility('register-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer bg-transparent border-none p-0 leading-none">
+              <i class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-3.5 px-6 rounded-xl text-xs shadow-md transition mt-2 cursor-pointer">Registrar y Continuar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: PAYMENTS (Unified Checkout Flow) -->
+  <div id="payment-modal" class="fixed inset-0 z-[1200] flex items-center justify-center p-4 sm:p-6 overflow-x-hidden bg-slate-950/40 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-[28px] max-w-md w-full max-h-[calc(100dvh-8rem)] p-6 shadow-xl border border-slate-100 flex flex-col gap-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+      
+      <!-- Step Indicator Header -->
+      <div class="flex items-center justify-between border-b border-slate-50 pb-3">
+        <div>
+          <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block" id="checkout-step-tag">Paso 1 de 2</span>
+          <h4 class="font-black text-slate-900 text-sm" id="checkout-title">Datos del Certificado</h4>
+        </div>
+        <button onclick="closePaymentModal()" class="w-7 h-7 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Step 1: Certificate Name confirmation -->
+      <div id="payment-step-1" class="flex flex-col gap-4 overflow-y-auto overflow-x-hidden min-h-0 flex-1">
+        <p class="text-xs text-slate-500 font-semibold leading-relaxed">
+          Verifique o ingrese el nombre que desea impreso en su acreditación oficial. <strong>Este campo se guardará para sus futuros certificados.</strong>
+        </p>
+        
+        <div class="flex flex-col gap-1.5">
+          <label for="checkout-cert-name" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Nombre Completo en el Certificado</label>
+          <input type="text" id="checkout-cert-name" required placeholder="Ej: Emma Mendieta" value="<%= user ? (user.nombreCertificado || user.name) : '' %>" class="bg-slate-50 border border-slate-150 rounded-xl py-3.5 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition uppercase">
+          <span class="text-[9px] text-rose-500 font-extrabold hidden" id="checkout-cert-name-error">Debe escribir un nombre para continuar.</span>
+        </div>
+
+        <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100">
+          <button onclick="goToCheckoutStep2()" class="w-full bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-3.5 px-6 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+            Continuar al Pago <i class="fa-solid fa-arrow-right text-[10px]"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Payment Details (Tabbed checkout panels) -->
+      <div id="payment-step-2" class="flex flex-col gap-4 hidden overflow-y-auto overflow-x-hidden min-h-0 flex-1">
+        <div class="bg-slate-50 p-4 rounded-xl text-xs text-slate-700 font-bold border border-slate-100 flex flex-col gap-1 shadow-inner">
+          <div class="flex justify-between items-center border-b border-slate-200/50 pb-2 mb-1">
+            <span class="text-slate-450 text-[10px] font-black uppercase">Resumen de Matrícula</span>
+            <span class="text-[#0252A4] font-mono text-sm">$<%= price.toFixed(2) %> USD</span>
+          </div>
+          <div>Nombre en Certificado: <span id="checkout-summary-name" class="text-slate-900 uppercase"></span></div>
+        </div>
+
+        <!-- Payment Tabs Toggle -->
+        <div class="flex bg-slate-100 p-1 rounded-xl">
+          <button onclick="switchPaymentPanel('transfer')" id="tab-btn-transfer" class="flex-1 text-center py-2 text-[9px] font-black uppercase rounded-lg bg-white text-[#5A7AF3] shadow-sm transition">Transferencia</button>
+          <button onclick="switchPaymentPanel('payphone')" id="tab-btn-payphone" class="flex-1 text-center py-2 text-[9px] font-black uppercase rounded-lg text-slate-500 hover:text-slate-800 transition">PayPhone</button>
+          <button onclick="switchPaymentPanel('kushki')" id="tab-btn-kushki" class="flex-1 text-center py-2 text-[9px] font-black uppercase rounded-lg text-slate-500 hover:text-slate-800 transition">Kushki</button>
+        </div>
+
+        <!-- Tab 1: Bank Transfer Details and Reference Form -->
+        <div id="panel-transfer" class="flex flex-col gap-3 font-sans">
+          <%- include('partials/transfer-bank-account-selector', { activeBankAccounts, legacyBankAccounts: bankAccounts, selectId: 'transfer-bank-account', cardId: 'transfer-bank-account-card', inputName: 'bankAccountId', selectedId: '' }) %>
+          
+          <div class="flex flex-col gap-1.5">
+            <label for="transfer-ref" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Nº Referencia / Transferencia</label>
+            <input type="text" id="transfer-ref" placeholder="Ej: 9942851" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+          </div>
+          <% if (!Array.isArray(activeBankAccounts) || activeBankAccounts.length === 0) { %>
+            <div class="flex flex-col gap-1.5">
+              <label for="transfer-banco" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Banco Emisor</label>
+              <input type="text" id="transfer-banco" placeholder="Ej: Banco Pichincha" class="bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+            </div>
+          <% } %>
+          <div class="flex flex-col gap-2">
+            <label for="transfer-comprobante" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Comprobante de Pago (Imagen)</label>
+            <label id="transfer-comprobante-dropzone" for="transfer-comprobante" class="group border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-[#5A7AF3] rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition">
+              <input type="file" id="transfer-comprobante" accept="image/*" class="sr-only">
+              <div class="h-11 w-11 rounded-full bg-[#5A7AF3]/10 text-[#5A7AF3] flex items-center justify-center group-hover:scale-105 transition">
+                <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <span id="transfer-comprobante-label" class="text-[11px] font-black text-slate-700 uppercase tracking-wide">Haz clic o arrastra tu comprobante aquí</span>
+                <span class="text-[9px] text-slate-400 font-semibold">JPG, PNG o captura de pantalla</span>
+              </div>
+            </label>
+            <div id="transfer-comprobante-preview-wrap" class="hidden rounded-2xl border border-slate-150 bg-white p-2">
+              <img id="transfer-comprobante-preview" src="" alt="Vista previa del comprobante seleccionado" class="max-h-44 w-full object-contain rounded-xl">
+            </div>
+            <p class="text-[9px] text-slate-400 font-medium leading-tight">Suba una foto o captura clara del comprobante de transferencia bancaria (obligatorio).</p>
+          </div>
+
+          <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100 flex flex-col gap-2">
+            <button onclick="submitCheckoutPayment('transferencia')" class="w-full bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-3.5 px-6 rounded-xl text-xs shadow-md transition cursor-pointer">Registrar Transferencia</button>
+            <button onclick="goToCheckoutStep1()" class="text-slate-450 hover:text-slate-800 text-[10px] font-bold text-center cursor-pointer">
+              <i class="fa-solid fa-chevron-left text-[8px] mr-1"></i> Modificar Nombre del Certificado
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 2: PayPhone Real Checkout (redirect to PayPhone gateway) -->
+        <div id="panel-payphone" class="flex flex-col gap-3 font-sans hidden">
+          <p class="text-[11px] text-slate-450 font-bold leading-relaxed">
+            Serás redirigido a la pasarela de pago segura de PayPhone para completar tu pago con tarjeta de crédito/débito.
+          </p>
+          <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100 flex flex-col gap-2">
+            <button onclick="iniciarPagoPayPhone({ itemType: 'CERTIFICATE', itemId: <%= curso.id %>, baseAmount: Number('<%= price %>'), hasTax: true, productName: '<%= (curso.titulo || '').replace(/'/g, "\\'") %>' })" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-xl text-xs shadow-md transition cursor-pointer">Pagar con PayPhone</button>
+            <button onclick="goToCheckoutStep1()" class="text-slate-450 hover:text-slate-800 text-[10px] font-bold text-center cursor-pointer">
+              <i class="fa-solid fa-chevron-left text-[8px] mr-1"></i> Modificar Nombre del Certificado
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 3: Kushki Cards Checkout Form (Mockup) -->
+        <div id="panel-kushki" class="flex flex-col gap-3 font-sans hidden">
+          <p class="text-[11px] text-slate-450 font-bold leading-relaxed">
+            Pasarela segura Kushki. Ingrese los datos de su tarjeta de crédito o débito.
+          </p>
+          <div class="flex flex-col gap-1.5">
+            <label for="kushki-card-name" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Nombre del Tarjetahabiente</label>
+            <input type="text" id="kushki-card-name" placeholder="Ej: Emma Mendieta" class="bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition uppercase">
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="kushki-card-number" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Número de Tarjeta</label>
+            <input type="text" id="kushki-card-number" maxlength="19" placeholder="4111 2222 3333 4444" class="bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="flex flex-col gap-1.5">
+              <label for="kushki-card-expiry" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Vencimiento</label>
+              <input type="text" id="kushki-card-expiry" maxlength="5" placeholder="MM/AA" class="bg-slate-50 border border-slate-150 rounded-xl py-3 px-2 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="kushki-card-cvc" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">CVC / CVV</label>
+              <input type="password" id="kushki-card-cvc" maxlength="4" placeholder="•••" class="bg-slate-50 border border-slate-150 rounded-xl py-3 px-2 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition">
+            </div>
+          </div>
+          <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100 flex flex-col gap-2">
+            <button onclick="submitCheckoutPayment('kushki')" class="w-full bg-blue-650 hover:bg-blue-700 text-white font-extrabold py-3.5 px-6 rounded-xl text-xs shadow-md transition cursor-pointer">Realizar Pago Seguro</button>
+            <button onclick="goToCheckoutStep1()" class="text-slate-450 hover:text-slate-800 text-[10px] font-bold text-center cursor-pointer">
+              <i class="fa-solid fa-chevron-left text-[8px] mr-1"></i> Modificar Nombre del Certificado
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: FREE COURSE CERTIFICATE NAME (mirrors paid Step 1, no payment step) -->
+  <div id="free-cert-modal" class="fixed inset-0 z-[1200] flex items-center justify-center p-4 sm:p-6 overflow-x-hidden bg-slate-950/40 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-[28px] max-w-md w-full max-h-[calc(100dvh-8rem)] p-6 shadow-xl border border-slate-100 flex flex-col gap-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+
+      <div class="flex items-center justify-between border-b border-slate-50 pb-3">
+        <div>
+          <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest block">Inscripción Gratuita</span>
+          <h4 class="font-black text-slate-900 text-sm">Datos del Certificado</h4>
+        </div>
+        <button onclick="closeFreeCertModal()" class="w-7 h-7 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <div class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white px-4 py-3 rounded-xl flex items-center justify-between shadow-inner">
+        <div class="flex flex-col">
+          <span class="text-[8px] font-black text-emerald-200 uppercase tracking-widest leading-none">Curso Acreditado</span>
+          <span class="text-[11px] font-bold text-slate-100 mt-1"><%= curso.titulo %></span>
+        </div>
+        <div class="text-right">
+          <span class="text-[9px] font-black text-slate-200 block uppercase leading-none">Costo</span>
+          <span class="text-sm font-black text-white">GRATUITO</span>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <p class="text-xs text-slate-500 font-semibold leading-relaxed">
+          Verifique o ingrese el nombre que desea impreso en su certificado gratuito.
+        </p>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="free-cert-name" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Nombre Completo en el Certificado</label>
+          <input type="text" id="free-cert-name" required placeholder="Ej: Emma Mendieta" value="<%= user ? (user.nombreCertificado || user.name) : '' %>" class="bg-slate-50 border border-slate-150 rounded-xl py-3.5 px-4 text-xs font-bold outline-none focus:bg-white focus:border-emerald-600 transition uppercase">
+          <span class="text-[9px] text-rose-500 font-extrabold hidden" id="free-cert-name-error">Debe escribir un nombre para continuar.</span>
+        </div>
+
+        <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100">
+          <button id="free-cert-confirm-btn" onclick="submitFreeCertEnrollment()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+            <span id="free-cert-btn-text">Confirmar Inscripción Gratuita</span>
+            <i class="fa-solid fa-award" id="free-cert-btn-icon"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/footer') %>
+  <%- include('partials/transfer-bank-account-js', { activeBankAccounts }) %>
+
+  <!-- FRONTEND SCRIPT LOGIC -->
+  <script>
+    // Accordion Toggle
+    function toggleAccordion(id) {
+      const panel = document.getElementById('content-' + id);
+      const arrow = document.getElementById('arrow-' + id);
+      if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        arrow.classList.add('rotate-180');
+      } else {
+        panel.classList.add('hidden');
+        arrow.classList.remove('rotate-180');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const select = document.getElementById('transfer-bank-account');
+      if (select) {
+        select.addEventListener('change', function() { syncTransferBankAccountPaymentFields('transfer-bank-account', 'transfer-bank-account-card', 'transfer-ref', 'transfer-comprobante', 'transfer-comprobante-dropzone'); });
+        syncTransferBankAccountPaymentFields('transfer-bank-account', 'transfer-bank-account-card', 'transfer-ref', 'transfer-comprobante', 'transfer-comprobante-dropzone');
+      }
+    });
+
+    // Modal Control Helpers
+    let userLogged = <%= user ? 'true' : 'false' %>;
+    const cursoId = <%= curso.id %>;
+
+    function handleEnrollmentClick() {
+      if (!userLogged) {
+        openAuthModal();
+      } else {
+        openPaymentModal();
+      }
+    }
+
+    // Auth Modals Toggle
+    function openAuthModal() {
+      document.getElementById('auth-modal').classList.remove('hidden');
+      switchAuthTab('login');
+    }
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.add('hidden');
+    }
+    function switchAuthTab(tab) {
+      const loginTab = document.getElementById('auth-tab-login');
+      const regTab = document.getElementById('auth-tab-register');
+      const loginForm = document.getElementById('auth-login-form');
+      const regForm = document.getElementById('auth-register-form');
+
+      if (tab === 'login') {
+        loginTab.className = "flex-1 text-center py-2 text-[10px] font-black uppercase rounded-lg bg-white text-[#5A7AF3] shadow-sm transition";
+        regTab.className = "flex-1 text-center py-2 text-[10px] font-black uppercase rounded-lg text-slate-500 hover:text-slate-800 transition";
+        loginForm.classList.remove('hidden');
+        regForm.classList.add('hidden');
+        document.getElementById('auth-modal-title').innerText = 'Iniciar Sesión';
+      } else {
+        regTab.className = "flex-1 text-center py-2 text-[10px] font-black uppercase rounded-lg bg-white text-[#5A7AF3] shadow-sm transition";
+        loginTab.className = "flex-1 text-center py-2 text-[10px] font-black uppercase rounded-lg text-slate-500 hover:text-slate-800 transition";
+        regForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+        document.getElementById('auth-modal-title').innerText = 'Crear Cuenta Estudiante';
+      }
+    }
+
+    // AJAX login
+    document.getElementById('auth-login-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          userLogged = true;
+          // Set name in input
+          document.getElementById('checkout-cert-name').value = data.user.nombreCertificado || data.user.name;
+          closeAuthModal();
+          openPaymentModal();
+        } else {
+          alert('Error: ' + (data.error || 'Credenciales incorrectas'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error en conexión con el servidor.');
+      }
+    });
+
+    // AJAX register
+    document.getElementById('auth-register-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const name = document.getElementById('register-name').value;
+      const email = document.getElementById('register-email').value;
+      const password = document.getElementById('register-password').value;
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          userLogged = true;
+          document.getElementById('checkout-cert-name').value = name;
+          closeAuthModal();
+          openPaymentModal();
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo crear la cuenta'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error en conexión con el servidor.');
+      }
+    });
+
+    // Payment Modals Control
+    function openPaymentModal() {
+      document.getElementById('payment-modal').classList.remove('hidden');
+      goToCheckoutStep1();
+    }
+    function closePaymentModal() {
+      document.getElementById('payment-modal').classList.add('hidden');
+    }
+
+    function goToCheckoutStep1() {
+      document.getElementById('payment-step-1').classList.remove('hidden');
+      document.getElementById('payment-step-2').classList.add('hidden');
+      document.getElementById('checkout-step-tag').innerText = 'Paso 1 de 2';
+      document.getElementById('checkout-title').innerText = 'Datos del Certificado';
+    }
+
+    function goToCheckoutStep2() {
+      const nameVal = document.getElementById('checkout-cert-name').value.trim();
+      const errEl = document.getElementById('checkout-cert-name-error');
+      
+      if (!nameVal) {
+        errEl.classList.remove('hidden');
+        return;
+      }
+      errEl.classList.add('hidden');
+
+      // Capitalize Title Case helper
+      function toTitleCase(str) {
+        return str.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+      const formattedName = toTitleCase(nameVal);
+      document.getElementById('checkout-cert-name').value = formattedName;
+      document.getElementById('checkout-summary-name').innerText = formattedName;
+
+      document.getElementById('payment-step-1').classList.add('hidden');
+      document.getElementById('payment-step-2').classList.remove('hidden');
+      document.getElementById('checkout-step-tag').innerText = 'Paso 2 de 2';
+      document.getElementById('checkout-title').innerText = 'Método de Pago';
+      
+      switchPaymentPanel('transfer');
+    }
+
+    function switchPaymentPanel(panel) {
+      const panels = ['transfer', 'payphone', 'kushki'];
+      panels.forEach(p => {
+        const panelEl = document.getElementById('panel-' + p);
+        const btnEl = document.getElementById('tab-btn-' + p);
+        
+        if (p === panel) {
+          panelEl.classList.remove('hidden');
+          btnEl.className = "flex-1 text-center py-2 text-[9px] font-black uppercase rounded-lg bg-white text-[#5A7AF3] shadow-sm transition";
+        } else {
+          panelEl.classList.add('hidden');
+          btnEl.className = "flex-1 text-center py-2 text-[9px] font-black uppercase rounded-lg text-slate-500 hover:text-slate-800 transition";
+        }
+      });
+    }
+
+    function readImageAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Submit Checkout
+    async function submitCheckoutPayment(method) {
+      const nombreUsuario = document.getElementById('checkout-cert-name').value.trim();
+      
+      let payload = {
+        paymentMethod: method,
+        nombreUsuario,
+        ajax: true
+      };
+
+      if (method === 'transferencia') {
+        const reference = document.getElementById('transfer-ref').value.trim();
+        const bancoInput = document.getElementById('transfer-banco');
+        const banco = bancoInput ? bancoInput.value.trim() : '';
+        const bankAccountSelect = document.getElementById('transfer-bank-account');
+        const fileInput = document.getElementById('transfer-comprobante');
+        if (bankAccountSelect && !bankAccountSelect.value) {
+          alert('Seleccione la cuenta bancaria de destino.');
+          return;
+        }
+        if (!reference || (bancoInput && !banco)) {
+          alert('Debe rellenar la referencia bancaria y el banco.');
+          return;
+        }
+        if (!fileInput.files || fileInput.files.length === 0) {
+          alert('Por favor, suba la captura de su comprobante de pago.');
+          return;
+        }
+        payload.reference = reference;
+        if (bancoInput) payload.banco = banco;
+        if (bankAccountSelect) payload.bankAccountId = bankAccountSelect.value;
+
+        const file = fileInput.files[0];
+        try {
+          payload.comprobante = await readImageAsBase64(file);
+        } catch (e) {
+          alert('Error al procesar la imagen del comprobante.');
+          return;
+        }
+      } else if (method === 'payphone') {
+        // PayPhone se procesa a través de la pasarela real → redirige.
+        iniciarPagoPayPhone({ itemType: 'COURSE', itemId: cursoId, baseAmount: Number('<%= price %>'), hasTax: true, productName: '<%= (curso.titulo || '').replace(/'/g, "\\'") %>' });
+        return;
+      } else if (method === 'kushki') {
+        const name = document.getElementById('kushki-card-name').value.trim();
+        const number = document.getElementById('kushki-card-number').value.trim();
+        const expiry = document.getElementById('kushki-card-expiry').value.trim();
+        const cvc = document.getElementById('kushki-card-cvc').value.trim();
+        
+        if (!name || !number || !expiry || !cvc) {
+          alert('Debe rellenar todos los campos de la tarjeta.');
+          return;
+        }
+      }
+
+      try {
+        const res = await fetch(`/cursos/${cursoId}/comprar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closePaymentModal();
+          window.location.href = data.redirect || `/cursos/${cursoId}`;
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error en conexión al procesar el pago.');
+      }
+    }
+
+    function togglePasswordVisibility(id, btn) {
+      const input = document.getElementById(id);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+
+    // Free Certificate Modal Control
+    function openFreeCertModal() {
+      const modal = document.getElementById('free-cert-modal');
+      const nameInput = document.getElementById('free-cert-name');
+      const errEl = document.getElementById('free-cert-name-error');
+      if (errEl) errEl.classList.add('hidden');
+      modal.classList.remove('hidden');
+      if (nameInput) {
+        nameInput.focus();
+        nameInput.select();
+      }
+    }
+
+    function closeFreeCertModal() {
+      document.getElementById('free-cert-modal').classList.add('hidden');
+    }
+
+    function toTitleCaseFree(str) {
+      if (!str) return '';
+      return str.toLowerCase().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
+    async function submitFreeCertEnrollment() {
+      const nameInput = document.getElementById('free-cert-name');
+      const errEl = document.getElementById('free-cert-name-error');
+      const btnText = document.getElementById('free-cert-btn-text');
+      const btnIcon = document.getElementById('free-cert-btn-icon');
+      const rawName = nameInput.value.trim();
+      const formattedName = toTitleCaseFree(rawName);
+
+      if (!formattedName) {
+        errEl.classList.remove('hidden');
+        return;
+      }
+      errEl.classList.add('hidden');
+      nameInput.value = formattedName;
+
+      btnText.innerText = "Procesando...";
+      btnIcon.className = "fa-solid fa-spinner animate-spin";
+
+      try {
+        const res = await fetch(`/cursos/${cursoId}/inscribirse`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ nombreUsuario: formattedName, ajax: true })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          closeFreeCertModal();
+          window.location.href = data.redirect || `/cursos/${cursoId}/aula?success=enrolled`;
+        } else {
+          const errMsg = data.error || 'No se pudo completar la inscripción gratuita.';
+          alert('Error: ' + errMsg);
+          btnText.innerText = "Confirmar Inscripción Gratuita";
+          btnIcon.className = "fa-solid fa-award";
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error en conexión con el servidor.');
+        btnText.innerText = "Confirmar Inscripción Gratuita";
+        btnIcon.className = "fa-solid fa-award";
+      }
+    }
+  </script>
+  <!-- Modal de Progreso del Certificado (Antes de desbloqueo) -->
+  <div id="cert-progress-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 flex flex-col gap-6 relative animate-fade-in">
+      <button type="button" onclick="closeCertProgressModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-2xl shadow-inner flex-shrink-0">
+          <i class="fa-solid fa-award"></i>
+        </div>
+        <div class="flex flex-col">
+          <h3 class="text-base font-black text-slate-900 uppercase tracking-tight">Requisitos del Certificado</h3>
+          <span class="text-xs text-slate-500 font-semibold">Progreso actual del curso</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between text-xs font-black text-slate-800">
+          <span>Avance de Lecciones</span>
+          <span class="text-amber-600 font-mono text-sm"><%= typeof progressPct !== 'undefined' ? progressPct : 0 %>% / <%= curso.porcentajeMinimoCertificado || 50 %>%</span>
+        </div>
+        <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden p-0.5 border border-slate-300/60">
+          <div class="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-500" style="width: <%= typeof progressPct !== 'undefined' ? progressPct : 0 %>%;"></div>
+        </div>
+        <p class="text-xs text-slate-600 font-medium leading-relaxed mt-1 font-sans">
+          Has completado <strong><%= typeof completedCount !== 'undefined' ? completedCount : 0 %></strong> de <strong><%= typeof totalLessons !== 'undefined' ? totalLessons : 0 %></strong> lecciones. Completa al menos el <strong><%= curso.porcentajeMinimoCertificado || 50 %>%</strong> de las lecciones del curso para desbloquear la emisión de tu certificado.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <a href="/cursos/<%= curso.id %>/aula<%= typeof nextLessonId !== 'undefined' && nextLessonId ? '?lesson=' + nextLessonId : '' %>" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+          <i class="fa-solid fa-play"></i> <%= typeof ctaButtonLabel !== 'undefined' ? ctaButtonLabel : 'Continuar Curso' %>
+        </a>
+        <button type="button" onclick="closeCertProgressModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-2xl text-xs transition text-center cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openCertProgressModal() {
+      const modal = document.getElementById('cert-progress-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    function closeCertProgressModal() {
+      const modal = document.getElementById('cert-progress-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+  </script>
+
+  <script src="/js/comprobante-dropzone.js"></script>
+  <script src="/js/payphone-helper.js"></script>
+</body>
+</html>

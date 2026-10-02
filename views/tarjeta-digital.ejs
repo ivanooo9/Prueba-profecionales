@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+  <title><%= card.name %> | Tarjeta Digital Oficial — Profesionales Ecuador</title>
+  <meta name="description" content="Tarjeta de presentación digital oficial de <%= card.name %> en Profesionales Ecuador.">
+  <style>
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .dark .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+    }
+    .pulse-avatar {
+      box-shadow: 0 0 0 0 rgba(10, 60, 132, 0.4);
+      animation: pulse-ring 2s infinite;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(10, 60, 132, 0.4); }
+      70% { box-shadow: 0 0 0 14px rgba(10, 60, 132, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(10, 60, 132, 0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 min-h-screen text-slate-100 font-sans flex flex-col justify-between antialiased relative overflow-x-hidden selection:bg-brand-blue selection:text-white">
+  
+  <!-- Background Glow & Grid Ornaments -->
+  <div class="fixed inset-0 pointer-events-none z-0">
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-[#0A3C84]/40 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/2 -right-32 w-96 h-96 bg-blue-600/30 rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-600/30 rounded-full blur-3xl"></div>
+  </div>
+
+  <!-- Header Bar -->
+  <header class="relative z-10 w-full max-w-md mx-auto px-6 pt-6 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-2 group">
+      <div class="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white text-xs group-hover:bg-white/20 transition">
+        <i class="fa-solid fa-house"></i>
+      </div>
+      <span class="text-xs font-black tracking-wider uppercase text-slate-300">Profesionales EC</span>
+    </a>
+    <div class="flex items-center gap-2">
+      <button type="button" onclick="shareDigitalCard()" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 text-white text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer">
+        <i class="fa-solid fa-share-nodes"></i> Compartir
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Card Container -->
+  <main class="relative z-10 w-full max-w-md mx-auto px-4 py-8 flex flex-col gap-6">
+    
+    <!-- Digital Card Box -->
+    <div class="glass-card rounded-[32px] border border-white/15 shadow-2xl overflow-hidden flex flex-col text-slate-900 dark:text-white">
+      
+      <!-- Top Banner -->
+      <div class="h-32 w-full bg-gradient-to-r from-[#0A3C84] via-[#0a66c2] to-indigo-700 relative overflow-hidden">
+        <% if (card.banner) { %>
+          <img src="<%= card.banner %>" class="w-full h-full object-cover opacity-80">
+        <% } %>
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent"></div>
+        <div class="absolute top-4 right-4 bg-white/20 backdrop-blur-md border border-white/30 px-3 py-1 rounded-full text-[9px] font-black uppercase text-white tracking-widest flex items-center gap-1">
+          <i class="fa-solid fa-id-badge text-amber-400"></i> Tarjeta Digital
+        </div>
+      </div>
+
+      <!-- Avatar & Profile Info Header -->
+      <div class="px-6 pb-6 pt-0 flex flex-col items-center text-center -mt-14 relative z-10">
+        <div class="w-24 h-24 rounded-3xl overflow-hidden border-4 border-white dark:border-slate-900 shadow-xl bg-slate-100 flex items-center justify-center pulse-avatar">
+          <% if (card.photo) { %>
+            <img src="<%= card.photo %>" class="w-full h-full object-cover">
+          <% } else { %>
+            <i class="fa-solid fa-user text-3xl text-slate-400"></i>
+          <% } %>
+        </div>
+
+        <h1 class="text-xl font-black text-slate-900 dark:text-white mt-4 flex items-center justify-center gap-1.5">
+          <span><%= card.name %></span>
+          <% if (card.verified) { %>
+            <span class="inline-flex items-center gap-1 bg-white border border-slate-100 text-slate-800 px-2.5 py-1 rounded-full shadow-sm" title="Profesional Destacado">
+              <i class="fa-solid fa-medal text-amber-500 text-[11px]"></i>
+              <span class="text-[9px] font-black uppercase tracking-wider">Destacado</span>
+            </span>
+          <% } %>
+        </h1>
+
+        <span class="text-xs font-bold text-[#0A3C84] dark:text-sky-400 mt-1 uppercase tracking-wider block">
+          <%= card.headline %>
+        </span>
+
+        <% if (card.subheadline) { %>
+          <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 block">
+            <i class="fa-solid fa-location-dot text-rose-500 mr-1"></i> <%= card.subheadline %>
+          </span>
+        <% } %>
+
+        <% if (card.bio) { %>
+          <p class="text-xs text-slate-600 dark:text-slate-300 mt-4 leading-relaxed line-clamp-4 font-medium px-2">
+            "<%= card.bio %>"
+          </p>
+        <% } %>
+
+        <!-- Action Bar: Call, Email, VCard -->
+        <div class="w-full grid grid-cols-3 gap-2 mt-6">
+          <% if (card.phone) { %>
+            <a href="tel:<%= card.phone %>" class="flex flex-col items-center justify-center py-3 px-2 rounded-2xl bg-blue-50 dark:bg-slate-800 text-[#0A3C84] dark:text-sky-400 font-extrabold text-[11px] hover:scale-105 transition border border-blue-100 dark:border-slate-700">
+              <i class="fa-solid fa-phone text-sm mb-1"></i> Llamar
+            </a>
+          <% } %>
+          <% if (card.email) { %>
+            <a href="mailto:<%= card.email %>" class="flex flex-col items-center justify-center py-3 px-2 rounded-2xl bg-emerald-50 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] hover:scale-105 transition border border-emerald-100 dark:border-slate-700">
+              <i class="fa-solid fa-envelope text-sm mb-1"></i> Correo
+            </a>
+          <% } %>
+          <a href="/tarjeta/vcard/<%= card.publicToken %>" class="flex flex-col items-center justify-center py-3 px-2 rounded-2xl bg-amber-50 dark:bg-slate-800 text-amber-700 dark:text-amber-400 font-extrabold text-[11px] hover:scale-105 transition border border-amber-100 dark:border-slate-700">
+            <i class="fa-solid fa-address-book text-sm mb-1"></i> Guardar
+          </a>
+        </div>
+
+        <!-- Social Network Links Grid -->
+        <% if (card.social && card.social.length > 0) { %>
+          <div class="w-full mt-6 flex flex-wrap items-center justify-center gap-2">
+            <% card.social.forEach(function(s) { %>
+              <a href="<%= s.url %>" target="_blank" rel="noopener" class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-[#0A3C84] hover:text-white dark:hover:bg-sky-500 text-slate-700 dark:text-slate-300 flex items-center justify-center text-sm transition shadow-sm" title="<%= s.name %>">
+                <i class="<%= s.icon %>"></i>
+              </a>
+            <% }); %>
+          </div>
+        <% } %>
+
+        <!-- QR Code Section -->
+        <div class="w-full mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center gap-3">
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Código QR Único</span>
+          <div class="p-3 bg-white rounded-2xl border border-slate-200 shadow-md">
+            <img src="<%= qrCodeDataUrl %>" alt="QR Code" class="w-36 h-36">
+          </div>
+          <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Escanea para abrir en celular</span>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Public Profile CTA -->
+    <div class="w-full text-center flex flex-col gap-3">
+      <a href="<%= card.profileUrl %>" class="w-full bg-gradient-to-r from-[#0A3C84] to-[#0a66c2] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2">
+        <span>Ver Perfil Completo en la Plataforma</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </a>
+      <span class="text-[10px] text-slate-400">Profesionales Ecuador V4.0 — Directorio Oficial</span>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="relative z-10 py-6 text-center text-[10px] text-slate-500">
+    &copy; <%= new Date().getFullYear() %> Profesionales Ecuador. Todos los derechos reservados.
+  </footer>
+
+  <script>
+    function shareDigitalCard() {
+      const shareData = {
+        title: '<%= card.name %> - Tarjeta Digital',
+        text: 'Tarjeta de presentación digital oficial de <%= card.name %> en Profesionales Ecuador.',
+        url: window.location.href
+      };
+
+      if (navigator.share) {
+        navigator.share(shareData).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('¡Enlace de la tarjeta copiado al portapapeles!');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<% if (typeof isImpersonating !== 'undefined' && isImpersonating) { %>
+  <div class="sticky top-0 z-[9999] w-full text-white shadow-xl px-4 py-2.5 flex items-center justify-between gap-4 font-sans" style="background-color: #0A3C84; border-bottom: 3px solid #f59e0b;">
+    <div class="flex items-center gap-3 text-xs sm:text-sm font-bold overflow-hidden">
+      <span class="flex h-3 w-3 relative flex-shrink-0">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-400"></span>
+      </span>
+      <div class="truncate">
+        <span class="font-extrabold uppercase tracking-wide bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-md text-[10px] mr-2">Modo Soporte Activo</span>
+        <span>Estás navegando como: <strong class="underline decoration-amber-400 underline-offset-2"><%= user ? user.name : 'Usuario' %></strong> (<%= user ? user.email : '' %>)</span>
+        <span class="hidden md:inline text-slate-300 ml-2">| Admin Original: <%= typeof impersonatorAdminName !== 'undefined' ? impersonatorAdminName : 'Super-Admin' %></span>
+      </div>
+    </div>
+    
+    <form action="/dashboard/admin/impersonate/exit" method="POST" class="m-0 flex-shrink-0">
+      <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-xl shadow transition cursor-pointer flex items-center gap-1.5">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>Volver a Modo Admin</span>
+      </button>
+    </form>
+  </div>
+<% } %>

@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body class="bg-brand-bgLight flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  
+  <%- include('partials/header') %>
+
+  <main class="flex-grow py-8 px-4 md:px-12 max-w-3xl mx-auto w-full">
+    <!-- Breadcrumbs / Migas de Pan (Nielsen H1 & H3) -->
+    <div class="w-full mb-6">
+      <nav class="flex items-center justify-between flex-wrap gap-3 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm text-sm" aria-label="Migas de pan">
+        <ol class="flex items-center flex-wrap gap-2 text-slate-600 font-medium list-none p-0 m-0">
+          <li class="inline-flex items-center">
+            <a href="/" class="text-slate-700 hover:text-[#0A3C84] font-semibold transition">Inicio</a>
+          </li>
+          <li class="text-slate-300">/</li>
+          <li class="inline-flex items-center">
+            <a href="/preinscripcion" class="text-slate-700 hover:text-[#0A3C84] font-semibold transition">Afiliación</a>
+          </li>
+          <li class="text-slate-300">/</li>
+          <li class="inline-flex items-center">
+            <a href="/preinscripcion" class="text-slate-700 hover:text-[#0A3C84] font-semibold transition" title="Cambiar de plan">
+              <%= selectedPlan ? selectedPlan.nombre : 'Plan Profesional' %>
+            </a>
+          </li>
+          <li class="text-slate-300">/</li>
+          <li class="inline-flex items-center font-bold text-[#0A3C84]" aria-current="page">
+            <span id="bc-prof-step-text">Paso 1: Cuenta y Acceso</span>
+          </li>
+        </ol>
+        <a href="/preinscripcion" class="text-slate-500 hover:text-[#0A3C84] text-xs font-semibold transition">
+          Cambiar plan
+        </a>
+      </nav>
+    </div>
+
+    <!-- Header Page -->
+    <div class="text-center space-y-3 mb-8">
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Registro de Perfil Profesional</h1>
+      <p class="text-slate-600 text-sm sm:text-base max-w-lg mx-auto leading-relaxed">Complete los datos de su perfil profesional para recibir agendamientos y facturar digitalmente.</p>
+    </div>
+
+    <!-- Stepper Indicator (Nielsen H1 & H3) -->
+    <% const isPremiumRegistration = selectedPlan && selectedPlan.id === 2; %>
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-2 mb-8 text-xs font-bold uppercase tracking-wider text-slate-400" role="tablist" aria-label="Progreso del registro">
+      <button type="button" id="step-indicator-1" onclick="jumpToStep(1)" class="flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer <%= (typeof activeStep === 'undefined' || activeStep == 1) ? 'text-blue-600' : '' %>" title="Ir al Paso 1: Acceso">
+        <span class="w-7 h-7 rounded-full <%= (typeof activeStep === 'undefined' || activeStep == 1) ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-bold' %> flex items-center justify-center text-xs">1</span>
+        <span class="hidden sm:inline">Acceso</span>
+      </button>
+      <div class="h-px bg-slate-200 flex-grow"></div>
+      <button type="button" id="step-indicator-2" onclick="jumpToStep(2)" class="flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer <%= (typeof activeStep !== 'undefined' && activeStep == 2) ? 'text-blue-600' : '' %>" title="Ir al Paso 2: Especialidad">
+        <span class="w-7 h-7 rounded-full <%= (typeof activeStep !== 'undefined' && activeStep == 2) ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-bold' %> flex items-center justify-center text-xs">2</span>
+        <span class="hidden sm:inline">Especialidad</span>
+      </button>
+      <div class="h-px bg-slate-200 flex-grow"></div>
+      <button type="button" id="step-indicator-3" onclick="jumpToStep(3)" class="flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer <%= (typeof activeStep !== 'undefined' && activeStep == 3) ? 'text-blue-600' : '' %>" title="Ir al Paso 3: Perfil">
+        <span class="w-7 h-7 rounded-full <%= (typeof activeStep !== 'undefined' && activeStep == 3) ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-bold' %> flex items-center justify-center text-xs">3</span>
+        <span class="hidden sm:inline">Perfil</span>
+      </button>
+      <div class="h-px bg-slate-200 flex-grow"></div>
+      <button type="button" id="step-indicator-4" onclick="jumpToStep(4)" class="flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer <%= (typeof activeStep !== 'undefined' && activeStep == 4) ? 'text-blue-600' : '' %>" title="Ir al Paso 4: Servicios">
+        <span class="w-7 h-7 rounded-full <%= (typeof activeStep !== 'undefined' && activeStep == 4) ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-bold' %> flex items-center justify-center text-xs">4</span>
+        <span class="hidden sm:inline">Servicios</span>
+      </button>
+      <div class="h-px bg-slate-200 flex-grow"></div>
+      <button type="button" id="step-indicator-5" onclick="jumpToStep(5)" class="flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer <%= (typeof activeStep !== 'undefined' && activeStep == 5) ? 'text-blue-600' : '' %>" title="Ir al Paso 5: Resumen">
+        <span class="w-7 h-7 rounded-full <%= (typeof activeStep !== 'undefined' && activeStep == 5) ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-bold' %> flex items-center justify-center text-xs">5</span>
+        <span class="hidden sm:inline">Resumen</span>
+      </button>
+      <% if (isPremiumRegistration) { %>
+        <div class="h-px bg-slate-200 flex-grow"></div>
+        <button type="button" id="step-indicator-6" onclick="jumpToStep(6)" class="flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer <%= (typeof activeStep !== 'undefined' && activeStep == 6) ? 'text-blue-600' : '' %>" title="Ir al Paso 6: Pago">
+          <span class="w-7 h-7 rounded-full <%= (typeof activeStep !== 'undefined' && activeStep == 6) ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-bold' %> flex items-center justify-center text-xs">6</span>
+          <span class="hidden sm:inline">Pago</span>
+        </button>
+      <% } %>
+    </div>
+
+    <!-- Error/Alert box -->
+    <div id="registration-error-box" class="bg-rose-50 border border-rose-200 text-rose-800 px-5 py-4 rounded-xl text-sm font-medium mb-6 flex items-center gap-3 <%= (typeof error !== 'undefined' && error) ? '' : 'hidden' %>">
+      <i class="fa-solid fa-circle-exclamation text-rose-500 text-base"></i>
+      <span id="registration-error-msg"><%= (typeof error !== 'undefined' && error) ? error : '' %></span>
+    </div>
+
+    <!-- Stepper Form -->
+    <form id="wizard-form" method="POST" action="/registro-profesional" novalidate class="flex flex-col gap-6 text-sm text-slate-700">
+      <% const fd = (typeof formData !== 'undefined' && formData) ? formData : {}; %>
+      <input type="hidden" name="planId" value="<%= selectedPlan ? selectedPlan.id : '' %>">
+      <input type="hidden" name="activeStep" id="activeStep" value="<%= (typeof activeStep !== 'undefined' && activeStep) ? activeStep : 1 %>">
+      <input type="hidden" name="paymentMethod" id="payment-method" value="<%= fd.paymentMethod || '' %>">
+      <input type="hidden" name="paymentReceipt" id="payment-receipt-base64" value="<%= fd.paymentReceipt || '' %>">
+      
+      <% if (selectedPlan) { %>
+        <div class="bg-blue-50 border border-blue-200 text-[#0A3C84] px-5 py-3.5 rounded-xl text-sm font-semibold flex items-center justify-between shadow-2xs">
+          <span>Plan Seleccionado: <strong class="font-bold"><%= selectedPlan.nombre %></strong></span>
+          <span class="bg-[#0A3C84] text-white text-xs font-bold px-3 py-1 rounded-lg">
+            $<%= selectedPlan.precio.toFixed(0) %> USD
+          </span>
+        </div>
+      <% } %>
+      
+      <!-- STEP 1: Acceso y Datos Básicos -->
+      <div id="step-panel-1" class="step-panel <%= (typeof activeStep === 'undefined' || activeStep == 1) ? '' : 'hidden' %> bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm text-left flex flex-col gap-5">
+        <div class="border-b border-slate-100 pb-2">
+          <h2 class="font-bold text-slate-900 text-base sm:text-lg">Paso 1: Cuenta y Datos Personales</h2>
+          <p class="text-xs text-slate-500">Ingresa tus datos personales y credenciales de acceso.</p>
+        </div>
+        
+        <div>
+          <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Nombre Completo *</label>
+          <input type="text" name="name" required placeholder="Ej: Dr. Terry Mendieta" value="<%= fd.name || '' %>" oninput="this.value = this.value.replace(/\d/g, ''); clearFieldError('name');" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          <span data-reg-error="name" class="hidden text-rose-500 text-xs mt-1 font-medium"></span>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Cédula de Identidad *</label>
+            <input type="text" name="cedula" required maxlength="10" placeholder="Ej: 1103959464" value="<%= fd.cedula || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Teléfono / Celular *</label>
+            <input type="text" name="telefono" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required placeholder="Ej: 0994147639" value="<%= fd.telefono || '' %>" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10); clearFieldError('telefono');" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <span data-reg-error="telefono" class="hidden text-rose-500 text-xs mt-1 font-medium"></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Correo Electrónico *</label>
+            <input type="email" name="email" required placeholder="Ej: profesional@correo.com" value="<%= fd.email || '' %>" onblur="validateEmailField(this); clearFieldError('email');" oninput="clearFieldError('email');" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <span data-reg-error="email" class="hidden text-rose-500 text-xs mt-1 font-medium"></span>
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Contraseña de Acceso *</label>
+            <div class="relative">
+              <input id="password-input" type="password" name="password" required placeholder="Mínimo 6 caracteres" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 pl-4 pr-11 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+              <button type="button" id="password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer bg-transparent border-0 p-1">
+                <i class="fa-solid fa-eye text-sm"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: Especialidades y Localización -->
+      <div id="step-panel-2" class="step-panel <%= (typeof activeStep !== 'undefined' && activeStep == 2) ? '' : 'hidden' %> bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm text-left flex flex-col gap-5">
+        <div class="border-b border-slate-100 pb-2">
+          <h2 class="font-bold text-slate-900 text-base sm:text-lg">Paso 2: Profesión, Especialidades y Ubicación</h2>
+          <p class="text-xs text-slate-500">Define tu rama profesional, tarifas de consulta y ubicación de atención.</p>
+        </div>
+        
+        <!-- Profession selector -->
+        <div>
+          <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Profesión Principal *</label>
+          <select id="reg-profession-select" name="professionId" onchange="filterSpecialties()" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <option value="">Seleccione su profesión...</option>
+            <% if (typeof professions !== 'undefined' && professions.length > 0) { %>
+              <% professions.forEach(function(p) { %>
+                <option value="<%= p.id %>" <%= (fd.professionId && fd.professionId == p.id) ? 'selected' : '' %>><%= p.nombre %></option>
+              <% }); %>
+            <% } %>
+          </select>
+        </div>
+
+        <!-- Specialty checkboxes container -->
+        <div>
+          <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Especialidades (Puedes seleccionar varias)</label>
+          <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl max-h-60 overflow-y-auto flex flex-col gap-3">
+            <p class="text-xs text-slate-500 font-medium text-center py-3" id="no-specialties-msg">
+              Seleccione una profesión arriba para ver sus especialidades disponibles.
+            </p>
+            
+            <% if (typeof professions !== 'undefined' && professions.length > 0) { %>
+              <% professions.forEach(function(p) { %>
+                <div id="specialty-group-<%= p.id %>" class="specialty-group hidden flex flex-col gap-2">
+                  <span class="text-xs font-bold text-[#0A3C84] uppercase tracking-wider block border-b border-slate-200 pb-1"><%= p.nombre %></span>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <% p.specialties.forEach(function(s) { %>
+                      <label class="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 hover:border-[#0A3C84] transition cursor-pointer select-none text-xs sm:text-sm font-medium text-slate-800">
+                        <input type="checkbox" name="specialtyIds" value="<%= s.id %>" data-name="<%= s.nombre %>" class="w-4 h-4 rounded text-[#0A3C84] border-slate-300 focus:ring-blue-600" <%= (fd.specialtyIds && (Array.isArray(fd.specialtyIds) ? fd.specialtyIds.includes(String(s.id)) : fd.specialtyIds == s.id)) ? 'checked' : '' %>>
+                        <span><%= s.nombre %></span>
+                      </label>
+                    <% }); %>
+                  </div>
+                </div>
+              <% }); %>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Provincia *</label>
+            <input type="text" name="provincia" required placeholder="Ej: Pichincha" value="<%= fd.provincia || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Ciudad *</label>
+            <input type="text" name="ciudad" required placeholder="Ej: Quito" value="<%= fd.ciudad || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Tarifa Consulta ($)</label>
+            <input type="number" name="tarifa" required value="<%= fd.tarifa !== undefined ? fd.tarifa : '0' %>" min="1" oninput="clearFieldError('tarifa');" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <span data-reg-error="tarifa" class="hidden text-rose-500 text-xs mt-1 font-medium"></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Dirección del Consultorio / Oficina *</label>
+            <input type="text" name="callePrincipal" required placeholder="Calle principal y número" value="<%= fd.callePrincipal || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Referencia</label>
+            <input type="text" name="referencia" placeholder="Frente al parque, edificio..." value="<%= fd.referencia || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Ubicación en el Mapa</label>
+          <div class="flex items-center gap-3 mb-2">
+            <button type="button" id="btn-geolocate" onclick="triggerGeolocation()" class="bg-white border border-slate-300 hover:border-[#0A3C84] hover:bg-blue-50/50 text-slate-700 hover:text-[#0A3C84] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition cursor-pointer">
+              Usar mi ubicación actual
+            </button>
+          </div>
+          <div id="map" style="height: 320px;" class="rounded-xl border border-slate-300 overflow-hidden shadow-sm"></div>
+          <span id="map-address-error" class="hidden text-rose-500 text-xs mt-1 font-medium"></span>
+        </div>
+        <input type="hidden" name="latitud" id="latitud" value="<%= fd.latitud || '' %>">
+        <input type="hidden" name="longitud" id="longitud" value="<%= fd.longitud || '' %>">
+      </div>
+
+      <!-- STEP 3: Perfil y Carga de Documentos -->
+      <div id="step-panel-3" class="step-panel <%= (typeof activeStep !== 'undefined' && activeStep == 3) ? '' : 'hidden' %> bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm text-left flex flex-col gap-5">
+        <div class="border-b border-slate-100 pb-2">
+          <h2 class="font-bold text-slate-900 text-base sm:text-lg">Paso 3: Slogan, Biografía y Documentos</h2>
+          <p class="text-xs text-slate-500">Presenta tu experiencia a los pacientes y valida tu identidad.</p>
+        </div>
+        
+        <div>
+          <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Slogan / Título Corto *</label>
+          <input type="text" name="slogan" required placeholder="Ej: Especialista en Medicina Interna y Cardiología" value="<%= fd.slogan || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+        </div>
+
+        <div>
+          <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Descripción Profesional (Biografía) *</label>
+          <textarea name="bio" rows="4" required maxlength="500" placeholder="Describe tu formación, trayectoria y cómo ayudas a tus pacientes..." class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition resize-none leading-relaxed"><%= fd.bio || '' %></textarea>
+          <div class="text-xs text-slate-400 mt-1 text-right">
+            <span data-counter-for="bio"><%= (fd.bio || '').length %></span> / 500
+          </div>
+        </div>
+
+        <!-- Foto de Perfil -->
+        <div>
+          <label class="block text-slate-800 font-semibold mb-2 text-sm">Foto de Perfil</label>
+          <div class="flex items-center gap-5">
+            <div class="w-20 h-20 min-w-[80px] min-h-[80px] max-w-[80px] max-h-[80px] rounded-2xl bg-slate-100 border border-slate-300 overflow-hidden shrink-0 flex items-center justify-center shadow-xs">
+              <img id="reg-photo-preview" src="<%= fd.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150' %>" class="w-full h-full object-cover">
+            </div>
+            <div class="space-y-1.5 flex-grow">
+              <input type="file" id="reg-photo-file" accept="image/*" class="block w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-[#0A3C84] hover:file:bg-blue-100 cursor-pointer">
+              <input type="hidden" name="photo" id="reg-photo-base64" value="<%= fd.photo || '' %>">
+              <p class="text-xs text-slate-500">Formato JPG o PNG, fotografía cuadrada de rostro.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cédula de Identidad (Documentos de Validación) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
+          <!-- Cédula Frontal -->
+          <div class="space-y-2">
+            <label class="block text-slate-800 font-semibold text-sm">Cédula Frontal</label>
+            <div class="flex items-center gap-3">
+              <div class="w-16 h-12 min-w-[64px] min-h-[48px] max-w-[64px] max-h-[48px] rounded-xl bg-slate-100 border border-slate-300 overflow-hidden shrink-0 flex items-center justify-center text-xs text-slate-400 font-medium">
+                <span id="reg-cf-status" class="text-[10px] text-center px-1 text-slate-400">Sin cargar</span>
+                <img id="reg-cf-preview" class="w-full h-full object-cover hidden">
+              </div>
+              <div class="flex-grow">
+                <input type="file" id="reg-cf-file" accept="image/*" class="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
+                <input type="hidden" name="cedulaFrontal" id="reg-cf-base64">
+              </div>
+            </div>
+          </div>
+
+          <!-- Cédula Posterior -->
+          <div class="space-y-2">
+            <label class="block text-slate-800 font-semibold text-sm">Cédula Posterior</label>
+            <div class="flex items-center gap-3">
+              <div class="w-16 h-12 min-w-[64px] min-h-[48px] max-w-[64px] max-h-[48px] rounded-xl bg-slate-100 border border-slate-300 overflow-hidden shrink-0 flex items-center justify-center text-xs text-slate-400 font-medium">
+                <span id="reg-cp-status" class="text-[10px] text-center px-1 text-slate-400">Sin cargar</span>
+                <img id="reg-cp-preview" class="w-full h-full object-cover hidden">
+              </div>
+              <div class="flex-grow">
+                <input type="file" id="reg-cp-file" accept="image/*" class="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
+                <input type="hidden" name="cedulaPosterior" id="reg-cp-base64">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4: Redes Sociales y Servicios -->
+      <div id="step-panel-4" class="step-panel <%= (typeof activeStep !== 'undefined' && activeStep == 4) ? '' : 'hidden' %> bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm text-left flex flex-col gap-6">
+        <div class="border-b border-slate-100 pb-2">
+          <h2 class="font-bold text-slate-900 text-base sm:text-lg">Paso 4: Redes Sociales y Servicios</h2>
+          <p class="text-xs text-slate-500">Agrega tus enlaces sociales y catálogo de servicios con tarifas.</p>
+        </div>
+        
+        <!-- Social inputs -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1 text-xs sm:text-sm">Facebook (Enlace)</label>
+            <input type="url" name="facebook" placeholder="https://www.facebook.com/tu-usuario" value="<%= fd.facebook || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-sm font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84]">
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1 text-xs sm:text-sm">Instagram (Enlace)</label>
+            <input type="url" name="instagram" placeholder="https://www.instagram.com/tu-usuario" value="<%= fd.instagram || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-sm font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84]">
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1 text-xs sm:text-sm">LinkedIn (Enlace)</label>
+            <input type="url" name="linkedin" placeholder="https://www.linkedin.com/in/tu-usuario" value="<%= fd.linkedin || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-sm font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84]">
+          </div>
+          <div>
+            <label class="block text-slate-800 font-semibold mb-1 text-xs sm:text-sm">X / Twitter (Enlace)</label>
+            <input type="url" name="xTwitter" placeholder="https://x.com/tu-usuario" value="<%= fd.xTwitter || '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-sm font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84]">
+          </div>
+        </div>
+
+        <!-- Initial services constructor -->
+        <div class="space-y-4 pt-2">
+          <h3 class="text-sm sm:text-base font-bold text-slate-900">Servicios que Ofreces</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div class="md:col-span-2">
+              <label class="block text-slate-800 font-semibold mb-1 text-xs sm:text-sm">Nombre del Servicio</label>
+              <input type="text" id="reg-service-name" placeholder="Ej: Consulta de Especialidad" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-sm font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84]">
+            </div>
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1 text-xs sm:text-sm">Precio ($)</label>
+              <input type="number" id="reg-service-price" value="0" min="0" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-sm font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84]">
+            </div>
+          </div>
+          <button type="button" onclick="addRegService()" class="bg-[#0A3C84] hover:bg-[#082C62] text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition cursor-pointer">
+            Añadir Servicio
+          </button>
+
+          <!-- List of Added Services -->
+          <div class="bg-white rounded-xl border border-slate-200 p-4 max-h-48 overflow-y-auto">
+            <table class="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 font-bold text-slate-600">
+                  <th class="pb-2">Servicio</th>
+                  <th class="pb-2 text-right">Precio</th>
+                  <th class="pb-2 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="reg-services-body">
+                <tr id="reg-services-empty-row">
+                  <td colspan="3" class="py-4 text-center text-slate-400 font-medium text-xs">No se han agregado servicios adicionales.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Hidden JSON input to store catalog -->
+          <input type="hidden" name="initialServices" id="inp-reg-services-json" value="<%= fd.initialServices || '[]' %>">
+        </div>
+      </div>
+
+      <!-- STEP 5: Confirmación y Envío -->
+      <div id="step-panel-5" class="step-panel <%= (typeof activeStep !== 'undefined' && activeStep == 5) ? '' : 'hidden' %> bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm text-left flex flex-col gap-5">
+        <div class="border-b border-slate-100 pb-2">
+          <h2 class="font-bold text-slate-900 text-base sm:text-lg">Paso 5: Resumen y Confirmación</h2>
+          <p class="text-xs text-slate-500">Verifica que tus datos sean correctos antes de registrarte.</p>
+        </div>
+        
+        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 text-sm flex flex-col gap-3 font-normal text-slate-700">
+          <div class="flex justify-between border-b border-slate-200 pb-2">
+            <span class="text-slate-500">Nombre Profesional:</span>
+            <span id="sum-name" class="font-bold text-slate-900"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-200 pb-2">
+            <span class="text-slate-500">Cédula:</span>
+            <span id="sum-cedula" class="font-bold text-slate-900"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-200 pb-2">
+            <span class="text-slate-500">Teléfono:</span>
+            <span id="sum-telefono" class="font-bold text-slate-900"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-200 pb-2">
+            <span class="text-slate-500">Email:</span>
+            <span id="sum-email" class="font-bold text-slate-900"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-200 pb-2">
+            <span class="text-slate-500">Especialidades:</span>
+            <span id="sum-specialties" class="font-bold text-[#0A3C84] text-right max-w-xs"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-200 pb-2">
+            <span class="text-slate-500">Tarifa Consulta Base:</span>
+            <span id="sum-tarifa" class="font-bold text-slate-900"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-200 pb-2">
+            <span class="text-slate-500">Ubicación:</span>
+            <span id="sum-ubicacion" class="font-bold text-slate-900 text-right"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Servicios Registrados:</span>
+            <span id="sum-services-count" class="font-bold text-slate-900"></span>
+          </div>
+        </div>
+      </div>
+
+      <% if (isPremiumRegistration) { %>
+        <!-- STEP 6: Pago Premium -->
+        <div id="step-panel-6" class="step-panel <%= (typeof activeStep !== 'undefined' && activeStep == 6) ? '' : 'hidden' %> bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm text-left flex flex-col gap-6">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 class="font-bold text-slate-900 text-base sm:text-lg">Paso 6: Activación Plan Destacado</h2>
+              <p class="text-xs text-slate-500">Completa el pago para activar tu membresía destacada.</p>
+            </div>
+            <span class="bg-[#0A3C84] text-white text-sm font-bold px-3.5 py-1.5 rounded-xl shadow-sm">$10.00 USD</span>
+          </div>
+
+          <div class="flex bg-slate-100 p-1 rounded-xl">
+            <button type="button" onclick="switchPremiumPaymentPanel('transfer')" id="premium-tab-transfer" class="flex-1 text-center py-2.5 text-xs font-bold uppercase rounded-lg bg-white text-[#0A3C84] shadow-sm transition">Transferencia</button>
+            <button type="button" onclick="switchPremiumPaymentPanel('payphone')" id="premium-tab-payphone" class="flex-1 text-center py-2.5 text-xs font-bold uppercase rounded-lg text-slate-500 hover:text-slate-800 transition">PayPhone</button>
+            <button type="button" onclick="switchPremiumPaymentPanel('kushki')" id="premium-tab-kushki" class="flex-1 text-center py-2.5 text-xs font-bold uppercase rounded-lg text-slate-500 hover:text-slate-800 transition">Kushki</button>
+          </div>
+
+          <div id="premium-panel-transfer" class="flex flex-col gap-4">
+            <%- include('partials/transfer-bank-account-selector', { activeBankAccounts, legacyBankAccounts: bankAccounts, selectId: 'premium-transfer-bank-account', cardId: 'premium-transfer-bank-account-card', inputName: 'paymentBankAccountId', selectedId: fd.paymentBankAccountId }) %>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="md:col-span-2">
+                <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Nº Referencia / Transferencia *</label>
+                <input type="text" name="paymentReference" id="premium-transfer-ref" value="<%= fd.paymentReference || '' %>" placeholder="Ej: 9942851" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-sm font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+              </div>
+            </div>
+            <div>
+              <label class="block text-slate-800 font-semibold mb-1.5 text-sm">Comprobante de Pago (Imagen)</label>
+              <input type="file" id="premium-transfer-receipt" accept="image/*" class="text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-[#0A3C84] cursor-pointer">
+            </div>
+            <button type="button" onclick="submitPremiumTransfer(this)" class="w-full bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3.5 px-6 rounded-xl text-sm sm:text-base shadow-md transition cursor-pointer">Registrar Transferencia</button>
+          </div>
+
+          <div id="premium-panel-payphone" class="hidden flex flex-col gap-4">
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800 font-medium leading-relaxed">
+              Serás redirigido a PayPhone para pagar $10.00 USD de forma segura. Primero crearemos tu cuenta profesional para asociar el pago.
+            </div>
+            <button type="button" onclick="submitPremiumPayPhone(this)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl text-sm sm:text-base shadow-md transition cursor-pointer">Pagar con PayPhone</button>
+          </div>
+
+          <div id="premium-panel-kushki" class="hidden flex flex-col gap-4">
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-600 font-medium leading-relaxed">
+              Kushki estará disponible próximamente para este servicio.
+            </div>
+            <button type="button" disabled class="w-full bg-slate-200 text-slate-400 font-bold py-3.5 px-6 rounded-xl text-sm cursor-not-allowed">Kushki próximamente</button>
+          </div>
+        </div>
+      <% } %>
+
+      <!-- Navigation buttons -->
+      <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <button type="button" id="btn-wizard-prev" onclick="changeStep(-1)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-3.5 px-6 rounded-xl text-sm transition cursor-pointer invisible flex items-center gap-2">
+          <i class="fa-solid fa-arrow-left text-xs"></i> Anterior
+        </button>
+        <button type="button" id="btn-wizard-next" onclick="changeStep(1)" class="bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3.5 px-7 rounded-xl text-sm sm:text-base transition shadow-md cursor-pointer flex items-center gap-2">
+          Siguiente Paso <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+      </div>
+    </form>
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/payphone-helper.js"></script>
+  <%- include('partials/transfer-bank-account-js', { activeBankAccounts }) %>
+
+  <!-- Stepper JS logic -->
+  <script>
+    let currentStep = <%= (typeof activeStep !== 'undefined' && activeStep) ? activeStep : 1 %>;
+    const isPremiumRegistration = <%= isPremiumRegistration ? 'true' : 'false' %>;
+    const totalSteps = isPremiumRegistration ? 6 : 5;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      filterSpecialties();
+      initServicesFromHidden();
+      updateWizardButtons();
+      if (currentStep === 2) initMap();
+
+      const errorBox = document.getElementById('registration-error-box');
+      if (errorBox && !errorBox.classList.contains('hidden')) {
+        errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+
+    function filterSpecialties() {
+      const selected = document.getElementById('reg-profession-select').value;
+      
+      // Hide all groups and uncheck their checkboxes to prevent sending inactive data
+      document.querySelectorAll('.specialty-group').forEach(group => {
+        group.classList.add('hidden');
+        group.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.checked = false;
+        });
+      });
+      
+      const msg = document.getElementById('no-specialties-msg');
+      if (selected) {
+        const activeGroup = document.getElementById('specialty-group-' + selected);
+        if (activeGroup) {
+          activeGroup.classList.remove('hidden');
+          if (msg) msg.classList.add('hidden');
+        } else {
+          if (msg) {
+            msg.innerText = 'No hay especialidades registradas para esta profesión.';
+            msg.classList.remove('hidden');
+          }
+        }
+      } else {
+        if (msg) {
+          msg.innerText = 'Seleccione una profesión arriba para ver sus especialidades disponibles.';
+          msg.classList.remove('hidden');
+        }
+      }
+    }
+
+    // Helper for loading file uploads to Base64
+    function setupBase64FileLoader(fileInputId, hiddenInputId, previewImgId, statusId) {
+      const fileInput = document.getElementById(fileInputId);
+      const hiddenInput = document.getElementById(hiddenInputId);
+      const previewImg = document.getElementById(previewImgId);
+      const statusSpan = document.getElementById(statusId);
+      if (!fileInput) return;
+
+      fileInput.addEventListener('change', function(e) {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+        if (!allowedTypes.includes(file.type.toLowerCase()) && !file.type.startsWith('image/')) {
+          alert('Formato de archivo no permitido. Solo se aceptan imágenes (JPG, PNG, WEBP) o documentos PDF.');
+          fileInput.value = '';
+          return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          alert('El archivo excede el tamaño máximo permitido de 10MB.');
+          fileInput.value = '';
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          hiddenInput.value = evt.target.result;
+          if (previewImg) {
+            previewImg.src = evt.target.result;
+            previewImg.classList.remove('hidden');
+          }
+          if (statusSpan) {
+            statusSpan.classList.add('hidden');
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    setupBase64FileLoader('reg-photo-file', 'reg-photo-base64', 'reg-photo-preview');
+    setupBase64FileLoader('reg-cf-file', 'reg-cf-base64', 'reg-cf-preview', 'reg-cf-status');
+    setupBase64FileLoader('reg-cp-file', 'reg-cp-base64', 'reg-cp-preview', 'reg-cp-status');
+
+    // Add dynamically services in registration
+    const initialServices = [];
+
+    function addRegService() {
+      const nameInput = document.getElementById('reg-service-name');
+      const priceInput = document.getElementById('reg-service-price');
+      
+      const name = nameInput.value.trim();
+      const price = parseFloat(priceInput.value) || 0;
+
+      if (!name) {
+        alert('Ingrese el nombre del servicio.');
+        return;
+      }
+
+      initialServices.push({ nombre: name, precio: price });
+      renderRegServices();
+
+      nameInput.value = '';
+      priceInput.value = '0';
+    }
+
+    function removeRegService(index) {
+      initialServices.splice(index, 1);
+      renderRegServices();
+    }
+
+    function renderRegServices() {
+      const tbody = document.getElementById('reg-services-body');
+      tbody.innerHTML = '';
+
+      if (initialServices.length === 0) {
+        tbody.innerHTML = `
+          <tr id="reg-services-empty-row">
+            <td colspan="3" class="py-4 text-center text-slate-400 font-semibold text-[11px]">No se han agregado servicios adicionales.</td>
+          </tr>
+        `;
+        document.getElementById('inp-reg-services-json').value = '[]';
+        return;
+      }
+
+      initialServices.forEach((item, index) => {
+        tbody.innerHTML += `
+          <tr class="border-b border-slate-50 font-medium">
+            <td class="py-2.5 text-slate-900 text-left">${item.nombre}</td>
+            <td class="py-2.5 text-right font-extrabold text-[#0252A4]">$${item.precio.toFixed(2)}</td>
+            <td class="py-2.5 text-right">
+              <button type="button" onclick="removeRegService(${index})" class="text-rose-500 hover:text-rose-700 cursor-pointer">
+                <i class="fa-solid fa-times-circle"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      document.getElementById('inp-reg-services-json').value = JSON.stringify(initialServices);
+    }
+
+    // Step navigation controller with Nielsen breadcrumbs synchronization
+    const stepNames = {
+      1: "Paso 1: Cuenta y Acceso",
+      2: "Paso 2: Especialidad y Ubicación",
+      3: "Paso 3: Slogan, Biografía y Documentos",
+      4: "Paso 4: Servicios Profesionales",
+      5: "Paso 5: Resumen de Registro",
+      6: "Paso 6: Pago y Activación"
+    };
+
+    function updateBreadcrumbStep(step) {
+      const bcText = document.getElementById('bc-prof-step-text');
+      if (bcText && stepNames[step]) {
+        bcText.textContent = stepNames[step];
+      }
+    }
+
+    function jumpToStep(targetStep) {
+      if (targetStep === currentStep) return;
+      if (targetStep < currentStep) {
+        // Going backward is always freely allowed (Nielsen H3: User Control and Freedom)
+        goToProfStep(targetStep);
+      } else {
+        // Going forward requires step validation
+        if (!validateCurrentStep()) return;
+        goToProfStep(targetStep);
+      }
+    }
+
+    function goToProfStep(targetStep) {
+      if (targetStep < 1 || targetStep > totalSteps) return;
+
+      document.getElementById('step-panel-' + currentStep).classList.add('hidden');
+
+      const oldIndicator = document.getElementById('step-indicator-' + currentStep);
+      if (oldIndicator) {
+        oldIndicator.classList.remove('text-brand-blue');
+        const oldCircle = oldIndicator.querySelector('span:first-child');
+        if (oldCircle) oldCircle.className = 'w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black';
+      }
+
+      currentStep = targetStep;
+      document.getElementById('activeStep').value = currentStep;
+      document.getElementById('step-panel-' + currentStep).classList.remove('hidden');
+
+      if (currentStep === 2) initMap();
+
+      const newIndicator = document.getElementById('step-indicator-' + currentStep);
+      if (newIndicator) {
+        newIndicator.classList.add('text-brand-blue');
+        const newCircle = newIndicator.querySelector('span:first-child');
+        if (newCircle) newCircle.className = 'w-5 h-5 rounded-full bg-brand-lightBlue border border-brand-blue flex items-center justify-center text-[9px] font-black';
+      }
+
+      updateBreadcrumbStep(currentStep);
+      updateWizardButtons();
+    }
+
+    function changeStep(dir) {
+      // Validate inputs in current step before moving forward
+      if (dir === 1 && !validateCurrentStep()) {
+        return;
+      }
+      goToProfStep(currentStep + dir);
+    }
+
+    function updateWizardButtons() {
+      const prevBtn = document.getElementById('btn-wizard-prev');
+      const nextBtn = document.getElementById('btn-wizard-next');
+
+      if (currentStep === 1) {
+        prevBtn.classList.add('invisible');
+      } else {
+        prevBtn.classList.remove('invisible');
+      }
+
+      if (currentStep === totalSteps) {
+        nextBtn.innerHTML = 'Finalizar Registro <i class="fa-solid fa-check-double ml-1"></i>';
+        nextBtn.onclick = submitRegistrationForm;
+        populateSummaryPanel();
+      } else {
+        nextBtn.innerHTML = 'Siguiente <i class="fa-solid fa-arrow-right ml-1"></i>';
+        nextBtn.onclick = function() { changeStep(1); };
+      }
+    }
+
+    function validateCurrentStep() {
+      // Find all input/textarea/select fields in current panel and check if they are valid/filled out
+      const currentPanel = document.getElementById('step-panel-' + currentStep);
+      const inputs = currentPanel.querySelectorAll('[required]');
+      
+      for (const input of inputs) {
+        if (!input.value || !input.value.trim()) {
+          const fieldLabel = input.closest('div')?.querySelector('label')?.innerText?.replace('*', '').trim() || 'Este campo';
+          setFieldError(input.name, 'Por favor completa ' + fieldLabel + '.');
+          showError('Por favor completa los campos obligatorios marcados en rojo.');
+          input.focus();
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        } else {
+          clearFieldError(input.name);
+        }
+        
+        // Custom validations
+        if (input.name === 'name') {
+          if (/\d/.test(input.value)) {
+            setFieldError('name', 'El nombre no puede contener números.');
+            showError('El nombre completo no puede contener números.');
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+          }
+        }
+
+        if (input.name === 'telefono') {
+          if (!/^\d{10}$/.test(input.value)) {
+            setFieldError('telefono', 'El teléfono debe contener exactamente 10 dígitos numéricos.');
+            showError('El número de teléfono solo puede contener números (10 dígitos).');
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+          }
+        }
+
+        if (input.name === 'email') {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
+            setFieldError('email', 'El correo electrónico debe tener un formato válido (ejemplo@dominio.com).');
+            showError('El correo electrónico debe tener un formato válido (ejemplo@dominio.com).');
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+          }
+        }
+
+        if (input.name === 'password' && input.value.length < 6) {
+          setFieldError('password', 'La contraseña debe tener al menos 6 caracteres.');
+          showError('La contraseña debe tener un mínimo de 6 caracteres.');
+          input.focus();
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+
+        if (input.name === 'cedula' && input.value.length !== 10) {
+          setFieldError('cedula', 'La cédula debe tener exactamente 10 dígitos.');
+          showError('El número de cédula debe tener exactamente 10 dígitos.');
+          input.focus();
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+      }
+
+      // Step 2 validation: must select at least one specialty checkbox
+      if (currentStep === 2) {
+        const checkboxes = currentPanel.querySelectorAll('input[name="specialtyIds"]:checked');
+        if (checkboxes.length === 0) {
+          showError('Por favor seleccione al menos una especialidad de la lista.');
+          const container = currentPanel.querySelector('.overflow-y-auto');
+          if (container) container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+
+        const tarifaInput = currentPanel.querySelector('input[name="tarifa"]');
+        if (tarifaInput) {
+          const tarifa = parseFloat(tarifaInput.value);
+          if (isNaN(tarifa) || tarifa < 1) {
+            setFieldError('tarifa', 'La tarifa debe ser un monto de mínimo $1.');
+            showError('La tarifa base de consulta debe ser de al menos $1.');
+            tarifaInput.focus();
+            tarifaInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+          } else {
+            clearFieldError('tarifa');
+          }
+        }
+      }
+
+      // Step 3 validation: verification documents are required
+      if (currentStep === 3) {
+        const docFront = document.getElementById('reg-cf-base64').value;
+        const docBack = document.getElementById('reg-cp-base64').value;
+        if (!docFront || !docBack) {
+          showError('Es obligatorio cargar las imágenes frontal y posterior de su cédula para la validación.');
+          return false;
+        }
+
+        const bioInput = document.querySelector('[name="bio"]');
+        if (bioInput && bioInput.value.length > 500) {
+          setFieldError('bio', 'La descripción no puede superar los 500 caracteres');
+          showError('La biografía o presentación breve no puede superar los 500 caracteres.');
+          bioInput.focus();
+          bioInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        } else {
+          clearFieldError('bio');
+        }
+      }
+
+      // Step 4 validation: social media URL prefixes
+      if (currentStep === 4) {
+        const socialRules = [
+          { name: 'facebook', prefixes: ['https://www.facebook.com/'], msg: 'El enlace de Facebook debe comenzar con https://www.facebook.com/' },
+          { name: 'instagram', prefixes: ['https://www.instagram.com/'], msg: 'El enlace de Instagram debe comenzar con https://www.instagram.com/' },
+          { name: 'linkedin', prefixes: ['https://www.linkedin.com/in/', 'https://www.linkedin.com/company/'], msg: 'El enlace de LinkedIn debe comenzar con https://www.linkedin.com/in/ o https://www.linkedin.com/company/' },
+          { name: 'xTwitter', prefixes: ['https://x.com/', 'https://twitter.com/'], msg: 'El enlace de X/Twitter debe comenzar con https://x.com/ o https://twitter.com/' },
+          { name: 'tiktok', prefixes: ['https://www.tiktok.com/@'], msg: 'El enlace de TikTok debe comenzar con https://www.tiktok.com/@' },
+          { name: 'youtube', prefixes: ['https://www.youtube.com/', 'https://youtu.be/'], msg: 'El enlace de YouTube debe comenzar con https://www.youtube.com/ o https://youtu.be/' }
+        ];
+
+        for (const rule of socialRules) {
+          const input = document.querySelector('[name="' + rule.name + '"]');
+          const value = (input?.value || '').trim();
+          if (value && !rule.prefixes.some(p => value.startsWith(p))) {
+            setFieldError(rule.name, rule.msg);
+            showError(rule.msg);
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+          } else {
+            clearFieldError(rule.name);
+          }
+        }
+      }
+
+      hideError();
+      return true;
+    }
+
+    function populateSummaryPanel() {
+      const name = document.querySelector('input[name="name"]').value;
+      const cedula = document.querySelector('input[name="cedula"]').value;
+      const telefono = document.querySelector('input[name="telefono"]').value;
+      const email = document.querySelector('input[name="email"]').value;
+      const tarifa = document.querySelector('input[name="tarifa"]').value;
+      const provincia = document.querySelector('input[name="provincia"]').value;
+      const ciudad = document.querySelector('input[name="ciudad"]').value;
+      const calle = document.querySelector('input[name="callePrincipal"]').value;
+
+      // Extract specialties names checked
+      const checkedSpecs = [];
+      document.querySelectorAll('input[name="specialtyIds"]:checked').forEach(cb => {
+        checkedSpecs.push(cb.getAttribute('data-name'));
+      });
+
+      document.getElementById('sum-name').innerText = name;
+      document.getElementById('sum-cedula').innerText = cedula;
+      document.getElementById('sum-telefono').innerText = telefono;
+      document.getElementById('sum-email').innerText = email;
+      document.getElementById('sum-tarifa').innerText = '$' + parseFloat(tarifa).toFixed(2);
+      document.getElementById('sum-ubicacion').innerText = ciudad + ', ' + provincia + ' (' + calle + ')';
+      document.getElementById('sum-specialties').innerText = checkedSpecs.join(', ');
+      document.getElementById('sum-services-count').innerText = initialServices.length + ' servicio(s) inicial(es)';
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('registration-error-box');
+      const text = document.getElementById('registration-error-msg');
+      if (text) text.innerText = msg;
+      if (box) box.classList.remove('hidden');
+    }
+
+    function hideError() {
+      const box = document.getElementById('registration-error-box');
+      if (box) box.classList.add('hidden');
+    }
+
+    function setFieldError(fieldName, msg) {
+      if (!fieldName) return;
+      const input = document.querySelector('[name="' + fieldName + '"]');
+      let span = document.querySelector('[data-reg-error="' + fieldName + '"]');
+      
+      if (!span && input) {
+        span = document.createElement('span');
+        span.setAttribute('data-reg-error', fieldName);
+        span.className = 'text-rose-500 text-[11px] mt-1 font-bold block';
+        const parent = input.closest('.relative') || input.parentNode;
+        if (parent) parent.appendChild(span);
+      }
+      
+      if (span) {
+        span.innerText = msg;
+        span.classList.remove('hidden');
+        span.style.display = 'block';
+      }
+      
+      if (input) {
+        input.classList.add('border-rose-500', 'bg-rose-50/50', 'ring-2', 'ring-rose-200');
+        input.classList.remove('border-slate-100', 'bg-slate-50');
+      }
+    }
+
+    function clearFieldError(fieldName) {
+      if (!fieldName) return;
+      const input = document.querySelector('[name="' + fieldName + '"]');
+      const span = document.querySelector('[data-reg-error="' + fieldName + '"]');
+      if (span) {
+        span.innerText = '';
+        span.classList.add('hidden');
+        span.style.display = 'none';
+      }
+      if (input) {
+        input.classList.remove('border-rose-500', 'bg-rose-50/50', 'ring-2', 'ring-rose-200');
+        input.classList.add('border-slate-100', 'bg-slate-50');
+      }
+    }
+
+    function validateEmailField(input) {
+      if (input.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
+        setFieldError('email', 'El correo electrónico debe tener un dominio válido (ejemplo@dominio.com).');
+      } else {
+        clearFieldError('email');
+      }
+    }
+
+    function initServicesFromHidden() {
+      const jsonInput = document.getElementById('inp-reg-services-json');
+      if (!jsonInput || !jsonInput.value || jsonInput.value === '[]') return;
+      try {
+        const parsed = JSON.parse(jsonInput.value);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach(function(item) {
+            initialServices.push({ nombre: item.nombre, precio: parseFloat(item.precio) || 0 });
+          });
+          renderRegServices();
+        }
+      } catch (e) {
+        console.error('Error parsing initialServices:', e);
+      }
+    }
+
+    function submitRegistrationForm() {
+      if (!validateCurrentStep()) return;
+      showLoadingOverlay();
+      document.getElementById('activeStep').value = currentStep;
+      submitWizardForm(document.getElementById('btn-wizard-next'), { loadingManaged: true });
+    }
+
+    function submitWizardForm(triggerBtn, opts) {
+      opts = opts || {};
+      var loadingManaged = !!opts.loadingManaged;
+      var form = document.getElementById('wizard-form');
+      if (!form) return;
+      var nextBtn = document.getElementById('btn-wizard-next');
+      var prevBtn = document.getElementById('btn-wizard-prev');
+      var triggerDisabled = false;
+      if (triggerBtn && triggerBtn.disabled) triggerDisabled = true;
+      if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.setAttribute('aria-busy', 'true');
+      }
+      if (nextBtn && nextBtn !== triggerBtn) {
+        nextBtn.disabled = true;
+        nextBtn.setAttribute('aria-busy', 'true');
+      }
+      if (loadingManaged && prevBtn) {
+        prevBtn.disabled = true;
+        prevBtn.setAttribute('aria-busy', 'true');
+      }
+
+      function releaseButtons() {
+        if (triggerBtn) {
+          triggerBtn.disabled = triggerDisabled;
+          triggerBtn.removeAttribute('aria-busy');
+        }
+        if (nextBtn) {
+          nextBtn.disabled = false;
+          nextBtn.removeAttribute('aria-busy');
+        }
+        if (loadingManaged && prevBtn) {
+          prevBtn.disabled = false;
+          prevBtn.removeAttribute('aria-busy');
+        }
+      }
+
+      var payload = new FormData(form);
+
+      fetch(form.action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: payload
+      }).then(function(res) {
+        var contentType = res.headers.get('content-type') || '';
+        if (contentType.indexOf('application/json') !== -1) {
+          return res.json().catch(function() { return {}; }).then(function(data) {
+            if (!res.ok || !data.success) {
+              if (loadingManaged) hideLoadingOverlay();
+              releaseButtons();
+              showError(data.error || 'No se pudo completar el registro.');
+              return;
+            }
+            var successOpts = (data.payphone && typeof iniciarPagoPayPhone === 'function')
+              ? { subtitle: 'Serás redirigido a la pasarela de pago segura…', onComplete: function() { iniciarPagoPayPhone(data.payphone); } }
+              : { redirectUrl: data.redirect || '/dashboard/profesional', subtitle: 'Estamos preparando tu panel profesional…' };
+            if (loadingManaged) {
+              hideLoadingOverlay(function() { showRegistrationSuccess(successOpts); });
+            } else {
+              showRegistrationSuccess(successOpts);
+            }
+          });
+        }
+        if (loadingManaged) hideLoadingOverlay();
+        releaseButtons();
+        form.submit();
+      }).catch(function() {
+        if (loadingManaged) hideLoadingOverlay();
+        releaseButtons();
+        showError('Error en conexión al enviar el registro.');
+      });
+    }
+
+    function switchPremiumPaymentPanel(panel) {
+      ['transfer', 'payphone', 'kushki'].forEach(function(p) {
+        const panelEl = document.getElementById('premium-panel-' + p);
+        const tabEl = document.getElementById('premium-tab-' + p);
+        if (!panelEl || !tabEl) return;
+        if (p === panel) {
+          panelEl.classList.remove('hidden');
+          tabEl.className = 'flex-1 text-center py-2 text-[9px] font-black uppercase rounded-lg bg-white text-[#5A7AF3] shadow-sm transition';
+        } else {
+          panelEl.classList.add('hidden');
+          tabEl.className = 'flex-1 text-center py-2 text-[9px] font-black uppercase rounded-lg text-slate-500 hover:text-slate-800 transition';
+        }
+      });
+    }
+
+    function readPremiumReceipt(file) {
+      return new Promise(function(resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitPremiumTransfer(btn) {
+      if (!validateCurrentStep()) return;
+      const reference = document.getElementById('premium-transfer-ref').value.trim();
+      const bankInput = document.getElementById('premium-transfer-bank');
+      const bank = bankInput ? bankInput.value.trim() : '';
+      const bankAccountSelect = document.getElementById('premium-transfer-bank-account');
+      const receiptInput = document.getElementById('premium-transfer-receipt');
+      if (bankAccountSelect && !bankAccountSelect.value) {
+        showError('Seleccione la cuenta bancaria de destino.');
+        return;
+      }
+      if (!reference || (bankInput && !bank)) {
+        showError('Debe rellenar la referencia bancaria y el banco emisor.');
+        return;
+      }
+      if (!receiptInput.files || receiptInput.files.length === 0) {
+        showError('Por favor, suba la captura de su comprobante de pago.');
+        return;
+      }
+      showLoadingOverlay();
+      try {
+        document.getElementById('payment-method').value = 'transferencia';
+        document.getElementById('payment-receipt-base64').value = await readPremiumReceipt(receiptInput.files[0]);
+        document.getElementById('activeStep').value = currentStep;
+        submitWizardForm(btn, { loadingManaged: true });
+      } catch (e) {
+        hideLoadingOverlay();
+        showError('Error al procesar la imagen del comprobante.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const select = document.getElementById('premium-transfer-bank-account');
+      if (select) {
+        select.addEventListener('change', function() { syncTransferBankAccountPaymentFields('premium-transfer-bank-account', 'premium-transfer-bank-account-card', 'premium-transfer-ref', 'premium-transfer-receipt'); });
+        syncTransferBankAccountPaymentFields('premium-transfer-bank-account', 'premium-transfer-bank-account-card', 'premium-transfer-ref', 'premium-transfer-receipt');
+      }
+    });
+
+    async function submitPremiumPayPhone(btn) {
+      if (!validateCurrentStep()) return;
+      document.getElementById('payment-method').value = 'payphone';
+      document.getElementById('activeStep').value = currentStep;
+      submitWizardForm(btn);
+    }
+
+    // --- Leaflet Map (Step 2) ---
+    let mapInstance = null;
+    let mapMarker = null;
+    let mapInitialized = false;
+    let revGeoPending = null;
+
+    const EC_CENTER = [-1.8312, -78.1834];
+    const EC_ZOOM = 6;
+    const GEO_TIMEOUT = 8000;
+
+    function initMap() {
+      if (mapInitialized) {
+        if (mapInstance) mapInstance.invalidateSize();
+        return;
+      }
+      mapInitialized = true;
+
+      mapInstance = L.map('map').setView(EC_CENTER, EC_ZOOM);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(mapInstance);
+
+      mapInstance.on('click', function(e) {
+        setMarkerAt(e.latlng.lat, e.latlng.lng);
+        reverseGeocode(e.latlng.lat, e.latlng.lng);
+      });
+
+      tryGeolocate(true);
+    }
+
+    function tryGeolocate(silent) {
+      if (!navigator.geolocation) {
+        if (!silent) showMapNotice('Tu navegador no soporta geolocalización. Puedes hacer clic en el mapa para seleccionar tu ubicación.');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          var lat = pos.coords.latitude;
+          var lng = pos.coords.longitude;
+          mapInstance.setView([lat, lng], 15);
+          setMarkerAt(lat, lng);
+          reverseGeocode(lat, lng);
+        },
+        function() {
+          if (!silent) showMapNotice('No se pudo obtener tu ubicación. Puedes hacer clic en el mapa para seleccionar tu ubicación.');
+        },
+        { timeout: GEO_TIMEOUT, enableHighAccuracy: true }
+      );
+    }
+
+    function triggerGeolocation() {
+      tryGeolocate(false);
+    }
+
+    function showMapNotice(msg) {
+      var span = document.getElementById('map-address-error');
+      if (span) {
+        span.textContent = msg;
+        span.classList.remove('hidden');
+      }
+    }
+
+    function setMarkerAt(lat, lng) {
+      if (mapMarker) {
+        mapMarker.setLatLng([lat, lng]);
+      } else {
+        mapMarker = L.marker([lat, lng], { draggable: true }).addTo(mapInstance);
+        mapMarker.on('dragend', function() {
+          var pos = mapMarker.getLatLng();
+          reverseGeocode(pos.lat, pos.lng);
+        });
+      }
+
+      document.getElementById('latitud').value = lat;
+      document.getElementById('longitud').value = lng;
+    }
+
+    function reverseGeocode(lat, lng) {
+      if (revGeoPending) clearTimeout(revGeoPending);
+
+      revGeoPending = setTimeout(function() {
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng, {
+          headers: { 'Accept-Language': 'es' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.address) {
+            var addr = data.address;
+            var calle = data.display_name;
+            if (addr.road) {
+              calle = addr.road + (addr.house_number ? ' ' + addr.house_number : '');
+            }
+
+            var calleInput = document.querySelector('input[name="callePrincipal"]');
+            var refInput = document.querySelector('input[name="referencia"]');
+            if (calleInput) calleInput.value = calle;
+            if (refInput) refInput.value = addr.suburb || addr.neighbourhood || addr.quarter || '';
+
+            var provinciaInput = document.querySelector('input[name="provincia"]');
+            var ciudadInput = document.querySelector('input[name="ciudad"]');
+            var provinciaVal = addr.state || addr.county || '';
+            var ciudadVal = addr.city || addr.town || addr.village || addr.municipality || '';
+            if (provinciaInput && provinciaVal) { provinciaInput.value = provinciaVal; provinciaInput.dispatchEvent(new Event('change', { bubbles: true })); }
+            if (ciudadInput && ciudadVal) { ciudadInput.value = ciudadVal; ciudadInput.dispatchEvent(new Event('change', { bubbles: true })); }
+
+            document.getElementById('map-address-error').classList.add('hidden');
+          } else {
+            showMapNotice('No se pudo determinar la dirección. Intenta mover el marcador.');
+          }
+        })
+        .catch(function() {
+          showMapNotice('No se pudo determinar la dirección. Intenta mover el marcador.');
+        });
+      }, 400);
+    }
+
+    (function() {
+      var toggleBtn = document.getElementById('password-toggle');
+      var pwdInput = document.getElementById('password-input');
+      if (toggleBtn && pwdInput) {
+        toggleBtn.addEventListener('click', function() {
+          var icon = toggleBtn.querySelector('i');
+          if (pwdInput.type === 'password') {
+            pwdInput.type = 'text';
+            if (icon) { icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash'); }
+            toggleBtn.setAttribute('aria-label', 'Ocultar contraseña');
+            toggleBtn.setAttribute('title', 'Ocultar contraseña');
+          } else {
+            pwdInput.type = 'password';
+            if (icon) { icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); }
+            toggleBtn.setAttribute('aria-label', 'Mostrar contraseña');
+            toggleBtn.setAttribute('title', 'Mostrar contraseña');
+          }
+        });
+      }
+    })();
+
+    (function() {
+      var ta = document.querySelector('[name="bio"]');
+      var counter = document.querySelector('[data-counter-for="bio"]');
+      if (ta && counter) {
+        counter.textContent = ta.value.length;
+        ta.addEventListener('input', function() {
+          counter.textContent = ta.value.length;
+          counter.classList.toggle('text-orange-500', ta.value.length >= 450 && ta.value.length < 500);
+          counter.classList.toggle('text-red-500', ta.value.length >= 500);
+        });
+      }
+    })();
+  </script>
+
+  <div id="registration-loading-overlay" class="hidden fixed inset-0 z-[100] items-center justify-center bg-slate-900/55 backdrop-blur-[2px] px-4" role="status" aria-live="polite" aria-busy="true" aria-label="Procesando tu registro">
+    <div class="rl-card bg-white rounded-3xl shadow-2xl border border-slate-100 px-8 py-6 max-w-[280px] w-full text-center flex flex-col items-center gap-3.5">
+      <svg class="rl-spinner w-12 h-12 text-emerald-500" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="25" cy="25" r="22" fill="none" stroke="currentColor" stroke-opacity="0.18" stroke-width="3"></circle>
+        <circle class="rl-spinner-arc" cx="25" cy="25" r="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="40 200"></circle>
+      </svg>
+      <p class="rl-text text-xs text-slate-700 font-bold leading-relaxed">Procesando tu registro…</p>
+    </div>
+  </div>
+
+  <div id="registration-success-overlay" class="hidden fixed inset-0 z-[100] items-center justify-center bg-slate-900/55 backdrop-blur-[2px] px-4" role="dialog" aria-modal="true" aria-labelledby="registration-success-title">
+    <div class="rs-card bg-white rounded-3xl shadow-2xl border border-slate-100 px-9 pt-8 pb-7 max-w-sm w-full text-center flex flex-col items-center gap-4">
+      <div class="relative w-[72px] h-[72px] flex items-center justify-center">
+        <span class="rs-pulse-ring absolute inset-0 rounded-full bg-emerald-100/70"></span>
+        <span class="rs-pulse-ring rs-pulse-ring-2 absolute inset-0 rounded-full bg-emerald-100/40"></span>
+        <svg class="relative w-10 h-10 text-emerald-500" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="26" cy="26" r="24" fill="none" stroke="currentColor" stroke-opacity="0.18" stroke-width="2"></circle>
+          <path class="rs-check-path" d="M14 27 L23 36 L39 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <h2 id="registration-success-title" class="rs-title text-base font-extrabold text-slate-900 tracking-tight">Te has registrado con éxito</h2>
+        <p id="registration-success-subtitle" class="rs-subtitle text-xs text-slate-500 font-semibold leading-relaxed">Estamos preparando tu panel profesional…</p>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    #registration-success-overlay.is-visible { display: flex; }
+    #registration-success-overlay.is-visible .rs-card { animation: rs-card-in 380ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+    #registration-success-overlay.is-visible .rs-title { animation: rs-fade-in 420ms ease-out 120ms both; }
+    #registration-success-overlay.is-visible .rs-subtitle { animation: rs-fade-in 420ms ease-out 200ms both; }
+    #registration-success-overlay.is-visible .rs-check-path { animation: rs-draw 720ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms forwards; }
+    #registration-success-overlay.is-visible .rs-pulse-ring { animation: rs-pulse 2400ms ease-in-out 600ms infinite; }
+    #registration-success-overlay.is-visible .rs-pulse-ring-2 { animation: rs-pulse 2400ms ease-in-out 900ms infinite; }
+    #registration-success-overlay.is-leaving { animation: rs-overlay-out 320ms ease-in forwards; pointer-events: none; }
+
+    .rs-check-path { stroke-dasharray: 56; stroke-dashoffset: 56; }
+
+    @keyframes rs-card-in {
+      from { opacity: 0; transform: translateY(6px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)   scale(1);    }
+    }
+    @keyframes rs-fade-in {
+      from { opacity: 0; transform: translateY(2px); }
+      to   { opacity: 1; transform: translateY(0);   }
+    }
+    @keyframes rs-draw {
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes rs-pulse {
+      0%   { transform: scale(1);    opacity: 0.55; }
+      70%  { transform: scale(1.18); opacity: 0;    }
+      100% { transform: scale(1.18); opacity: 0;    }
+    }
+    @keyframes rs-overlay-out {
+      to { opacity: 0; }
+    }
+
+    #registration-loading-overlay.is-visible { display: flex; }
+    #registration-loading-overlay.is-visible .rl-card { animation: rs-card-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+    #registration-loading-overlay.is-visible .rl-spinner-arc { transform-box: fill-box; transform-origin: center; animation: rl-spin 850ms linear infinite; }
+    #registration-loading-overlay.is-leaving { animation: rs-overlay-out 320ms ease-in forwards; pointer-events: none; }
+
+    @keyframes rl-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #registration-success-overlay.is-visible .rs-card,
+      #registration-success-overlay.is-visible .rs-title,
+      #registration-success-overlay.is-visible .rs-subtitle,
+      #registration-success-overlay.is-visible .rs-check-path,
+      #registration-success-overlay.is-visible .rs-pulse-ring,
+      #registration-success-overlay.is-visible .rs-pulse-ring-2 {
+        animation: none !important;
+      }
+      .rs-check-path { stroke-dashoffset: 0 !important; }
+      #registration-success-overlay.is-leaving { animation: none !important; opacity: 0; }
+      #registration-loading-overlay.is-visible .rl-card,
+      #registration-loading-overlay.is-visible .rl-spinner-arc {
+        animation: none !important;
+      }
+      #registration-loading-overlay.is-leaving { animation: none !important; opacity: 0; }
+    }
+  </style>
+
+  <script>
+    function showRegistrationSuccess(options) {
+      options = options || {};
+      var overlay = document.getElementById('registration-success-overlay');
+      var subtitleEl = document.getElementById('registration-success-subtitle');
+      var redirectUrl = options.redirectUrl || null;
+      var onComplete = typeof options.onComplete === 'function' ? options.onComplete : null;
+
+      if (!overlay) {
+        if (onComplete) onComplete();
+        else if (redirectUrl) window.location.href = redirectUrl;
+        return;
+      }
+
+      if (subtitleEl && options.subtitle) subtitleEl.textContent = options.subtitle;
+
+      overlay.classList.remove('hidden', 'is-leaving');
+      void overlay.offsetWidth;
+      overlay.classList.add('is-visible');
+      document.body.classList.add('overflow-hidden');
+
+      var PHASE1_MS = 2100;
+      var FADE_MS = 320;
+      var SAFETY_MS = 3500;
+
+      var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      var done = false;
+      var phase1Timer = null;
+      var safetyTimer = null;
+
+      function finish() {
+        if (done) return;
+        done = true;
+        clearTimeout(phase1Timer);
+        clearTimeout(safetyTimer);
+        overlay.removeEventListener('animationend', onFadeEnd);
+        document.body.classList.remove('overflow-hidden');
+        if (onComplete) onComplete();
+        else if (redirectUrl) window.location.href = redirectUrl;
+      }
+
+      function onFadeEnd(e) {
+        if (e && e.animationName && e.animationName !== 'rs-overlay-out') return;
+        finish();
+      }
+
+      phase1Timer = setTimeout(function() {
+        if (done) return;
+        if (reduceMotion) {
+          finish();
+          return;
+        }
+        overlay.classList.add('is-leaving');
+        overlay.addEventListener('animationend', onFadeEnd);
+      }, PHASE1_MS);
+
+      safetyTimer = setTimeout(finish, SAFETY_MS);
+
+      window.addEventListener('pagehide', function() {
+        clearTimeout(phase1Timer);
+        clearTimeout(safetyTimer);
+        overlay.removeEventListener('animationend', onFadeEnd);
+      });
+      window.addEventListener('beforeunload', function() {
+        clearTimeout(phase1Timer);
+        clearTimeout(safetyTimer);
+        overlay.removeEventListener('animationend', onFadeEnd);
+      });
+    }
+
+    function showLoadingOverlay() {
+      var overlay = document.getElementById('registration-loading-overlay');
+      if (!overlay) return;
+      overlay.classList.remove('hidden', 'is-leaving');
+      void overlay.offsetWidth;
+      overlay.classList.add('is-visible');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function hideLoadingOverlay(onAfterFade) {
+      var overlay = document.getElementById('registration-loading-overlay');
+      if (!overlay) { if (typeof onAfterFade === 'function') onAfterFade(); return; }
+      if (overlay.classList.contains('hidden')) { if (typeof onAfterFade === 'function') onAfterFade(); return; }
+      var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var leavingMs = reduceMotion ? 0 : 320;
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        overlay.classList.remove('is-visible');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('is-leaving');
+        document.body.classList.remove('overflow-hidden');
+        if (typeof onAfterFade === 'function') onAfterFade();
+      }
+      overlay.classList.add('is-leaving');
+      if (leavingMs === 0) {
+        finish();
+        return;
+      }
+      setTimeout(finish, leavingMs);
+    }
+  </script>
+</body>
+</html>

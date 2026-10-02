@@ -1,0 +1,3746 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// MODELOS EXISTENTES DE FACTURACIÓN (COMPATIBLES CON COMERCIO)
+// -------------------------------------------------------------
+
+model Issuer {
+  id                   Int     @id @default(autoincrement())
+  ruc                  String  @unique
+  nombres              String
+  apellidos            String
+  nombreEmpresa        String
+  razonSocial          String
+  direccion            String
+  email                String
+  celular              String
+  establecimiento      String  @default("001")
+  puntoEmision         String  @default("001")
+  obligadoContabilidad Boolean @default(false)
+  regimen              String  @default("REGIMEN GENERAL")
+  ambiente             Int     @default(1) // 1 = Pruebas, 2 = Producción
+  firmaElectronica     String? // Ruta al archivo .p12 o codificado en Base64
+  codigoSri            String? // Contraseña de la firma .p12
+  startSecuencial      String  @default("000000001")
+
+  // Nuevos campos comerciales SaaS
+  password         String   @default("123456")
+  status           String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  planType         String   @default("MONTHLY") // MONTHLY, PAY_PER_INVOICE
+  monthlyFee       Float    @default(15.0)
+  balance          Float    @default(5.0)
+  subscriptionEnds DateTime @default(now())
+  logo             String? // Logo de la empresa en Base64
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  invoices        Invoice[]
+  paymentRequests PaymentRequest[]
+
+  // Relación con el perfil del profesional (si es emisor independiente)
+  professionalProfileId Int?                 @unique
+  professionalProfile   ProfessionalProfile? @relation(fields: [professionalProfileId], references: [id], onDelete: SetNull)
+}
+
+model SystemConfig {
+  id               Int     @id @default(1)
+  adminPassword    String  @default("admin1234")
+  adminWhatsapp    String  @default("593999999999")
+  bankAccounts     String  @default("Banco Pichincha - Ahorros: 2200123456 (Beneficiario: Profesionales Ecuador)\nBanco Guayaquil - Corriente: 10293847 (Beneficiario: Profesionales Ecuador)")
+  defaultBalance   Float   @default(5.0)
+  systemName       String  @default("Profesionales Ecuador")
+  adminEmail       String?
+  systemLogo       String? // Logo en formato Base64
+  loginLogo        String? // Logo exclusivo para el login y creación de cuenta
+  loginTitle       String  @default("Profesionales Ecuador / LATAM")
+  loginSubtitle    String  @default("El directorio profesional más grande de Ecuador y Latinoamérica.")
+  payphoneToken    String? // API Key / Token de Payphone
+  payphoneStoreId  String? // StoreId de la aplicación PayPhone
+  taxRate          Float   @default(0) // Porcentaje de IVA/Tax (ej: 15 para 15%)
+  kushkiPublicKey  String?
+  kushkiPrivateKey String?
+
+  metaDescription    String  @default("Directorio profesional, agendamiento de citas, educación continua y facturación electrónica.")
+  metaIcon           String? // Favicon
+  googleVerification String?
+
+  // Personalización del Sitio
+  footerLogo        String? // Logo del footer en formato Base64
+  primaryColor      String  @default("#0A3C84")
+  secondaryColor    String  @default("#0a66c2")
+  fontFamily        String  @default("Outfit")
+  headingFontFamily String  @default("Outfit")
+  facebookUrl       String?
+  instagramUrl      String?
+  youtubeUrl        String?
+  tiktokUrl         String?
+  linkedinUrl       String?
+
+  // Credenciales externas (Cloudinary & Resend)
+  cloudinaryCloudName String?
+  cloudinaryApiKey    String?
+  cloudinaryApiSecret String?
+  resendApiKey        String?
+  resendFromEmail     String?
+
+  // Configuración SMTP Tradicional (Fallback / Alternativa a Resend)
+  smtpHost   String?
+  smtpPort   Int?    @default(587)
+  smtpUser   String?
+  smtpPass   String?
+  smtpSecure Boolean @default(false)
+
+  // Configuración Gemini
+  geminiApiKey        String?
+  geminiProjectName   String?
+  geminiProjectNumber String?
+
+  // Configuración Educación & Ponencias
+  tiempoMinimoPonenciaMinutos Int @default(3)
+
+  // Configuración Facturación Electrónica SRI (Límites por defecto)
+  freeInvoiceLimit    Int @default(5)
+  premiumInvoiceLimit Int @default(50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id                 Int       @id @default(autoincrement())
+  nombres            String
+  tipoIdentificacion String // "04" (RUC), "05" (Cédula), "06" (Pasaporte), "07" (Consumidor Final)
+  identificacion     String    @unique
+  direccion          String
+  mail               String
+  celular            String
+  telefono           String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  invoices           Invoice[]
+}
+
+model Product {
+  id               Int                  @id @default(autoincrement())
+  profileId        Int?
+  profile          ProfessionalProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  nombre           String
+  codigoPrincipal  String
+  codigoAuxiliar   String?
+  descripcion      String?
+  precio           Float
+  iva              Float                @default(15.0)
+  imagen           String?
+  defaultCantidad  Float                @default(1.0)
+  defaultDescuento Float                @default(0.0)
+  defaultNota1     String?
+  defaultNota2     String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  invoiceItems     InvoiceItem[]
+
+  @@unique([profileId, codigoPrincipal])
+}
+
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  secuencial    String
+  claveAcceso   String?  @unique
+  xmlNoFirmado  String?
+  xmlAutorizado String?
+  pdfRIDE       String?
+  estado        String   @default("CREADA") // CREADA, FIRMADA, RECIBIDA, AUTORIZADA, DEVUELTA, RECHAZADA
+  fechaEmision  DateTime
+  tipoAmbiente  Int      @default(1)
+  subtotal0     Float    @default(0.0)
+  subtotalIva   Float    @default(0.0)
+  valorIva      Float    @default(0.0)
+  total         Float
+  formaPago     String   @default("01")
+  observaciones String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clientId Int
+  client   Client        @relation(fields: [clientId], references: [id])
+  issuerId Int
+  issuer   Issuer        @relation(fields: [issuerId], references: [id])
+  items    InvoiceItem[]
+}
+
+model InvoiceItem {
+  id             Int      @id @default(autoincrement())
+  cantidad       Float
+  precioUnitario Float
+  descuento      Float    @default(0.0)
+  total          Float
+  notaExtra1     String?
+  notaExtra2     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  invoiceId Int
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model BankAccount {
+  id              Int       @id @default(autoincrement())
+  type            String
+  institution     String
+  accountType     String?
+  accountNumber   String?
+  taxId           String?
+  beneficiaryName String?
+  qrImageUrl      String?
+  qrImagePublicId String?
+  isActive        Boolean   @default(true)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  paymentRequests PaymentRequest[]
+
+  @@index([isActive, deletedAt])
+}
+
+model PaymentRequest {
+  id                           Int       @id @default(autoincrement())
+  ruc                          String
+  razonSocial                  String
+  monto                        Float
+  tipo                         String // "TOPUP", "MEMBERSHIP", "CERTIFICATE", "PROMOTION"
+  referencia                   String
+  bancoDestino                 String
+  comprobante                  String? // Capture / Proof of payment in Base64 or URL
+  estado                       String    @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
+  fechaSolicitud               DateTime  @default(now())
+  fechaProcesado               DateTime?
+  bankAccountId                Int?
+  bankAccountSnapshot          Json?
+  bankAccountLabel             String?
+  staleAdminEmailLastAttemptAt DateTime?
+  staleAdminEmailSentAt        DateTime?
+
+  issuerId Int?
+  issuer   Issuer? @relation(fields: [issuerId], references: [id], onDelete: Cascade)
+
+  certificateId Int?
+  certificate   Certificate? @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+
+  promotionId Int?
+  promotion   ProfessionalPromotion? @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  @@index([bankAccountId])
+  @@index([estado, fechaSolicitud])
+  @@index([staleAdminEmailSentAt, staleAdminEmailLastAttemptAt])
+}
+
+// -------------------------------------------------------------
+// MODELOS DE USUARIOS, PERFILES Y SAAS PROFESIONALES
+// -------------------------------------------------------------
+
+model User {
+  id                  Int       @id @default(autoincrement())
+  email               String    @unique
+  password            String
+  name                String
+  status              String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  nombreCertificado   String?
+  lastCertNameUpdate  DateTime?
+  telefono            String?
+  ciudad              String?
+  requireProfileSetup Boolean   @default(false)
+  setupRedirectUrl    String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Roles y Permisos
+  roleId Int
+  role   Role @relation(fields: [roleId], references: [id])
+
+  // Relaciones
+  professionalProfile           ProfessionalProfile?
+  studentProfile                StudentProfile?
+  roleTransitionRequests        RoleTransitionRequest[]
+  appointments                  Appointment[]
+  certificates                  CursoCertificate[]
+  acquiredCertificates          Certificate[]
+  enrollments                   EventEnrollment[]
+  auditLogs                     AuditLog[]
+  cursoSubmissions              CursoSubmission[]
+  eventAccessLogs               EventAccessLog[]
+  payPhoneTransactions          PayPhoneTransaction[]
+  sessions                      UserSession[]
+  referralProfile               ReferralProfile?
+  conversatorioQas              ConversatorioQuestionAnswer[]
+  cursoOrders                   CursoOrder[]
+  organizationMemberships       OrganizationMember[]
+  dentalExecutions              DentalTreatmentExecution[]    @relation("DentalExecutions")
+  issuedDentalPrescriptions     DentalPrescription[]          @relation("DentalPrescriptionsIssued")
+  uploadedDentalDocuments       DentalDocument[]              @relation("DentalDocumentsUploaded")
+  dentalAppointmentsAssigned    DentalAppointment[]           @relation("DentalAppointmentsAssigned")
+  issuedDentalConsents          DentalConsent[]               @relation("DentalConsentsIssued")
+  legalCasesResponsible         LegalCase[]                   @relation("LegalCasesResponsible")
+  legalCasesClosed              LegalCase[]                   @relation("LegalCasesClosed")
+  legalCasesArchived            LegalCase[]                   @relation("LegalCasesArchived")
+  legalCaseActivitiesCreated    LegalCaseActivity[]           @relation("LegalCaseActivitiesCreated")
+  legalTasksAssigned            LegalTask[]                   @relation("LegalTasksAssigned")
+  legalDeadlinesResponsible     LegalDeadline[]               @relation("LegalDeadlinesResponsible")
+  legalHearingsResponsible      LegalHearing[]                @relation("LegalHearingsResponsible")
+  legalDocumentsCreated         LegalDocument[]               @relation("LegalDocumentsCreated")
+  legalDocumentVersionsUploaded LegalDocumentVersion[]        @relation("LegalDocumentVersionsUploaded")
+  legalFeeAgreementsCreated     LegalFeeAgreement[]           @relation("LegalFeeAgreementsCreated")
+  legalPaymentsRegistered       LegalPayment[]                @relation("LegalPaymentsRegistered")
+  legalRemindersTarget          LegalReminder[]               @relation("LegalRemindersTargetUser")
+  legalRemindersCreated         LegalReminder[]               @relation("LegalRemindersCreatedBy")
+  legalNotifications            LegalNotification[]           @relation("LegalNotificationsUser")
+  architectureClientsCreated       ArchitectureClient[]          @relation("ArchitectureClientsCreated")
+  architectureProjectsLead         ArchitectureProject[]         @relation("ArchitectureProjectsLead")
+  architectureProjectsCreated      ArchitectureProject[]         @relation("ArchitectureProjectsCreated")
+  architectureProjectsArchived     ArchitectureProject[]         @relation("ArchitectureProjectsArchived")
+  architectureTasksAssigned        ArchitectureTask[]            @relation("ArchitectureTasksAssigned")
+  architectureTasksCreated         ArchitectureTask[]            @relation("ArchitectureTasksCreated")
+  architectureDeliverablesAssigned ArchitectureDeliverable[]     @relation("ArchitectureDeliverablesAssigned")
+  architectureDeliverablesCreated  ArchitectureDeliverable[]     @relation("ArchitectureDeliverablesCreated")
+  architectureMeetingsLead         ArchitectureMeeting[]         @relation("ArchitectureMeetingsLead")
+  architectureMeetingsCreated      ArchitectureMeeting[]         @relation("ArchitectureMeetingsCreated")
+  architectureDocumentsCreated    ArchitectureDocument[]        @relation("ArchitectureDocumentsCreated")
+  architectureDocVersionsUploaded ArchitectureDocumentVersion[] @relation("ArchitectureDocVersionsUploaded")
+  architectureBudgetsCreated       ArchitectureBudget[]          @relation("ArchitectureBudgetsCreated")
+  architectureBudgetsApproved      ArchitectureBudget[]          @relation("ArchitectureBudgetsApproved")
+
+  // Profesores / Gestión Académica (TEACHING - Fase 1, Fase 2 y Fase 3)
+  academicCoursesTaught            AcademicCourse[]              @relation("AcademicCourseTutorUser")
+  academicSubjectsTaught           AcademicSubject[]             @relation("AcademicSubjectTeacherUser")
+  academicClassSessionsTaught      AcademicClassSession[]        @relation("AcademicClassSessionTeacherUser")
+  academicActivitiesTaught         AcademicActivity[]            @relation("AcademicActivityTeacherUser")
+}
+
+model UserSession {
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  tokenId          String    @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revocationReason String?
+  lastSeenAt       DateTime?
+  userAgent        String?
+  ipAddress        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt, createdAt])
+  @@index([tokenId, userId])
+}
+
+model PayPhoneTransaction {
+  id                  Int      @id @default(autoincrement())
+  paymentId           String? // ID que devuelve PayPhone al preparar
+  clientTransactionId String   @unique // UUID generado por nosotros
+  status              String   @default("PENDING") // PENDING, APPROVED, CANCELLED
+  statusCode          Int? // 1=Pendiente, 2=Cancelado, 3=Aprobado
+  amount              Int // Total en centavos
+  amountWithoutTax    Int      @default(0)
+  amountWithTax       Int      @default(0)
+  tax                 Int      @default(0)
+  currency            String   @default("USD")
+  reference           String // Descripción del pago
+  userId              Int
+  user                User     @relation(fields: [userId], references: [id])
+  itemType            String // Tipo de item: COURSE, CERTIFICATE, MEMBERSHIP, CONVERSATORIO, etc.
+  itemId              Int // ID del item comprado
+  metadata            Json? // Datos adicionales del item
+  payphoneResponse    Json? // Respuesta completa de confirmación
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique // ADMIN, PROFESSIONAL, CLIENT
+  description String?
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model ProfessionalProfile {
+  id              Int     @id @default(autoincrement())
+  userId          Int     @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug            String? @unique
+  cardPublicToken String? @unique
+
+  // Datos del perfil profesional
+  bio       String?
+  slogan    String?
+  photo     String? // Base64 o URL de foto de perfil
+  banner    String? // Base64 o URL de banner/portada
+  provincia String?
+  ciudad    String?
+  direccion String?
+  latitud   Float?
+  longitud  Float?
+
+  // Nuevos campos de verificación y localización
+  cedula          String? @unique
+  telefono        String?
+  tarifa          Float   @default(0.0)
+  callePrincipal  String?
+  referencia      String?
+  cedulaFrontal   String? // Base64 documento frontal
+  cedulaPosterior String? // Base64 documento posterior
+
+  // Redes Sociales
+  facebook  String?
+  instagram String?
+  xTwitter  String?
+  linkedin  String?
+  tiktok    String?
+  youtube   String?
+  website   String?
+  whatsapp  String?
+
+  status           String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
+  verified         Boolean  @default(false) // Insignia verificada
+  planType         String   @default("GRATUITO") // GRATUITO, PROFESIONAL, PREMIUM, VERIFICADO
+  subscriptionEnds DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  templateId Int?
+  template   ProfileTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Relaciones
+  specialties         ProfessionalProfileSpecialty[]
+  services            ProfessionalService[]
+  schedules           ProfessionalSchedule[]
+  articles            Article[]
+  conversatorios      Conversatorio[]
+  cursos              Curso[]                        @relation("ProfileCursos")
+  docenteCursos       Curso[]                        @relation("DocenteCursos")
+  appointments        Appointment[]
+  issuer              Issuer?
+  products            Product[]
+  promotions          ProfessionalPromotion[]
+  education           ProfessionalEducation[]
+  professionalId      ProfessionalId?
+  // Perfil y Billetera Docente (Academia)
+  isDocenteActive     Boolean                        @default(false)
+  docenteBio          String?
+  docenteEspecialidad String?
+  banco               String?
+  tipoCuenta          String?
+  numeroCuenta        String?
+  titularNombre       String?
+  titularCedula       String?
+
+  docenteWallet      DocenteWallet?
+  docenteWithdrawals DocenteWithdrawal[]
+  docenteOrders      CursoOrder[]        @relation("DocenteOrders")
+
+  // Ponente & Facturación Electrónica
+  isPonente            Boolean               @default(false)
+  billingSubscriptions BillingSubscription[]
+}
+
+// -------------------------------------------------------------
+// MODELOS DE PLANES DE FACTURACIÓN ELECTRÓNICA
+// -------------------------------------------------------------
+
+model BillingPlan {
+  id           Int      @id @default(autoincrement())
+  nombre       String   @unique
+  descripcion  String?
+  precio       Float    @default(0.0)
+  invoiceLimit Int      @default(20) // -1 = Ilimitado, >0 = Cantidad de facturas
+  duracionDias Int      @default(30) // Duración en días
+  duracionTipo String   @default("MENSUAL") // MENSUAL, ANUAL, PERSONALIZADO
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions BillingSubscription[]
+}
+
+model BillingSubscription {
+  id           Int                 @id @default(autoincrement())
+  profileId    Int
+  profile      ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  planId       Int
+  plan         BillingPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  startDate    DateTime            @default(now())
+  endDate      DateTime
+  invoicesUsed Int                 @default(0)
+  status       String              @default("ACTIVO") // ACTIVO, EXPIRADO, CANCELADO
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([profileId, status])
+}
+
+model Profession {
+  id              Int             @id @default(autoincrement())
+  nombre          String          @unique
+  descripcion     String?
+  icono           String?
+  imagen          String?
+  orden           Int             @default(0)
+  specialties     Specialty[]
+  cursoCategories CursoCategory[]
+  cursos          Curso[]
+}
+
+model Specialty {
+  id              Int             @id @default(autoincrement())
+  professionId    Int
+  profession      Profession      @relation(fields: [professionId], references: [id], onDelete: Cascade)
+  nombre          String
+  descripcion     String?
+  imagen          String?
+  orden           Int             @default(0)
+  cursoCategories CursoCategory[]
+  cursos          Curso[]
+
+  profiles ProfessionalProfileSpecialty[]
+
+  @@unique([professionId, nombre])
+}
+
+model ProfessionalProfileSpecialty {
+  profileId   Int
+  profile     ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  specialtyId Int
+  specialty   Specialty           @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, specialtyId])
+}
+
+model ProfessionalService {
+  id          Int                 @id @default(autoincrement())
+  profileId   Int
+  profile     ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  nombre      String
+  descripcion String?
+  precio      Float?
+  imagen      String?
+  estado      String              @default("ACTIVO") // ACTIVO, INACTIVO
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model ProfessionalSchedule {
+  id         Int                 @id @default(autoincrement())
+  profileId  Int
+  profile    ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  dia        String // LUNES, MARTES, MIERCOLES, JUEVES, VIERNES, SABADO, DOMINGO
+  horaInicio String // Ej: "08:00"
+  horaFin    String // Ej: "12:00"
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+}
+
+model Conversatorio {
+  id                          Int                  @id @default(autoincrement())
+  slug                        String?              @unique
+  profileId                   Int?
+  profile                     ProfessionalProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  estado                      String               @default("ACTIVO") // ACTIVO, FINALIZADO
+  slogan                      String?
+  titulo                      String
+  areaProfesional             String?
+  descripcion                 String?
+  fechaInicio                 DateTime
+  fechaFin                    DateTime
+  horaInicio                  String
+  horaFin                     String
+  precio                      Float                @default(0.0)
+  descuentoEstudianteUsd      Float                @default(0.0)
+  gratuito                    Boolean              @default(true)
+  permitirCertificadoGratuito Boolean              @default(false)
+  certificadoInmediato        Boolean              @default(false)
+  porcentajeMinimoCertificado Int                  @default(100)
+  capacidad                   Int?
+  capacidadIlimitada          Boolean              @default(true)
+  usarTiempoMinimoPonencia    Boolean              @default(false)
+  tiempoMinimoPonenciaMinutos Int?
+
+  // Geolocalización
+  provincia String?
+  ciudad    String?
+  latitud   Float?
+  longitud  Float?
+  direccion String?
+
+  // Revista & Multimedia
+  revistaPdf      String? // Ruta al PDF
+  revistaFlipbook String? // Link interactivo
+  revistaPortada  String? // Portada
+  banner          String?
+  galeria         String? // URLs separadas por comas o JSON
+  youtube         String?
+  bunnyVideoId    String?
+  destacado       Boolean @default(false)
+  usePecConvenios Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  itinerary            ConversatorioItinerary[]
+  speakers             ConversatorioSpeaker[]
+  certificateDesign    CertificateDesign?
+  acquiredCertificates Certificate[]
+  enrollments          EventEnrollment[]
+  accessLogs           EventAccessLog[]
+  qas                  ConversatorioQuestionAnswer[]
+  agreements           Agreement[]
+}
+
+model ConversatorioItinerary {
+  id              Int           @id @default(autoincrement())
+  conversatorioId Int
+  conversatorio   Conversatorio @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  nombre          String
+  fecha           DateTime
+  horaInicio      String
+  horaFin         String
+  orden           Int           @default(0)
+}
+
+model ConversatorioSpeaker {
+  id              Int                            @id @default(autoincrement())
+  slug            String?
+  conversatorioId Int
+  conversatorio   Conversatorio                  @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  foto            String?
+  nombre          String
+  profesion       String?
+  horario         String?
+  slogan          String?
+  tema            String?
+  descripcion     String?
+  redes           String? // JSON de redes sociales
+  dayIndex        Int? // Index of the itinerary day this speaker belongs to
+  videoUrl        String? // URL de grabación de la ponencia (YouTube)
+  bunnyVideoId    String? // Bunny Stream Video ID
+  gratuita        Boolean                        @default(false)
+  accessLogs      EventAccessLog[]
+  resources       ConversatorioSpeakerResource[]
+  qas             ConversatorioQuestionAnswer[]
+}
+
+model ConversatorioSpeakerResource {
+  id        Int                  @id @default(autoincrement())
+  speakerId Int
+  speaker   ConversatorioSpeaker @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  nombre    String
+  url       String
+  tipo      String?
+  tamano    Int?
+  createdAt DateTime             @default(now())
+
+  @@index([speakerId])
+}
+
+model ConversatorioQuestionAnswer {
+  id              Int                   @id @default(autoincrement())
+  conversatorioId Int
+  conversatorio   Conversatorio         @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  speakerId       Int?
+  speaker         ConversatorioSpeaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  userId          Int?
+  user            User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  pregunta  String
+  respuesta String?
+  estado    String   @default("PENDIENTE")
+  destacado Boolean  @default(false)
+  orden     Int      @default(0)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversatorioId])
+  @@index([speakerId])
+  @@index([userId])
+  @@index([estado])
+  @@index([conversatorioId, orden])
+}
+
+model Curso {
+  id                          Int                  @id @default(autoincrement())
+  slug                        String?              @unique
+  profileId                   Int?
+  profile                     ProfessionalProfile? @relation("ProfileCursos", fields: [profileId], references: [id], onDelete: SetNull)
+  estado                      String               @default("ACTIVO") // ACTIVO, FINALIZADO
+  slogan                      String?
+  titulo                      String
+  areaProfesional             String?
+  descripcion                 String?
+  fechaInicio                 DateTime
+  fechaFin                    DateTime
+  horaInicio                  String
+  horaFin                     String
+  precio                      Float                @default(0.0)
+  descuentoEstudianteUsd      Float                @default(0.0)
+  gratuito                    Boolean              @default(true)
+  certificadoInmediato        Boolean              @default(false)
+  porcentajeMinimoCertificado Int                  @default(100)
+  capacidad                   Int?
+  capacidadIlimitada          Boolean              @default(true)
+  usarTiempoMinimoPonencia    Boolean              @default(false)
+  tiempoMinimoPonenciaMinutos Int?
+
+  // Geolocalización
+  provincia String?
+  ciudad    String?
+  latitud   Float?
+  longitud  Float?
+  direccion String?
+
+  // Revista & Multimedia
+  revistaPdf      String?
+  revistaFlipbook String?
+  revistaPortada  String?
+  banner          String?
+  galeria         String?
+  youtube         String?
+  bunnyVideoId    String?
+  destacado       Boolean @default(false)
+
+  // New media and includes configurations
+  mediaType    String  @default("imagen") // imagen, video
+  mediaUrl     String?
+  includesJson String? // JSON array of strings
+
+  // Categorización de Cursos (Profesión, Especialidad, Categoría, Rama de Enseñanza y Palabras Clave)
+  professionId Int?
+  profession   Profession?          @relation(fields: [professionId], references: [id], onDelete: SetNull)
+  specialtyId  Int?
+  specialty    Specialty?           @relation(fields: [specialtyId], references: [id], onDelete: SetNull)
+  categoryId   Int?
+  category     CursoCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  branchId     Int?
+  branch       CursoBranch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  keywords     String?
+  // Relación con Docente (Profesional creador)
+  docenteId    Int?
+  docente      ProfessionalProfile? @relation("DocenteCursos", fields: [docenteId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  itinerary            CursoItinerary[]
+  speakers             CursoSpeaker[]
+  modules              CursoModule[]
+  certificates         CursoCertificate[]
+  certificateDesign    CertificateDesign?
+  acquiredCertificates Certificate[]
+  enrollments          EventEnrollment[]
+  discounts            CursoDiscount[]
+  accessLogs           EventAccessLog[]
+  orders               CursoOrder[]
+}
+
+model CursoCategory {
+  id           Int         @id @default(autoincrement())
+  nombre       String
+  descripcion  String?
+  icono        String?
+  professionId Int?
+  profession   Profession? @relation(fields: [professionId], references: [id], onDelete: SetNull)
+  specialtyId  Int?
+  specialty    Specialty?  @relation(fields: [specialtyId], references: [id], onDelete: SetNull)
+  orden        Int         @default(0)
+  activo       Boolean     @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches CursoBranch[]
+  cursos   Curso[]
+}
+
+model CursoBranch {
+  id          Int           @id @default(autoincrement())
+  categoryId  Int
+  category    CursoCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  nombre      String
+  descripcion String?
+  orden       Int           @default(0)
+  activo      Boolean       @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cursos Curso[]
+}
+
+model CursoItinerary {
+  id         Int      @id @default(autoincrement())
+  cursoId    Int
+  curso      Curso    @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  nombre     String
+  fecha      DateTime
+  horaInicio String
+  horaFin    String
+}
+
+model CursoSpeaker {
+  id           Int     @id @default(autoincrement())
+  cursoId      Int
+  curso        Curso   @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  foto         String?
+  nombre       String
+  profesion    String?
+  horario      String?
+  slogan       String?
+  tema         String?
+  descripcion  String?
+  redes        String?
+  dayIndex     Int?
+  videoUrl     String?
+  bunnyVideoId String?
+  gratuita     Boolean @default(false)
+}
+
+model CursoModule {
+  id      Int           @id @default(autoincrement())
+  cursoId Int
+  curso   Curso         @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  titulo  String
+  orden   Int           @default(0)
+  lessons CursoLesson[]
+}
+
+model CursoLesson {
+  id           Int              @id @default(autoincrement())
+  moduleId     Int
+  module       CursoModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  titulo       String
+  descripcion  String?
+  videoUrl     String?
+  bunnyVideoId String?
+  orden        Int              @default(0)
+  freePreview  Boolean          @default(false)
+  resources    CursoResource[]
+  tasks        CursoTask[]
+  accessLogs   EventAccessLog[]
+}
+
+model CursoResource {
+  id       Int         @id @default(autoincrement())
+  lessonId Int
+  lesson   CursoLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  nombre   String
+  url      String
+}
+
+model CursoTask {
+  id          Int               @id @default(autoincrement())
+  lessonId    Int
+  lesson      CursoLesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  titulo      String
+  descripcion String?
+  archivoUrl  String? // Enlace o archivo adjunto de guía/instrucciones (Base64)
+  puntos      Int               @default(100)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  submissions CursoSubmission[]
+}
+
+model CursoSubmission {
+  id                 Int       @id @default(autoincrement())
+  taskId             Int
+  task               CursoTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId             Int
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  archivoUrl         String // Archivo adjunto entregado por el estudiante (Base64 o URL)
+  comentario         String? // Comentarios de la entrega
+  calificacion       Float? // Nota obtenida
+  estado             String    @default("PENDIENTE") // PENDIENTE, APROBADA, RECHAZADA
+  comentarioFeedback String? // Retroalimentación del docente
+  fechaEntrega       DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([userId, taskId])
+}
+
+model CursoCertificate {
+  id           Int      @id @default(autoincrement())
+  cursoId      Int
+  curso        Curso    @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codigo       String   @unique
+  fechaEmision DateTime @default(now())
+  urlPdf       String
+}
+
+model Appointment {
+  id        Int                 @id @default(autoincrement())
+  profileId Int
+  profile   ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  userId    Int? // Opcional, si es cliente registrado
+  user      User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  nombre    String // Nombre del cliente o invitado
+  telefono  String
+  correo    String
+  motivo    String?
+  fecha     String // Ej: "2026-06-03"
+  hora      String // Ej: "10:30"
+  estado    String              @default("PENDIENTE") // PENDIENTE, CONFIRMADA, REPROGRAMADA, ATENDIDA, CANCELADA
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+}
+
+model Article {
+  id                 Int                 @id @default(autoincrement())
+  slug               String?             @unique
+  profileId          Int
+  profile            ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  titulo             String
+  resumen            String
+  imagen             String?
+  pdfUrl             String // PDF obligatorio
+  estado             String              @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
+  displayMode        String              @default("PDF") // PDF (visor directo) o HTML (convertido)
+  contentHtml        String?
+  conversionStatus   String              @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  conversionProgress Int                 @default(0)
+  conversionError    String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Agreement {
+  id                Int       @id @default(autoincrement())
+  titulo            String
+  descripcion       String?
+  categoria         String // Patrocinador, Aval Académico, Aliado Estratégico, Institución, Empresa
+  beneficios        String?
+  link              String?
+  orden             Int       @default(0)
+  logo              String? // Base64
+  banner            String? // Base64
+  empresa           String?
+  beneficio         String?
+  descuento         Float?
+  tipoDescuento     String    @default("USD") // "USD" o "PORCENTAJE"
+  condiciones       String?
+  usuariosElegibles String    @default("TODOS") // "TODOS", "PROFESIONALES", "ESTUDIANTES"
+  fechaInicio       DateTime?
+  fechaFin          DateTime?
+  activo            Boolean   @default(true)
+
+  conversatorioId Int?
+  conversatorio   Conversatorio? @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([conversatorioId, orden])
+}
+
+model Benefit {
+  id           Int      @id @default(autoincrement())
+  titulo       String
+  descripcion  String
+  icono        String   @default("fa-solid fa-star")
+  imagen       String?
+  categoria    String // "GENERAL", "PROFESIONALES", "ESTUDIANTES"
+  requierePlan String   @default("GRATUITO") // "GRATUITO", "PREMIUM", "TODOS"
+  orden        Int      @default(0)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model HeroCarousel {
+  id             Int       @id @default(autoincrement())
+  tipo           String // Inicio, Profesion, Especialidad
+  profesionId    Int?
+  especialidadId Int?
+  titulo         String?
+  subtitulo      String?
+  imageUrl       String // Base64 o URL
+  link           String?
+  fechaInicio    DateTime?
+  fechaFin       DateTime?
+  activo         Boolean   @default(true)
+  orden          Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model EditablePage {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique // inicio, nosotros, contacto, faq, terminos, privacidad
+  titulo    String
+  contenido String // Contenido en HTML o JSON
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  details   String
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model MembershipPlan {
+  id              Int      @id @default(autoincrement())
+  nombre          String   @unique
+  precio          Float    @default(0.0)
+  descripcion     String?
+  caracteristicas String // Características separadas por saltos de línea (\n)
+  popular         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model CertificateDesign {
+  id               Int            @id @default(autoincrement())
+  conversatorioId  Int?           @unique
+  conversatorio    Conversatorio? @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  cursoId          Int?           @unique
+  curso            Curso?         @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  nombreEvento     String
+  horas            Int            @default(0)
+  precioActivo     Float          @default(0.0)
+  precioFinalizado Float          @default(0.0)
+  firmaTexto       String?
+  firmaImagen      String? // Base64
+  plantillaFondo   String? // Base64 o URL
+  firmasJson       String?
+  avalesJson       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model Certificate {
+  id              Int            @id @default(autoincrement())
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversatorioId Int?
+  conversatorio   Conversatorio? @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  cursoId         Int?
+  curso           Curso?         @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  codigo          String         @unique
+  horas           Int
+  fechaEmision    DateTime       @default(now())
+  nombreEvento    String
+  nombreUsuario   String
+  precioPagado    Float
+  estado          String         @default("APROBADO") // APROBADO, PENDIENTE, RECHAZADO
+  createdAt       DateTime       @default(now())
+
+  paymentRequests PaymentRequest[]
+}
+
+model EventEnrollment {
+  id              Int            @id @default(autoincrement())
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversatorioId Int?
+  conversatorio   Conversatorio? @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  cursoId         Int?
+  curso           Curso?         @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+
+  @@unique([userId, conversatorioId])
+  @@unique([userId, cursoId])
+}
+
+model CursoDiscount {
+  id          Int      @id @default(autoincrement())
+  cursoId     Int
+  curso       Curso    @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  porcentaje  Float
+  fechaInicio DateTime
+  fechaFin    DateTime
+}
+
+model EventAccessLog {
+  id              Int                   @id @default(autoincrement())
+  userId          Int?
+  user            User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversatorioId Int?
+  conversatorio   Conversatorio?        @relation(fields: [conversatorioId], references: [id], onDelete: Cascade)
+  cursoId         Int?
+  curso           Curso?                @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  speakerId       Int?
+  speaker         ConversatorioSpeaker? @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  lessonId        Int?
+  lesson          CursoLesson?          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt       DateTime              @default(now())
+}
+
+model ProfileTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  key         String   @unique
+  description String?
+  thumbnail   String?
+  activo      Boolean  @default(true)
+  baseLayout  String   @default("default") // default, linkedin
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profiles ProfessionalProfile[]
+}
+
+model ContactMessage {
+  id      Int      @id @default(autoincrement())
+  nombre  String
+  email   String
+  asunto  String
+  mensaje String
+  leido   Boolean  @default(false)
+  fecha   DateTime @default(now())
+}
+
+model PromotionPlan {
+  id                  Int      @id @default(autoincrement())
+  nombre              String   @unique
+  precio              Float    @default(0.0)
+  descripcion         String?
+  duracionDias        Int      @default(30)
+  allowCategoryBanner Boolean  @default(false)
+  allowHomeBanner     Boolean  @default(false)
+  allowPrioritySearch Boolean  @default(false)
+  allowPopupHome      Boolean  @default(false)
+  allowPopupCategory  Boolean  @default(false)
+  allowPopupSpecialty Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  promotions ProfessionalPromotion[]
+}
+
+model ProfessionalPromotion {
+  id             Int                 @id @default(autoincrement())
+  profileId      Int
+  profile        ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  planId         Int
+  plan           PromotionPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  startDate      DateTime?
+  endDate        DateTime?
+  status         String              @default("PENDIENTE") // PENDIENTE, ACTIVO, EXPIRADO, RECHAZADO
+  bannerCategory String? // Base64 o URL
+  bannerHome     String? // Base64 o URL
+  popupImage     String? // Base64 o URL
+  popupLink      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  paymentRequests PaymentRequest[]
+}
+
+model ProfessionalEducation {
+  id              Int                 @id @default(autoincrement())
+  profileId       Int
+  profile         ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  tipo            String // "TITULO_ACADEMICO", "CERTIFICACION_INTERNACIONAL", "CURSO_SEMINARIO"
+  titulo          String // Nombre del título, certificación o curso
+  institucion     String // Universidad, Instituto o Entidad acreditadora
+  nivelEstudio    String? // "Tecnológico Superior", "Tercer Nivel (Grado)", "Especialización", "Maestría", "Doctorado"
+  tipoCertificado String? // "ASISTENCIA", "APROBACION"
+  horas           Int? // Horas académicas (opcional)
+  anioEmision     Int // Año de emisión
+  imagen          String // URL o Base64 del título o diploma (Obligatorio)
+  verificado      Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+// =============================================================
+// MÓDULO DE REFERIDOS & COMISIONES
+// =============================================================
+
+enum ReferralAccountStatus {
+  PENDING_CONFIG
+  ACTIVE
+  SUSPENDED
+}
+
+enum ReferralSaleStatus {
+  PENDIENTE
+  EN_REVISION
+  APROBADO
+  RECHAZADO
+}
+
+enum WithdrawalStatus {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  PAGADO
+}
+
+enum ProductType {
+  CONVERSATORIO
+  CURSO
+  PLAN_AFILIACION
+  PLAN_PROMOCION
+}
+
+model ReferralProfile {
+  id          Int                   @id @default(autoincrement())
+  userId      Int                   @unique
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      ReferralAccountStatus @default(PENDING_CONFIG)
+  activatedAt DateTime?
+
+  // Datos Personales
+  nombres         String?
+  apellidos       String?
+  cedula          String?
+  fechaNacimiento DateTime?
+  whatsapp        String?
+  direccion       String?
+  ciudad          String?
+  provincia       String?
+  pais            String?   @default("Ecuador")
+
+  // Datos Bancarios
+  banco         String?
+  tipoCuenta    String?
+  numeroCuenta  String?
+  titularNombre String?
+  titularCedula String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales       ReferralSale[]
+  wallet      ReferralWallet?
+  withdrawals ReferralWithdrawal[]
+  auditLogs   ReferralAuditLog[]
+}
+
+model ReferralSale {
+  id         Int             @id @default(autoincrement())
+  referralId Int
+  referral   ReferralProfile @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  // Cliente Final
+  clienteNombre   String
+  clienteCedula   String
+  clienteEmail    String
+  clienteTelefono String
+
+  // Producto Comercializado
+  productType    ProductType
+  productId      Int?
+  productName    String
+  valorPagado    Float
+  comprobanteUrl String
+
+  // Liquidación de Comisión
+  comisionCalculada  Float @default(0.0)
+  comisionPorcentaje Float @default(0.0)
+
+  // Estado y Auditoría
+  estado             ReferralSaleStatus @default(PENDIENTE)
+  observacionesAdmin String?
+  aprobadoAt         DateTime?
+  aprobadoPorId      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  walletTransactions ReferralWalletTransaction[]
+
+  @@index([referralId, estado])
+}
+
+model ReferralWallet {
+  id         Int             @id @default(autoincrement())
+  referralId Int             @unique
+  referral   ReferralProfile @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  saldoPendiente  Float @default(0.0)
+  saldoDisponible Float @default(0.0)
+  saldoRetirado   Float @default(0.0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions ReferralWalletTransaction[]
+}
+
+model ReferralWalletTransaction {
+  id       Int            @id @default(autoincrement())
+  walletId Int
+  wallet   ReferralWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  tipo     String // ACREDITACION_VENTA, DEBITO_RETIRO, REINTEGRO_RETIRO, AJUSTE_ADMIN
+  monto    Float
+  concepto String
+
+  referralSaleId Int?
+  referralSale   ReferralSale? @relation(fields: [referralSaleId], references: [id], onDelete: SetNull)
+
+  withdrawalId Int?
+  withdrawal   ReferralWithdrawal? @relation(fields: [withdrawalId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+}
+
+model ReferralWithdrawal {
+  id         Int             @id @default(autoincrement())
+  referralId Int
+  referral   ReferralProfile @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  monto                 Float
+  banco                 String
+  tipoCuenta            String
+  numeroCuenta          String
+  titularNombre         String
+  titularCedula         String
+  observacionesReferido String?
+  observacionesAdmin    String?
+  comprobantePagoUrl    String?
+
+  estado    WithdrawalStatus @default(PENDIENTE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  walletTransactions ReferralWalletTransaction[]
+
+  @@index([referralId, estado])
+}
+
+model CommissionConfig {
+  id          Int          @id @default(autoincrement())
+  isGeneral   Boolean      @default(false)
+  productType ProductType?
+  productId   Int?
+  porcentaje  Float
+  isActive    Boolean      @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isGeneral, productType, productId, isActive])
+}
+
+model ReferralAuditLog {
+  id         Int              @id @default(autoincrement())
+  referralId Int?
+  referral   ReferralProfile? @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  actorId    Int?
+  accion     String
+  detalle    String
+  createdAt  DateTime         @default(now())
+}
+
+// =============================================================
+// MÓDULO DE ESTUDIANTES & TRANSICIÓN DE ROLES
+// =============================================================
+
+model University {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @unique
+  siglas    String?
+  tipo      String   @default("UNIVERSIDAD") // UNIVERSIDAD, INSTITUTO_SUPERIOR
+  provincia String?
+  ciudad    String?
+  logo      String?
+  sitioWeb  String?
+  activo    Boolean  @default(true)
+  orden     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentProfiles StudentProfile[]
+
+  @@index([activo, orden])
+}
+
+model StudentProfile {
+  id                   Int         @id @default(autoincrement())
+  userId               Int         @unique
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug                 String?     @unique
+  cardPublicToken      String?     @unique
+  universityId         Int?
+  university           University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  institucionEducativa String // Universidad o Instituto Superior
+  carrera              String // Carrera o Área de Estudio
+  estadoCarrera        String      @default("EN_CURSO") // EN_CURSO, EGRESADO
+  carnetEstudiante     String?
+  bio                  String?
+  foto                 String? // Base64 o URL
+  banner               String? // Base64 o URL
+  provincia            String?
+  ciudad               String?
+  telefono             String?
+  linkedinUrl          String?
+  githubUrl            String?
+  instagramUrl         String?
+  facebookUrl          String?
+  twitterUrl           String?
+  websiteUrl           String?
+  tiktokUrl            String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  projects        StudentProject[]
+  externalCourses StudentExternalCourse[]
+  experiences     StudentExperience[]
+  studentId       StudentId?
+}
+
+model StudentProject {
+  id               Int            @id @default(autoincrement())
+  studentProfileId Int
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  titulo           String
+  descripcion      String?
+  areaTecnologia   String?
+  enlaceRepo       String?
+  imagenUrl        String?
+  imagenes         String[]       @default([])
+  fechaRealizacion DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([studentProfileId])
+}
+
+model StudentExternalCourse {
+  id               Int            @id @default(autoincrement())
+  studentProfileId Int
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  institucion      String
+  nombreCurso      String
+  horas            Int?
+  anioEmision      Int?
+  certificadoUrl   String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([studentProfileId])
+}
+
+model StudentExperience {
+  id                    Int            @id @default(autoincrement())
+  studentProfileId      Int
+  studentProfile        StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  tipo                  String         @default("PASANTIA_PREPROFESIONAL") // PASANTIA_PREPROFESIONAL, EXPERIENCIA_LABORAL
+  empresaInstitucion    String
+  cargo                 String
+  fechaInicio           DateTime?
+  fechaFin              DateTime?
+  actualmenteTrabajando Boolean        @default(false)
+  descripcionFunciones  String?
+  imagenes              String[]       @default([])
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([studentProfileId])
+}
+
+model RoleTransitionRequest {
+  id                   Int       @id @default(autoincrement())
+  userId               Int
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentRole          String // "STUDENT", "CLIENT"
+  targetRole           String    @default("PROFESSIONAL") // "PROFESSIONAL"
+  estado               String    @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
+  motivoSolicitud      String?
+  tituloCertificadoUrl String? // Copia de título o certificado de egreso (Base64 o URL)
+  adminObservacion     String?
+  fechaSolicitud       DateTime  @default(now())
+  fechaProcesado       DateTime?
+
+  @@index([userId, estado])
+  @@index([estado, fechaSolicitud])
+}
+
+// -------------------------------------------------------------
+// MÓDULO PROFESIONALES ID (profesionales.ec/@usuario)
+// -------------------------------------------------------------
+
+model ProfessionalId {
+  id                    Int                 @id @default(autoincrement())
+  professionalProfileId Int                 @unique
+  professionalProfile   ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  slug               String  @unique
+  shortDescription   String?
+  primaryActionType  String? @default("WHATSAPP") // WHATSAPP, AGENDA, SERVICES, WEBSITE, CUSTOM
+  primaryActionTitle String? @default("Escríbeme por WhatsApp")
+  primaryActionValue String?
+
+  theme       String  @default("light") // light, dark, auto
+  buttonStyle String  @default("rounded") // rectangle, rounded, pill
+  alignment   String  @default("center") // center, left
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links     ProfessionalIdLink[]
+  blocks    ProfessionalIdBlock[]
+  analytics ProfessionalIdAnalytics[]
+}
+
+model ProfessionalIdLink {
+  id             Int            @id @default(autoincrement())
+  professionalId Int
+  professional   ProfessionalId @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  type        String // EXTERNAL_URL, WHATSAPP, PHONE, EMAIL, PROFILE, SERVICES, CERTIFICATES, AGENDA, COURSE, EVENT, DOCUMENT, SOCIAL
+  title       String
+  icon        String? // e.g. "fa-brands fa-whatsapp"
+  url         String?
+  targetId    Int?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+  clicksCount Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analytics ProfessionalIdAnalytics[]
+}
+
+model ProfessionalIdBlock {
+  id             Int            @id @default(autoincrement())
+  professionalId Int
+  professional   ProfessionalId @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  type        String // PROMOTION, FEATURED_EVENT, FEATURED_COURSE
+  title       String
+  description String?
+  image       String?
+  buttonText  String?
+  url         String?
+  targetId    Int?
+  startAt     DateTime?
+  endAt       DateTime?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProfessionalIdAnalytics {
+  id             Int            @id @default(autoincrement())
+  professionalId Int
+  professional   ProfessionalId @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  linkId Int?
+  link   ProfessionalIdLink? @relation(fields: [linkId], references: [id], onDelete: SetNull)
+
+  eventType         String // VISIT, LINK_CLICK, PRIMARY_ACTION, PROFILE_CLICK
+  sessionIdentifier String?
+  referrer          String?
+  userAgent         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([professionalId, eventType, createdAt])
+}
+
+// -------------------------------------------------------------
+// MÓDULO ESTUDIANTES ID (profesionales.ec/e/@estudiante)
+// -------------------------------------------------------------
+
+model StudentId {
+  id               Int            @id @default(autoincrement())
+  studentProfileId Int            @unique
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  slug               String  @unique
+  shortDescription   String?
+  primaryActionType  String? @default("CV_DOWNLOAD") // CV_DOWNLOAD, WHATSAPP, PORTFOLIO, LINKEDIN, CUSTOM
+  primaryActionTitle String? @default("Descargar Hoja de Vida / CV")
+  primaryActionValue String?
+
+  theme       String  @default("academic_blue") // light, dark, academic_blue, emerald, purple, auto
+  buttonStyle String  @default("rounded") // rectangle, rounded, pill
+  alignment   String  @default("center") // center, left
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links     StudentIdLink[]
+  blocks    StudentIdBlock[]
+  analytics StudentIdAnalytics[]
+}
+
+model StudentIdLink {
+  id        Int       @id @default(autoincrement())
+  studentId Int
+  student   StudentId @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  type        String // CV, PORTFOLIO, GITHUB, LINKEDIN, PROJECTS, CERTIFICATES, WHATSAPP, PHONE, EMAIL, WEBSITE, SOCIAL, CUSTOM
+  title       String
+  icon        String? // Clase FontAwesome o imagen Base64
+  url         String?
+  targetId    Int?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+  clicksCount Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analytics StudentIdAnalytics[]
+}
+
+model StudentIdBlock {
+  id        Int       @id @default(autoincrement())
+  studentId Int
+  student   StudentId @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  type        String    @default("FEATURED_PROJECT") // FEATURED_PROJECT, ACADEMIC_ACHIEVEMENT, PASANTIA, CERTIFICATE
+  title       String
+  description String?
+  image       String? // Base64 o URL
+  buttonText  String?   @default("Ver Proyecto")
+  url         String?
+  targetId    Int?
+  startAt     DateTime?
+  endAt       DateTime?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StudentIdAnalytics {
+  id        Int       @id @default(autoincrement())
+  studentId Int
+  student   StudentId @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  linkId            Int?
+  link              StudentIdLink? @relation(fields: [linkId], references: [id], onDelete: SetNull)
+  eventType         String // VISIT, LINK_CLICK, PRIMARY_ACTION, PROFILE_CLICK
+  sessionIdentifier String?
+  referrer          String?
+  userAgent         String?
+  createdAt         DateTime       @default(now())
+
+  @@index([studentId, eventType, createdAt])
+}
+
+// =============================================================
+// MÓDULO ACADEMIA & BILLETERA DIGITAL DOCENTE (80/20)
+// =============================================================
+
+model CursoOrder {
+  id                 Int                  @id @default(autoincrement())
+  codigo             String               @unique
+  cursoId            Int
+  curso              Curso                @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  docenteId          Int?
+  docente            ProfessionalProfile? @relation("DocenteOrders", fields: [docenteId], references: [id], onDelete: SetNull)
+  userId             Int?
+  user               User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  estudianteNombre   String
+  estudianteEmail    String
+  estudianteTelefono String
+  estudianteCedula   String?
+  montoTotal         Float
+  comisionDocente    Float                @default(0.0) // 80%
+  comisionPlataforma Float                @default(0.0) // 20%
+  metodoPago         String               @default("TRANSFERENCIA") // TRANSFERENCIA, PAYPHONE, CREDIT_CARD
+  comprobanteUrl     String?
+  estado             String               @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
+  observacionesAdmin String?
+  aprobadoAt         DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  walletTransactions DocenteWalletTransaction[]
+
+  @@index([docenteId, estado])
+  @@index([cursoId, estado])
+}
+
+model DocenteWallet {
+  id              Int                        @id @default(autoincrement())
+  profileId       Int                        @unique
+  profile         ProfessionalProfile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  saldoDisponible Float                      @default(0.0)
+  saldoPendiente  Float                      @default(0.0)
+  saldoRetirado   Float                      @default(0.0)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  transactions    DocenteWalletTransaction[]
+}
+
+model DocenteWalletTransaction {
+  id           Int                @id @default(autoincrement())
+  walletId     Int
+  wallet       DocenteWallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  tipo         String // ACREDITACION_VENTA, DEBITO_RETIRO, REINTEGRO_RETIRO, AJUSTE_ADMIN
+  monto        Float
+  concepto     String
+  orderId      Int?
+  order        CursoOrder?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  withdrawalId Int?
+  withdrawal   DocenteWithdrawal? @relation(fields: [withdrawalId], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+}
+
+model DocenteWithdrawal {
+  id                 Int                        @id @default(autoincrement())
+  profileId          Int
+  profile            ProfessionalProfile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  monto              Float
+  banco              String
+  tipoCuenta         String
+  numeroCuenta       String
+  titularNombre      String
+  titularCedula      String?
+  estado             String                     @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO, PAGADO
+  comprobantePagoUrl String?
+  observacionesAdmin String?
+  procesadoAt        DateTime?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  transactions       DocenteWalletTransaction[]
+
+  @@index([profileId, estado])
+}
+
+// -------------------------------------------------------------
+// ORGANIZACIONES Y MIEMBROS
+// -------------------------------------------------------------
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  type      String   @default("INDIVIDUAL")
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members OrganizationMember[]
+  modules OrganizationModule[]
+
+  // Entidad Compartida: Pacientes (Módulos MEDICINE, DENTISTRY)
+  patients                  Patient[]
+  medicalRecords            MedicalRecord[]
+  medicalConsultations      MedicalConsultation[]
+  medicalVitalSigns         MedicalVitalSigns[]
+  medicalPrescriptions      MedicalPrescription[]
+  medicalFollowUps          MedicalFollowUp[]
+  medicalLaboratoryResults  MedicalLaboratoryResult[]
+  medicalImagingStudies     MedicalImagingStudy[]
+  medicalPreventionRecords  MedicalPreventionRecord[]
+  medicalDocuments          MedicalDocument[]
+  medicalAppointments       MedicalAppointment[]
+  dentalRecords             DentalRecord[]
+  dentalToothSnapshots      DentalToothSnapshot[]
+  dentalToothEvents         DentalToothEvent[]
+  dentalProcedures          DentalProcedure[]
+  dentalTreatmentPlans      DentalTreatmentPlan[]
+  dentalBudgets             DentalBudget[]
+  dentalBudgetItems         DentalBudgetItem[]
+  dentalPayments            DentalPayment[]
+  dentalTreatmentExecutions DentalTreatmentExecution[]
+  dentalPrescriptions       DentalPrescription[]
+  dentalDocuments           DentalDocument[]
+  dentalAppointments        DentalAppointment[]
+  dentalConsentTemplates    DentalConsentTemplate[]
+  dentalConsents            DentalConsent[]
+  legalClients              LegalClient[]
+  legalCases                LegalCase[]
+  legalCaseActivities       LegalCaseActivity[]
+  legalTasks                LegalTask[]
+  legalDeadlines            LegalDeadline[]
+  legalHearings             LegalHearing[]
+  legalDocuments            LegalDocument[]
+  legalDocumentVersions     LegalDocumentVersion[]
+  legalFeeAgreements        LegalFeeAgreement[]
+  legalFeeItems             LegalFeeItem[]
+  legalPayments             LegalPayment[]
+  legalReminders            LegalReminder[]
+  legalNotifications        LegalNotification[]
+  architectureClients       ArchitectureClient[]
+  architectureProjects      ArchitectureProject[]
+  architectureProjectStages ArchitectureProjectStage[]
+  architectureTasks         ArchitectureTask[]
+  architectureDeliverables     ArchitectureDeliverable[]
+  architectureMeetings         ArchitectureMeeting[]
+  architectureDocuments        ArchitectureDocument[]
+  architectureDocumentVersions ArchitectureDocumentVersion[]
+  architectureBudgets          ArchitectureBudget[]
+  architectureBudgetItems      ArchitectureBudgetItem[]
+
+  // Profesores / Gestión Académica (TEACHING - Fase 1, Fase 2 y Fase 3)
+  academicCourses              AcademicCourse[]
+  academicSubjects             AcademicSubject[]
+  academicStudents             AcademicStudent[]
+  academicEnrollments          AcademicEnrollment[]
+  academicClassSessions        AcademicClassSession[]
+  academicAttendanceRecords    AcademicAttendanceRecord[]
+  academicActivities           AcademicActivity[]
+  academicGrades               AcademicGrade[]
+}
+
+model OrganizationMember {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  userId         Int
+
+  role   String @default("PROFESSIONAL")
+  status String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@index([organizationId, status])
+}
+
+// -------------------------------------------------------------
+// MÓDULOS PROFESIONALES Y MÓDULOS DE ORGANIZACIÓN
+// -------------------------------------------------------------
+
+model ProfessionalModule {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizations OrganizationModule[]
+}
+
+model OrganizationModule {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  moduleId       Int
+
+  status String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  module       ProfessionalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, moduleId])
+  @@index([organizationId, status])
+  @@index([moduleId, status])
+}
+
+// -------------------------------------------------------------
+// ENTIDAD COMPARTIDA: PACIENTES CLÍNICOS MULTI-TENANT (MEDICINE, DENTISTRY)
+// Conserva físicamente la tabla existente "MedicalPatient"
+// -------------------------------------------------------------
+
+model Patient {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int
+  name             String
+  idNumber         String?
+  birthDate        DateTime?
+  gender           String? // FEMALE, MALE, OTHER, UNSPECIFIED
+  bloodType        String?
+  phone            String?
+  email            String?
+  address          String?
+  emergencyContact Json? // { name, phone, relationship }
+  status           String    @default("CONTROLADO") // CONTROLADO, EN ESPERA, CRÓNICO, ALTA, ALERTA VITAL
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  record              MedicalRecord?
+  consultations       MedicalConsultation[]
+  vitalSigns          MedicalVitalSigns[]
+  prescriptions       MedicalPrescription[]
+  followUps           MedicalFollowUp[]
+  laboratoryResults   MedicalLaboratoryResult[]
+  imagingStudies      MedicalImagingStudy[]
+  preventionRecords   MedicalPreventionRecord[]
+  documents           MedicalDocument[]
+  appointments        MedicalAppointment[]
+  dentalRecord        DentalRecord?
+  dentalPrescriptions DentalPrescription[]
+  dentalDocuments     DentalDocument[]
+  dentalAppointments  DentalAppointment[]
+  dentalConsents      DentalConsent[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, idNumber])
+  @@index([organizationId, name])
+  @@map("MedicalPatient")
+}
+
+model MedicalRecord {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  patientId      Int @unique
+
+  // Datos Antropométricos y Grupo Sanguíneo
+  heightCm  Float?
+  weightKg  Float?
+  bloodType String?
+
+  // Antecedentes Médicos y Clínicos
+  allergies          String?
+  currentIllnesses   String?
+  chronicDiseases    String?
+  currentMedications String?
+  personalHistory    String?
+  familyHistory      String?
+  previousSurgeries  String?
+  hospitalizations   String?
+  tobaccoUse         String?
+  alcoholUse         String?
+
+  // Salud Reproductiva (Femenino)
+  pregnancyStatus  String? // YES, NO, UNKNOWN
+  gestationalWeeks Int?
+  breastfeeding    String? // YES, NO
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model MedicalConsultation {
+  id             Int  @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  professionalId Int?
+
+  date   DateTime @default(now())
+  reason String
+
+  // SOAP
+  subjective String?
+  objective  String?
+  assessment String?
+  plan       String?
+
+  // Diagnóstico CIE-10
+  cie10Code        String?
+  cie10Description String?
+
+  status   String    @default("DRAFT") // DRAFT, SIGNED, CANCELLED
+  signedBy String?
+  signedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  vitalSigns        MedicalVitalSigns[]
+  prescriptions     MedicalPrescription[]
+  followUps         MedicalFollowUp[]
+  laboratoryResults MedicalLaboratoryResult[]
+  imagingStudies    MedicalImagingStudy[]
+  documents         MedicalDocument[]
+  appointments      MedicalAppointment[]
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, status])
+  @@index([organizationId, date])
+}
+
+model MedicalVitalSigns {
+  id             Int  @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  consultationId Int?
+
+  bloodPressureSystolic  Int?
+  bloodPressureDiastolic Int?
+  heartRate              Int?
+  temperatureC           Float?
+  spo2                   Int?
+  weightKg               Float?
+  heightCm               Float?
+
+  measuredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation MedicalConsultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, patientId])
+  @@index([consultationId])
+}
+
+model MedicalPrescription {
+  id             Int  @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  consultationId Int?
+
+  diagnosis           String?
+  generalInstructions String?
+
+  status   String    @default("DRAFT") // DRAFT, SIGNED, CANCELLED
+  signedBy String?
+  signedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation MedicalConsultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  items MedicalPrescriptionItem[]
+
+  @@index([organizationId, patientId])
+  @@index([consultationId])
+  @@index([organizationId, status])
+}
+
+model MedicalPrescriptionItem {
+  id             Int @id @default(autoincrement())
+  prescriptionId Int
+
+  medicationName     String
+  genericName        String?
+  concentration      String?
+  pharmaceuticalForm String?
+  dose               String
+  frequency          String
+  route              String  @default("Vía oral")
+  duration           String?
+  quantity           String?
+  instructions       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prescription MedicalPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+}
+
+model MedicalFollowUp {
+  id             Int  @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  consultationId Int?
+
+  type        String    @default("OTHER") // CALL_PATIENT, REVIEW_LAB, APPOINTMENT, OTHER
+  title       String
+  description String?
+  dueDate     DateTime
+  priority    String    @default("NORMAL") // NORMAL, HIGH, URGENT
+  status      String    @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation MedicalConsultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, status])
+  @@index([dueDate])
+}
+
+model MedicalLaboratoryResult {
+  id             Int  @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  consultationId Int?
+
+  testName   String
+  category   String?
+  laboratory String?
+  resultDate DateTime @default(now())
+  status     String   @default("READY") // PENDING, READY, CANCELLED
+  notes      String?
+  results    Json? // Array estructurado de items [{ name, value, unit, referenceText, abnormality }]
+  fileUrl    String?
+  fileName   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation MedicalConsultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, resultDate])
+}
+
+model MedicalImagingStudy {
+  id             Int  @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  consultationId Int?
+
+  studyType   String
+  bodyPart    String?
+  performedAt DateTime @default(now())
+  status      String   @default("COMPLETED") // ORDERED, COMPLETED, REPORTED
+  report      String?
+  conclusion  String?
+  fileUrl     String?
+  fileName    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation MedicalConsultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, performedAt])
+}
+
+model MedicalPreventionRecord {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+
+  type        String    @default("OTHER") // VACCINE, SCREENING, PREVENTIVE_CONTROL, RISK_FACTOR, OTHER
+  title       String
+  status      String    @default("PENDING") // PENDING, UP_TO_DATE, DUE, OVERDUE
+  dueDate     DateTime?
+  completedAt DateTime?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, status])
+}
+
+model MedicalDocument {
+  id             Int  @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  consultationId Int?
+
+  title    String
+  type     String   @default("OTHER") // LAB_REPORT, IMAGING_REPORT, CERTIFICATE, REFERRAL, CONSENT, OTHER
+  date     DateTime @default(now())
+  author   String?
+  fileName String
+  fileUrl  String
+  fileSize Int?
+  mimeType String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation MedicalConsultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, date])
+}
+
+model MedicalAppointment {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  patientId      Int
+  professionalId Int?
+  consultationId Int?
+  date           DateTime @default(now())
+  startTime      String
+  endTime        String?
+  reason         String
+  type           String   @default("FIRST_CONSULTATION")
+  status         String   @default("PENDING")
+  room           String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation MedicalConsultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, date])
+  @@index([organizationId, status])
+}
+
+// -------------------------------------------------------------
+// EXPEDIENTE CLÍNICO ODONTOLÓGICO (MÓDULO DENTISTRY)
+// Raíz clínica 1:1 asociada a Patient compartido
+// -------------------------------------------------------------
+
+model DentalRecord {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  patientId      Int @unique
+
+  // Información clínica específica de Odontología (auditoría frontend real)
+  dentalBackground String? // Antecedentes odontológicos (endodoncias, ortodoncia, cirugías dentales)
+  chiefComplaint   String? // Motivo de consulta odontológica (palabras del paciente / síntoma principal)
+  evaluationNotes  String? // Evaluación clínica odontológica (examen intraoral, tejidos blandos, encías)
+  diagnosisSummary String? // Resumen o diagnóstico odontológico general
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  toothSnapshots      DentalToothSnapshot[]
+  toothEvents         DentalToothEvent[]
+  treatmentPlans      DentalTreatmentPlan[]
+  budgets             DentalBudget[]
+  treatmentExecutions DentalTreatmentExecution[]
+  prescriptions       DentalPrescription[]
+  documents           DentalDocument[]
+  appointments        DentalAppointment[]
+  consents            DentalConsent[]
+
+  @@unique([organizationId, patientId])
+  @@index([organizationId])
+}
+
+// -------------------------------------------------------------
+// SNAPSHOT DEL ODONTOGRAMA (MÓDULO DENTISTRY)
+// Estado actual pieza por pieza para renderizado del odontograma
+// -------------------------------------------------------------
+
+model DentalToothSnapshot {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  dentalRecordId Int
+
+  toothNumber        Int
+  state              String // 'Sano', 'Caries', 'Restauracion', 'Ausente', 'Tratamiento', 'Corona', 'Extraccion_Indicada', 'Fractura'
+  surfaces           Json // { "mesial": boolean, "distal": boolean, "occlusal": boolean, "vestibular": boolean, "lingual": boolean }
+  notes              String?
+  suggestedTreatment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dentalRecord DentalRecord @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([dentalRecordId, toothNumber])
+  @@index([organizationId])
+  @@index([dentalRecordId])
+}
+
+// -------------------------------------------------------------
+// HISTORIAL EVOLUTIVO DEL ODONTOGRAMA (MÓDULO DENTISTRY)
+// Registro cronológico inmutable de cambios clínicos por pieza
+// -------------------------------------------------------------
+
+model DentalToothEvent {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  dentalRecordId Int
+
+  toothNumber Int
+  eventType   String @default("STATE_CHANGE")
+
+  previousState String?
+  newState      String
+
+  previousSurfaces Json?
+  newSurfaces      Json
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  dentalRecord DentalRecord @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([dentalRecordId, toothNumber])
+  @@index([createdAt])
+}
+
+// -------------------------------------------------------------
+// CATÁLOGO DE PROCEDIMIENTOS ODONTOLÓGICOS (MÓDULO DENTISTRY)
+// Procedimientos configurables por organización con precio sugerido
+// -------------------------------------------------------------
+
+model DentalProcedure {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+
+  code         String?
+  name         String
+  description  String?
+  category     String?
+  defaultPrice Float?
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  treatmentItems DentalTreatmentItem[]
+
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+}
+
+// -------------------------------------------------------------
+// PLAN DE TRATAMIENTO ODONTOLÓGICO (MÓDULO DENTISTRY)
+// Agrupa procedimientos propuestos o en ejecución para el paciente
+// -------------------------------------------------------------
+
+model DentalTreatmentPlan {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  dentalRecordId Int
+
+  title  String?
+  status String  @default("DRAFT") // DRAFT, ACTIVE, COMPLETED, CANCELLED
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization  Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dentalRecord  DentalRecord               @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  items         DentalTreatmentItem[]
+  budgets       DentalBudget[]
+  executions    DentalTreatmentExecution[]
+  prescriptions DentalPrescription[]
+  documents     DentalDocument[]
+  appointments  DentalAppointment[]
+  consents      DentalConsent[]
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([organizationId, status])
+}
+
+// -------------------------------------------------------------
+// ITEMS DEL PLAN DE TRATAMIENTO (MÓDULO DENTISTRY)
+// Procedimientos individuales planificados o realizados
+// -------------------------------------------------------------
+
+model DentalTreatmentItem {
+  id              Int @id @default(autoincrement())
+  organizationId  Int
+  treatmentPlanId Int
+
+  procedureId Int?
+  toothNumber Int?
+
+  procedureName String
+  unitPrice     Float
+  status        String  @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  treatmentPlan DentalTreatmentPlan        @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+  procedure     DentalProcedure?           @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+  budgetItems   DentalBudgetItem[]
+  executions    DentalTreatmentExecution[]
+  prescriptions DentalPrescription[]
+  documents     DentalDocument[]
+  appointments  DentalAppointment[]
+  consents      DentalConsent[]
+
+  @@index([organizationId])
+  @@index([treatmentPlanId])
+  @@index([procedureId])
+  @@index([toothNumber])
+}
+
+// -------------------------------------------------------------
+// PRESUPUESTO ODONTOLÓGICO (MÓDULO DENTISTRY)
+// Cotización formal snapshot generada a partir de un plan
+// -------------------------------------------------------------
+
+model DentalBudget {
+  id              Int @id @default(autoincrement())
+  organizationId  Int
+  dentalRecordId  Int
+  treatmentPlanId Int
+
+  title  String?
+  status String  @default("DRAFT") // DRAFT, ISSUED, ACCEPTED, REJECTED, CANCELLED
+
+  subtotal Float
+  discount Float @default(0.0)
+  total    Float
+
+  notes String?
+
+  issuedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dentalRecord  DentalRecord        @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  treatmentPlan DentalTreatmentPlan @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+
+  items    DentalBudgetItem[]
+  payments DentalPayment[]
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([treatmentPlanId])
+  @@index([organizationId, status])
+}
+
+// -------------------------------------------------------------
+// ITEMS DEL PRESUPUESTO (MÓDULO DENTISTRY)
+// Snapshot inmutable de las intervenciones presupuestadas
+// -------------------------------------------------------------
+
+model DentalBudgetItem {
+  id              Int  @id @default(autoincrement())
+  organizationId  Int
+  budgetId        Int
+  treatmentItemId Int?
+
+  procedureName String
+  toothNumber   Int?
+  unitPrice     Float
+
+  createdAt DateTime @default(now())
+
+  organization  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  budget        DentalBudget         @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  treatmentItem DentalTreatmentItem? @relation(fields: [treatmentItemId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([budgetId])
+  @@index([treatmentItemId])
+}
+
+// -------------------------------------------------------------
+// REGISTRO DE PAGOS Y ABONOS INTERNOS (MÓDULO DENTISTRY)
+// Historial inmutable de cobros registrados para un presupuesto
+// -------------------------------------------------------------
+
+model DentalPayment {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  budgetId       Int
+
+  amount Float
+
+  paymentMethod String? // CASH, CARD, TRANSFER, OTHER
+  reference     String?
+  notes         String?
+
+  paidAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  budget       DentalBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([budgetId])
+  @@index([paidAt])
+}
+
+// -------------------------------------------------------------
+// EJECUCIÓN CLÍNICA DE TRATAMIENTOS (MÓDULO DENTISTRY)
+// Registro inmutable de intervenciones clínicas y evoluciones por procedimiento
+// -------------------------------------------------------------
+
+model DentalTreatmentExecution {
+  id                Int  @id @default(autoincrement())
+  organizationId    Int
+  dentalRecordId    Int
+  treatmentPlanId   Int
+  treatmentItemId   Int
+  performedByUserId Int?
+
+  toothNumber   Int?
+  procedureName String
+  clinicalNotes String?
+
+  performedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  appointmentId Int?
+
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dentalRecord    DentalRecord        @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  treatmentPlan   DentalTreatmentPlan @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+  treatmentItem   DentalTreatmentItem @relation(fields: [treatmentItemId], references: [id], onDelete: Restrict)
+  performedByUser User?               @relation("DentalExecutions", fields: [performedByUserId], references: [id], onDelete: SetNull)
+  appointment     DentalAppointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  prescriptions DentalPrescription[]
+  documents     DentalDocument[]
+  consents      DentalConsent[]
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([treatmentPlanId])
+  @@index([treatmentItemId])
+  @@index([toothNumber])
+  @@index([performedAt])
+  @@index([performedByUserId])
+  @@index([appointmentId])
+}
+
+// -------------------------------------------------------------
+// RECETAS FARMACOLÓGICAS ODONTOLÓGICAS (MÓDULO DENTISTRY)
+// Prescripción clínica odontológica con ciclo de vida e inmutabilidad
+// -------------------------------------------------------------
+
+model DentalPrescription {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  dentalRecordId Int
+  patientId      Int
+
+  treatmentPlanId Int?
+  treatmentItemId Int?
+  executionId     Int?
+
+  diagnosis           String?
+  procedure           String?
+  generalInstructions String?
+
+  status             String    @default("DRAFT") // DRAFT, ISSUED, CANCELLED
+  issuedByUserId     Int?
+  signedBy           String?
+  issuedAt           DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization  Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dentalRecord  DentalRecord              @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  patient       Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatmentPlan DentalTreatmentPlan?      @relation(fields: [treatmentPlanId], references: [id], onDelete: SetNull)
+  treatmentItem DentalTreatmentItem?      @relation(fields: [treatmentItemId], references: [id], onDelete: SetNull)
+  execution     DentalTreatmentExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  issuedByUser  User?                     @relation("DentalPrescriptionsIssued", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+
+  items DentalPrescriptionItem[]
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([patientId])
+  @@index([organizationId, status])
+  @@index([treatmentPlanId])
+  @@index([treatmentItemId])
+  @@index([executionId])
+  @@index([issuedAt])
+}
+
+// -------------------------------------------------------------
+// ÍTEMS FARMACOLÓGICOS DE LA RECETA ODONTOLÓGICA (MÓDULO DENTISTRY)
+// Fármacos individuales, posología e indicaciones específicas
+// -------------------------------------------------------------
+
+model DentalPrescriptionItem {
+  id             Int @id @default(autoincrement())
+  prescriptionId Int
+
+  medicationName     String
+  genericName        String?
+  concentration      String?
+  pharmaceuticalForm String?
+  dose               String
+  route              String  @default("Vía oral")
+  frequency          String
+  duration           String?
+  quantity           String?
+  instructions       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prescription DentalPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+}
+
+// -------------------------------------------------------------
+// DOCUMENTOS Y ARCHIVOS CLÍNICOS ODONTOLÓGICOS (MÓDULO DENTISTRY)
+// Radiografías, consentimientos, fotografías e informes clínicos
+// -------------------------------------------------------------
+
+model DentalDocument {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  dentalRecordId Int
+  patientId      Int
+
+  treatmentPlanId Int?
+  treatmentItemId Int?
+  executionId     Int?
+
+  title       String
+  type        String   @default("OTHER") // RADIOGRAPHY, PHOTOGRAPHY, CONSENT, REPORT, BUDGET_ATTACHMENT, OTHER
+  date        DateTime @default(now())
+  description String?
+
+  fileName String
+  fileUrl  String
+  fileSize Int?
+  mimeType String? @default("application/pdf")
+
+  uploadedByUserId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dentalRecord   DentalRecord              @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  patient        Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatmentPlan  DentalTreatmentPlan?      @relation(fields: [treatmentPlanId], references: [id], onDelete: SetNull)
+  treatmentItem  DentalTreatmentItem?      @relation(fields: [treatmentItemId], references: [id], onDelete: SetNull)
+  execution      DentalTreatmentExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  uploadedByUser User?                     @relation("DentalDocumentsUploaded", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([patientId])
+  @@index([organizationId, type])
+  @@index([treatmentPlanId])
+  @@index([treatmentItemId])
+  @@index([date])
+}
+
+// -------------------------------------------------------------
+// CITAS Y AGENDA ODONTOLÓGICA (MÓDULO DENTISTRY)
+// Gestión temporal, estados de atención y vinculación clínica
+// -------------------------------------------------------------
+
+model DentalAppointment {
+  id                 Int     @id @default(autoincrement())
+  organizationId     Int
+  dentalRecordId     Int
+  patientId          Int
+  treatmentPlanId    Int?
+  treatmentItemId    Int?
+  professionalUserId Int
+  dentistName        String?
+
+  title  String?
+  reason String?
+  type   String  @default("CONSULTATION")
+  notes  String?
+
+  scheduledAt     DateTime
+  durationMinutes Int      @default(45)
+
+  status             String    @default("SCHEDULED")
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dentalRecord        DentalRecord               @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  patient             Patient                    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatmentPlan       DentalTreatmentPlan?       @relation(fields: [treatmentPlanId], references: [id], onDelete: SetNull)
+  treatmentItem       DentalTreatmentItem?       @relation(fields: [treatmentItemId], references: [id], onDelete: SetNull)
+  professionalUser    User                       @relation("DentalAppointmentsAssigned", fields: [professionalUserId], references: [id], onDelete: Restrict)
+  treatmentExecutions DentalTreatmentExecution[]
+  consents            DentalConsent[]
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([patientId])
+  @@index([professionalUserId, scheduledAt])
+  @@index([organizationId, scheduledAt])
+  @@index([organizationId, status])
+  @@index([treatmentPlanId])
+  @@index([treatmentItemId])
+}
+
+// -------------------------------------------------------------
+// PLANTILLAS DE CONSENTIMIENTO INFORMADO (MÓDULO DENTISTRY)
+// Plantillas multi-tenant con versionado inmutable al ser utilizadas
+// -------------------------------------------------------------
+
+model DentalConsentTemplate {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  name           String
+  description    String?
+  content        String
+  category       String? // GENERAL, SURGERY, ENDODONTICS, ORTHODONTICS, IMPLANT, PEDIATRIC, OTHER
+  procedureCode  String?
+  version        Int      @default(1)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  consents     DentalConsent[]
+
+  @@unique([organizationId, name, version])
+  @@index([organizationId, isActive])
+  @@index([organizationId, category])
+}
+
+// -------------------------------------------------------------
+// CONSENTIMIENTOS INFORMADOS ODONTOLÓGICOS (MÓDULO DENTISTRY)
+// Snapshots inmutables, ciclo de vida DRAFT -> ISSUED -> SIGNED, firma y trazabilidad
+// -------------------------------------------------------------
+
+model DentalConsent {
+  id              Int  @id @default(autoincrement())
+  organizationId  Int
+  dentalRecordId  Int
+  patientId       Int
+  templateId      Int?
+  treatmentPlanId Int?
+  treatmentItemId Int?
+  executionId     Int?
+  appointmentId   Int?
+
+  title           String
+  templateVersion Int?
+  contentSnapshot String
+  status          String @default("DRAFT") // DRAFT, ISSUED, SIGNED, CANCELLED
+
+  patientNameSnapshot      String
+  patientIdNumberSnapshot  String?
+  professionalNameSnapshot String?
+  issuedByUserId           Int?
+
+  signedByPatientName       String?
+  signedByProfessionalName  String?
+  patientSignatureData      String?
+  professionalSignatureData String?
+
+  issuedAt             DateTime?
+  patientSignedAt      DateTime?
+  professionalSignedAt DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization  Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dentalRecord  DentalRecord              @relation(fields: [dentalRecordId], references: [id], onDelete: Cascade)
+  patient       Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  template      DentalConsentTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  treatmentPlan DentalTreatmentPlan?      @relation(fields: [treatmentPlanId], references: [id], onDelete: SetNull)
+  treatmentItem DentalTreatmentItem?      @relation(fields: [treatmentItemId], references: [id], onDelete: SetNull)
+  execution     DentalTreatmentExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  appointment   DentalAppointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  issuedByUser  User?                     @relation("DentalConsentsIssued", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([dentalRecordId])
+  @@index([patientId])
+  @@index([organizationId, status])
+  @@index([templateId])
+  @@index([treatmentPlanId])
+  @@index([treatmentItemId])
+  @@index([executionId])
+  @@index([appointmentId])
+}
+
+// -------------------------------------------------------------
+// CLIENTES JURÍDICOS (MÓDULO LEGAL)
+// Clientes del despacho jurídico (persona natural o jurídica)
+// -------------------------------------------------------------
+
+model LegalClient {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  name                String
+  identificationType  String  @default("cedula") // cedula, ruc, pasaporte
+  identification      String
+  email               String?
+  phone               String?
+  address             String?
+  clientType          String  @default("persona_natural") // persona_natural, persona_juridica
+  companyName         String?
+  companyRuc          String?
+  legalRepresentative String?
+  status              String  @default("activo") // activo, inactivo, prospecto
+  notes               String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cases LegalCase[]
+
+  @@unique([organizationId, identification])
+  @@index([organizationId, status])
+  @@index([organizationId, name])
+}
+
+// -------------------------------------------------------------
+// CASOS / EXPEDIENTES JURÍDICOS (MÓDULO LEGAL)
+// Expedientes y causas jurídicas del despacho
+// -------------------------------------------------------------
+
+model LegalCase {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  clientId       Int
+  client         LegalClient  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  internalCaseNumber    String
+  judicialProcessNumber String?
+
+  title       String
+  description String?
+
+  processType String? // Ordinario Civil, Sumario, Ejecutivo, Monitorio, Constitucional, etc.
+  legalArea   String  @default("Civil") // Civil, Penal, Laboral, Familia, Mercantil, Administrativo, Constitucional
+  status      String  @default("Nuevo") // Nuevo, En proceso, En espera, Audiencia, Cerrado, Archivado
+  priority    String  @default("Media") // Baja, Media, Alta, Urgente
+
+  responsibleUserId Int?
+  responsibleUser   User?   @relation("LegalCasesResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+  assignedLawyer    String? // Snapshot / display label para visualización histórica
+
+  courtName   String?
+  judgeName   String?
+  claimAmount String?
+
+  startDate       DateTime  @default(now())
+  expectedEndDate DateTime?
+
+  closedAt        DateTime?
+  closedByUserId  Int?
+  closedByUser    User?     @relation("LegalCasesClosed", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  closureReason   String?
+  closureNotes    String?
+
+  archivedAt       DateTime?
+  archivedByUserId Int?
+  archivedByUser   User?     @relation("LegalCasesArchived", fields: [archivedByUserId], references: [id], onDelete: SetNull)
+  archiveReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities    LegalCaseActivity[]
+  tasks         LegalTask[]
+  deadlines     LegalDeadline[]
+  hearings      LegalHearing[]
+  documents     LegalDocument[]
+  feeAgreements LegalFeeAgreement[]
+  reminders     LegalReminder[]
+  notifications LegalNotification[]
+
+  @@unique([organizationId, internalCaseNumber])
+  @@index([organizationId, status])
+  @@index([organizationId, legalArea])
+  @@index([organizationId, clientId])
+  @@index([organizationId, responsibleUserId])
+}
+
+// -------------------------------------------------------------
+// ACTUACIONES / BITÁCORA DEL EXPEDIENTE (MÓDULO LEGAL)
+// Historial cronológico de actuaciones y diligencias del caso
+// -------------------------------------------------------------
+
+model LegalCaseActivity {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalCaseId    Int
+  legalCase      LegalCase    @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+
+  type        String // Llamada, Reunión, Presentación Escrito, Notificación, Audiencia, Cambio Estado, Nota Interna
+  title       String
+  description String?
+
+  occurredAt DateTime @default(now())
+
+  createdByUserId Int?
+  createdByUser   User?   @relation("LegalCaseActivitiesCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  performedBy     String? // Snapshot o nombre libre del actuante para visualización
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, legalCaseId])
+  @@index([legalCaseId, occurredAt])
+}
+
+// -------------------------------------------------------------
+// TAREAS OPERATIVAS DEL EXPEDIENTE (MÓDULO LEGAL)
+// Tareas asignadas y pendientes vinculadas obligatoriamente a un caso
+// -------------------------------------------------------------
+
+model LegalTask {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalCaseId    Int
+  legalCase      LegalCase    @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+
+  title       String
+  description String?
+  dueDate     DateTime
+  priority    String   @default("Media") // Baja, Media, Alta, Urgente
+  status      String   @default("Pendiente") // Pendiente, En progreso, Completada, Atrasada, Cancelada
+
+  assignedToUserId Int?
+  assignedToUser   User?   @relation("LegalTasksAssigned", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignedTo       String? // Snapshot / etiqueta de asignación
+
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, legalCaseId])
+  @@index([organizationId, dueDate])
+  @@index([assignedToUserId])
+}
+
+// -------------------------------------------------------------
+// PLAZOS PROCESALES Y TÉRMINOS (MÓDULO LEGAL)
+// Control de fechas límite perentorias vinculadas a un caso
+// -------------------------------------------------------------
+
+model LegalDeadline {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalCaseId    Int
+  legalCase      LegalCase    @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+
+  title       String // Descripción/título del escrito o término
+  description String?
+  deadlineAt  DateTime // Fecha y hora límite del plazo
+  priority    String   @default("Media") // Baja, Media, Alta, Urgente
+  status      String   @default("Pendiente") // Pendiente, En progreso, Cumplido, Vencido
+  isUrgent    Boolean  @default(false)
+
+  responsibleUserId Int?
+  responsibleUser   User?   @relation("LegalDeadlinesResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+  responsible       String? // Snapshot / etiqueta del responsable
+  notes             String?
+
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, legalCaseId])
+  @@index([organizationId, deadlineAt])
+  @@index([responsibleUserId])
+}
+
+// -------------------------------------------------------------
+// AUDIENCIAS Y DILIGENCIAS JUDICIALES (MÓDULO LEGAL)
+// Comparecencias presenciales y telemáticas vinculadas a un caso
+// -------------------------------------------------------------
+
+model LegalHearing {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalCaseId    Int
+  legalCase      LegalCase    @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+
+  title       String // Título de la audiencia (ej. Audiencia Preliminar)
+  hearingType String   @default("Preliminar") // Preliminar, Juicio, Conciliación, Testimonial, etc.
+  scheduledAt DateTime // Fecha y hora programada
+  location    String? // Sala / Complejo judicial o URL telemática
+  mode        String   @default("Presencial") // Presencial, Virtual, Híbrida
+  status      String   @default("Programada") // Programada, Celebrada, Suspendida, Cancelada
+
+  responsibleUserId Int?
+  responsibleUser   User?   @relation("LegalHearingsResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+  responsible       String? // Snapshot del abogado/responsable
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, legalCaseId])
+  @@index([organizationId, scheduledAt])
+  @@index([responsibleUserId])
+}
+
+// -------------------------------------------------------------
+// DOCUMENTOS JURÍDICOS (MÓDULO LEGAL)
+// Identidad permanente de escritos y piezas procesales del expediente
+// -------------------------------------------------------------
+
+model LegalDocument {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalCaseId    Int
+  legalCase      LegalCase    @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+
+  title        String
+  documentType String // Demanda, Contestación, Providencia, Prueba, Sentencia, Contrato, Poder, Otro
+  description  String?
+  status       String  @default("ACTIVE") // ACTIVE, ARCHIVED, Borrador, etc.
+
+  createdByUserId Int?
+  createdByUser   User? @relation("LegalDocumentsCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions LegalDocumentVersion[]
+
+  @@index([organizationId, legalCaseId])
+  @@index([organizationId, status])
+  @@index([organizationId, documentType])
+}
+
+// -------------------------------------------------------------
+// VERSIONES DOCUMENTALES (MÓDULO LEGAL)
+// Historial inmutable de archivos y revisiones de cada documento
+// -------------------------------------------------------------
+
+model LegalDocumentVersion {
+  id              Int           @id @default(autoincrement())
+  organizationId  Int
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalDocumentId Int
+  legalDocument   LegalDocument @relation(fields: [legalDocumentId], references: [id], onDelete: Restrict)
+
+  versionNumber Int
+
+  fileName   String
+  storageKey String
+  fileUrl    String?
+  mimeType   String
+  fileSize   Int
+  checksum   String? // SHA-256
+  notes      String?
+
+  uploadedByUserId Int?
+  uploadedByUser   User? @relation("LegalDocumentVersionsUploaded", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@unique([legalDocumentId, versionNumber])
+  @@index([organizationId, legalDocumentId])
+  @@index([uploadedByUserId])
+}
+
+// -------------------------------------------------------------
+// ACUERDOS DE HONORARIOS (MÓDULO LEGAL)
+// Acuerdo económico de patrocinio y servicios jurídicos por caso
+// -------------------------------------------------------------
+
+model LegalFeeAgreement {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalCaseId    Int
+  legalCase      LegalCase    @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+
+  title       String
+  status      String  @default("DRAFT") // DRAFT, ACTIVE, COMPLETED, CANCELLED
+  description String?
+
+  subtotal Float
+  discount Float @default(0.0)
+  total    Float
+
+  agreedAt DateTime?
+
+  createdByUserId Int?
+  createdByUser   User? @relation("LegalFeeAgreementsCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    LegalFeeItem[]
+  payments LegalPayment[]
+
+  @@index([organizationId, legalCaseId])
+  @@index([organizationId, status])
+}
+
+// -------------------------------------------------------------
+// CONCEPTOS / RUBROS DE HONORARIOS (MÓDULO LEGAL)
+// Desglose de servicios, etapas o conceptos presupuestados
+// -------------------------------------------------------------
+
+model LegalFeeItem {
+  id             Int               @id @default(autoincrement())
+  organizationId Int
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  feeAgreementId Int
+  feeAgreement   LegalFeeAgreement @relation(fields: [feeAgreementId], references: [id], onDelete: Restrict)
+
+  description String
+  quantity    Int    @default(1)
+  unitPrice   Float
+  totalPrice  Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, feeAgreementId])
+}
+
+// -------------------------------------------------------------
+// PAGOS / ABONOS DE HONORARIOS (MÓDULO LEGAL)
+// Historial inmutable de cobros registrados para un acuerdo
+// -------------------------------------------------------------
+
+model LegalPayment {
+  id             Int               @id @default(autoincrement())
+  organizationId Int
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  feeAgreementId Int
+  feeAgreement   LegalFeeAgreement @relation(fields: [feeAgreementId], references: [id], onDelete: Restrict)
+
+  amount        Float
+  paymentMethod String  @default("Transferencia") // Efectivo, Transferencia, Depósito, Tarjeta, Otro
+  reference     String?
+  notes         String?
+  status        String  @default("COMPLETED")
+
+  paidAt DateTime @default(now())
+
+  registeredByUserId Int?
+  registeredByUser   User? @relation("LegalPaymentsRegistered", fields: [registeredByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, feeAgreementId])
+  @@index([organizationId, paidAt])
+}
+
+// -------------------------------------------------------------
+// RECORDATORIOS Y ALERTAS TEMPORALES (MÓDULO LEGAL)
+// Intención persistente de recordar eventos procesales (Task, Deadline, Hearing)
+// -------------------------------------------------------------
+
+model LegalReminder {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalCaseId    Int
+  legalCase      LegalCase    @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+
+  userId Int?
+  user   User? @relation("LegalRemindersTargetUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  sourceType String // TASK, DEADLINE, HEARING
+  sourceId   Int
+
+  remindAt DateTime
+
+  status String @default("PENDING") // PENDING, DISMISSED
+
+  message String?
+
+  createdByUserId Int?
+  createdByUser   User? @relation("LegalRemindersCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notification LegalNotification?
+
+  @@index([organizationId, remindAt])
+  @@index([organizationId, legalCaseId])
+  @@index([userId, remindAt])
+  @@index([sourceType, sourceId])
+}
+
+// -------------------------------------------------------------
+// NOTIFICACIONES INTERNAS (MÓDULO LEGAL - FASE 6)
+// Alertas procesadas a partir de LegalReminder vencidos
+// -------------------------------------------------------------
+
+model LegalNotification {
+  id             Int            @id @default(autoincrement())
+  organizationId Int
+  userId         Int
+  legalCaseId    Int
+  reminderId     Int?           @unique
+
+  type           String         // TASK, DEADLINE, HEARING
+  title          String
+  message        String
+
+  status         String         @default("UNREAD") // UNREAD, READ, DISMISSED
+
+  createdAt      DateTime       @default(now())
+  readAt         DateTime?
+  dismissedAt    DateTime?
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user           User           @relation("LegalNotificationsUser", fields: [userId], references: [id], onDelete: Restrict)
+  legalCase      LegalCase      @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+  reminder       LegalReminder? @relation(fields: [reminderId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, userId, status])
+  @@index([organizationId, userId, createdAt])
+  @@index([legalCaseId])
+}
+
+// -------------------------------------------------------------
+// MÓDULO ARQUITECTURA (FASE 1: NÚCLEO OPERACIONAL)
+// Clientes, Proyectos y Etapas
+// -------------------------------------------------------------
+
+model ArchitectureClient {
+  id              Int      @id @default(autoincrement())
+  organizationId  Int
+  name            String
+  contactPerson   String?
+  taxId           String?
+  taxIdType       String?
+  clientType      String   @default("Persona")
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  status          String   @default("Activo")
+  notes           String?
+  createdByUserId Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization  Organization          @relation(fields: [organizationId], references: [id])
+  createdByUser User                  @relation("ArchitectureClientsCreated", fields: [createdByUserId], references: [id])
+  projects      ArchitectureProject[]
+
+  @@unique([organizationId, taxId])
+  @@index([organizationId, status])
+  @@index([organizationId, name])
+  @@index([createdByUserId])
+}
+
+model ArchitectureProject {
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int
+  clientId            Int
+  code                String
+  name                String
+  type                String    @default("Vivienda")
+  location            String?
+  approxAreaM2        Float?
+  levelsCount         Int?
+  leadArchitectUserId Int
+  startDate           DateTime?
+  targetDeliveryDate  DateTime?
+  actualEndDate       DateTime?
+  status              String    @default("Planificación")
+  priority            String    @default("Media")
+  description         String?
+  clientRequirements  String?
+  notes               String?
+  createdByUserId     Int
+  archivedAt          DateTime?
+  archivedByUserId    Int?
+  archiveReason       String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  organization      Organization               @relation(fields: [organizationId], references: [id])
+  client            ArchitectureClient         @relation(fields: [clientId], references: [id])
+  leadArchitectUser User                       @relation("ArchitectureProjectsLead", fields: [leadArchitectUserId], references: [id])
+  createdByUser     User                       @relation("ArchitectureProjectsCreated", fields: [createdByUserId], references: [id])
+  archivedByUser    User?                      @relation("ArchitectureProjectsArchived", fields: [archivedByUserId], references: [id])
+  stages            ArchitectureProjectStage[]
+  tasks             ArchitectureTask[]
+  deliverables      ArchitectureDeliverable[]
+  meetings          ArchitectureMeeting[]
+  documents         ArchitectureDocument[]
+  budgets           ArchitectureBudget[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@index([organizationId, clientId])
+  @@index([leadArchitectUserId])
+  @@index([createdByUserId])
+  @@index([organizationId, createdAt])
+}
+
+model ArchitectureProjectStage {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  projectId      Int
+  name           String
+  order          Int
+  status         String    @default("Pendiente")
+  startDate      DateTime?
+  dueDate        DateTime?
+  progress       Int       @default(0)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id])
+  project      ArchitectureProject       @relation(fields: [projectId], references: [id])
+  tasks        ArchitectureTask[]
+  deliverables ArchitectureDeliverable[]
+  documents    ArchitectureDocument[]
+
+  @@unique([projectId, order])
+  @@index([organizationId, projectId])
+  @@index([projectId, status])
+}
+
+model ArchitectureTask {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int
+  projectId        Int
+  stageId          Int?
+  title            String
+  description      String?
+  assignedToUserId Int?
+  priority         String    @default("Media")
+  status           String    @default("Pendiente")
+  dueDate          DateTime?
+  completedAt      DateTime?
+  createdByUserId  Int
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization   Organization              @relation(fields: [organizationId], references: [id])
+  project        ArchitectureProject       @relation(fields: [projectId], references: [id])
+  stage          ArchitectureProjectStage? @relation(fields: [stageId], references: [id])
+  assignedToUser User?                     @relation("ArchitectureTasksAssigned", fields: [assignedToUserId], references: [id])
+  createdByUser  User                      @relation("ArchitectureTasksCreated", fields: [createdByUserId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, projectId])
+  @@index([projectId, stageId])
+  @@index([assignedToUserId])
+  @@index([dueDate])
+}
+
+model ArchitectureDeliverable {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int
+  projectId        Int
+  stageId          Int?
+  name             String
+  type             String    @default("Planos")
+  assignedToUserId Int?
+  dueDate          DateTime?
+  status           String    @default("Pendiente")
+  deliveredAt      DateTime?
+  notes            String?
+  createdByUserId  Int
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization   Organization              @relation(fields: [organizationId], references: [id])
+  project        ArchitectureProject       @relation(fields: [projectId], references: [id])
+  stage          ArchitectureProjectStage? @relation(fields: [stageId], references: [id])
+  assignedToUser User?                     @relation("ArchitectureDeliverablesAssigned", fields: [assignedToUserId], references: [id])
+  createdByUser  User                      @relation("ArchitectureDeliverablesCreated", fields: [createdByUserId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, projectId])
+  @@index([projectId, stageId])
+  @@index([assignedToUserId])
+  @@index([dueDate])
+}
+
+model ArchitectureMeeting {
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int
+  projectId           Int
+  title               String
+  scheduledAt         DateTime
+  location            String?
+  meetingUrl          String?
+  modality            String    @default("Presencial")
+  meetingType         String    @default("Reunión")
+  leadArchitectUserId Int?
+  status              String    @default("Programada")
+  notes               String?
+  createdByUserId     Int
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  organization      Organization        @relation(fields: [organizationId], references: [id])
+  project           ArchitectureProject @relation(fields: [projectId], references: [id])
+  leadArchitectUser User?               @relation("ArchitectureMeetingsLead", fields: [leadArchitectUserId], references: [id])
+  createdByUser     User                @relation("ArchitectureMeetingsCreated", fields: [createdByUserId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, projectId])
+  @@index([scheduledAt])
+  @@index([leadArchitectUserId])
+}
+
+model ArchitectureDocument {
+  id              Int                           @id @default(autoincrement())
+  organizationId  Int
+  projectId       Int
+  stageId         Int?
+  name            String
+  documentType    String                        @default("Plano")
+  description     String?
+  status          String                        @default("Borrador")
+  createdByUserId Int
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+
+  organization    Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project         ArchitectureProject           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  stage           ArchitectureProjectStage?     @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  createdByUser   User                          @relation("ArchitectureDocumentsCreated", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  versions        ArchitectureDocumentVersion[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, projectId])
+  @@index([projectId, stageId])
+}
+
+model ArchitectureDocumentVersion {
+  id               Int                  @id @default(autoincrement())
+  organizationId   Int
+  documentId       Int
+  versionNumber    Int
+  originalFilename String
+  storageKey       String
+  mimeType         String
+  fileSize         Int
+  checksumSha256   String
+  notes            String?
+  uploadedByUserId Int
+  createdAt        DateTime             @default(now())
+
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document         ArchitectureDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  uploadedByUser   User                 @relation("ArchitectureDocVersionsUploaded", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, versionNumber])
+  @@index([organizationId, documentId])
+  @@index([documentId, versionNumber])
+}
+
+model ArchitectureBudget {
+  id               Int                    @id @default(autoincrement())
+  organizationId   Int
+  projectId        Int
+  name             String
+  description      String?
+  status           String                 @default("Borrador")
+  notes            String?
+  approvedAt       DateTime?
+  approvedByUserId Int?
+  createdByUserId  Int
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project        ArchitectureProject    @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdByUser  User                   @relation("ArchitectureBudgetsCreated", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedByUser User?                  @relation("ArchitectureBudgetsApproved", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  items          ArchitectureBudgetItem[]
+
+  @@index([organizationId, projectId])
+  @@index([organizationId, status])
+  @@index([projectId, status])
+}
+
+model ArchitectureBudgetItem {
+  id             Int                @id @default(autoincrement())
+  organizationId Int
+  budgetId       Int
+  description    String
+  category       String?
+  quantity       Decimal            @default(1) @db.Decimal(12, 4)
+  unitPrice      Decimal            @default(0) @db.Decimal(14, 2)
+  order          Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  budget       ArchitectureBudget @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, budgetId])
+  @@index([budgetId, order])
+}
+
+// -------------------------------------------------------------
+// MÓDULO PROFESORES / GESTIÓN ACADÉMICA (FASE 1: BASE ACADÉMICA)
+// Cursos, Asignaturas, Estudiantes y Matrículas
+// -------------------------------------------------------------
+
+model AcademicCourse {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  name           String    // Ej: "1ro A", "10mo EGB"
+  level          String    // Ej: "Educación General Básica", "Bachillerato General"
+  classroom      String?   // Ej: "Aula 204", "Laboratorio de Ciencias"
+  status         String    @default("ACTIVE") // ACTIVE, ARCHIVED
+  tutorUserId    Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  tutorUser      User?                @relation("AcademicCourseTutorUser", fields: [tutorUserId], references: [id], onDelete: SetNull)
+  subjects       AcademicSubject[]
+  enrollments    AcademicEnrollment[]
+  classSessions  AcademicClassSession[]
+  activities     AcademicActivity[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status])
+  @@index([tutorUserId])
+}
+
+model AcademicSubject {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  courseId       Int
+  name           String    // Ej: "Matemáticas", "Lengua y Literatura"
+  code           String?   // Ej: "MAT-101"
+  hoursPerWeek   Int?      // Carga horaria semanal opcional
+  status         String    @default("ACTIVE") // ACTIVE, INACTIVE
+  teacherUserId  Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course         AcademicCourse       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  teacherUser    User?                @relation("AcademicSubjectTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
+  classSessions  AcademicClassSession[]
+  activities     AcademicActivity[]
+
+  @@unique([courseId, name])
+  @@index([organizationId, courseId])
+  @@index([teacherUserId])
+}
+
+model AcademicStudent {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  firstName      String
+  lastName       String
+  identification String?   // Cédula o pasaporte. Nullable pero único por organización cuando no es null
+  email          String?
+  phone          String?
+  status         String    @default("ACTIVE") // ACTIVE, INACTIVE (administrativo)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  enrollments       AcademicEnrollment[]
+  attendanceRecords AcademicAttendanceRecord[]
+  grades            AcademicGrade[]
+
+  @@unique([organizationId, identification])
+  @@index([organizationId, status])
+  @@index([organizationId, lastName, firstName])
+}
+
+model AcademicEnrollment {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  studentId      Int
+  courseId       Int
+  status         String    @default("ACTIVE") // ACTIVE, INACTIVE, WITHDRAWN
+  enrollmentDate DateTime  @default(now())
+  period         String?   // Período académico opcional (ej: "2025-2026")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course         AcademicCourse  @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  student        AcademicStudent @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  // En F1, un estudiante tiene a lo sumo una matrícula activa/registrada por curso.
+  // Si en fases futuras se formaliza gestión de períodos lectivos, se expandirá a @@unique([studentId, courseId, period]).
+  @@unique([studentId, courseId])
+  @@index([organizationId, courseId])
+  @@index([organizationId, studentId])
+  @@index([organizationId, status])
+}
+
+// -------------------------------------------------------------
+// MÓDULO PROFESORES / GESTIÓN ACADÉMICA (FASE 2: SESIONES Y ASISTENCIA)
+// Sesiones de Clase y Registro de Asistencia
+// -------------------------------------------------------------
+
+model AcademicClassSession {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  courseId       Int
+  subjectId      Int?
+  teacherUserId  Int?
+  sessionDate    DateTime
+  startTime      String?   // Ej: "08:00" o "08:00 - 09:30"
+  endTime        String?   // Ej: "09:30"
+  room           String?   // Ej: "Aula 102"
+  topic          String?   // Tema de la sesión de clase
+  status         String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course            AcademicCourse             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  subject           AcademicSubject?           @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacherUser       User?                      @relation("AcademicClassSessionTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
+  attendanceRecords AcademicAttendanceRecord[]
+
+  @@index([organizationId, courseId])
+  @@index([organizationId, sessionDate])
+  @@index([organizationId, status])
+  @@index([teacherUserId])
+  @@index([subjectId])
+}
+
+model AcademicAttendanceRecord {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  sessionId      Int
+  studentId      Int
+  status         String    @default("PRESENT") // PRESENT, ABSENT, LATE, EXCUSED
+  observation    String?   // Observación o justificativo
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  session        AcademicClassSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  student        AcademicStudent      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, studentId])
+  @@index([organizationId, sessionId])
+  @@index([organizationId, studentId])
+  @@index([organizationId, status])
+}
+
+// -------------------------------------------------------------
+// MÓDULO PROFESORES / GESTIÓN ACADÉMICA (FASE 3: ACTIVIDADES Y CALIFICACIONES)
+// Actividades / Evaluaciones Académicas y Calificaciones Individuales
+// -------------------------------------------------------------
+
+model AcademicActivity {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  courseId       Int
+  subjectId      Int
+  teacherUserId  Int?
+  name           String    // Ej: "Examen Unidad 1", "Tarea 2: Ecuaciones"
+  description    String?   // Descripción o instrucciones de la actividad
+  type           String    @default("HOMEWORK") // HOMEWORK, EXAM, PROJECT, PRACTICE, PARTICIPATION
+  dueDate        DateTime? // Fecha de entrega o realización
+  maxScore       Float     // Puntaje máximo explícito (> 0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course         AcademicCourse   @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  subject        AcademicSubject  @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacherUser    User?            @relation("AcademicActivityTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
+  grades         AcademicGrade[]
+
+  @@index([organizationId, courseId])
+  @@index([organizationId, subjectId])
+  @@index([teacherUserId])
+  @@index([type])
+}
+
+model AcademicGrade {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  activityId     Int
+  studentId      Int
+  score          Float     // Calificación obtenida (0 <= score <= activity.maxScore)
+  comments       String?   // Comentarios o retroalimentación docente
+  gradedAt       DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  activity       AcademicActivity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  student        AcademicStudent  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([activityId, studentId])
+  @@index([organizationId, activityId])
+  @@index([organizationId, studentId])
+}
+
+
+
+

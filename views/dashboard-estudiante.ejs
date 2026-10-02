@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <%- include('partials/head') %>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-[#FAFBFD] text-slate-800 antialiased font-sans flex flex-col h-screen overflow-hidden">
+  <%- include('partials/impersonation-banner') %>
+    <div class="flex flex-1 h-full overflow-hidden">
+
+      <!-- Mobile Drawer Backdrop -->
+      <div id="mobile-sidebar-backdrop"
+        class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+
+      <!-- Left Sidebar Navigation -->
+      <aside id="sidebar-menu"
+        class="w-64 h-full bg-white border-r border-slate-100 flex-shrink-0 flex flex-col justify-between py-6 px-5 fixed lg:static inset-y-0 left-0 -translate-x-full lg:translate-x-0 z-50 transition-all duration-300 ease-in-out shadow-sm lg:shadow-none">
+
+        <div class="flex flex-col gap-8">
+          <!-- Profile Branding -->
+          <div class="flex items-center gap-3 px-1">
+            <div
+              class="w-11 h-11 rounded-full overflow-hidden bg-blue-100 border border-blue-200/50 flex-shrink-0 shadow-inner flex items-center justify-center">
+              <% if (profile && profile.foto) { %>
+                <img src="<%= profile.foto %>" alt="Foto" class="w-full h-full object-cover">
+                <% } else { %>
+                  <i class="fa-solid fa-graduation-cap text-xl text-[#0A3C84]"></i>
+                  <% } %>
+            </div>
+            <div class="min-w-0">
+              <h3 class="font-extrabold text-sm text-slate-900 leading-tight truncate">
+                <%= profile.user ? profile.user.name : user.name %>
+              </h3>
+              <span class="text-[10px] text-[#0A3C84] font-bold uppercase tracking-wider block mt-0.5"><i
+                  class="fa-solid fa-graduation-cap mr-1"></i>Estudiante</span>
+            </div>
+          </div>
+
+          <!-- Navigation Menu -->
+          <nav class="flex flex-col gap-1" id="nav-tabs">
+            <button id="btn-tab-dashboard" onclick="switchTab('dashboard')"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold bg-[#0A3C84] text-white shadow-sm shadow-[#0A3C84]/20 transition duration-200 w-full text-left cursor-pointer">
+              <i class="fa-solid fa-chart-line text-sm w-4 text-center"></i>
+              <span>Dashboard</span>
+            </button>
+            <button id="btn-tab-profile" onclick="switchTab('profile')"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+              <i class="fa-solid fa-user-pen text-sm w-4 text-center"></i>
+              <span>Perfil Académico</span>
+            </button>
+            <button id="btn-tab-projects" onclick="switchTab('projects')"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+              <i class="fa-solid fa-diagram-project text-sm w-4 text-center"></i>
+              <span>Mis Proyectos</span>
+            </button>
+            <button id="btn-tab-courses" onclick="switchTab('courses')"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+              <i class="fa-solid fa-certificate text-sm w-4 text-center"></i>
+              <span>Cursos & Certificados</span>
+            </button>
+            <button id="btn-tab-experiences" onclick="switchTab('experiences')"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+              <i class="fa-solid fa-briefcase text-sm w-4 text-center"></i>
+              <span>Pasantías & Experiencia</span>
+            </button>
+
+            <div class="h-px bg-slate-100 my-2"></div>
+
+            <button onclick="switchTab('transition')"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-extrabold text-[#0A3C84] bg-blue-50/70 hover:bg-blue-100/70 transition duration-200 w-full text-left cursor-pointer border border-blue-100/60">
+              <i class="fa-solid fa-[#0A3C84] fa-user-gear text-sm w-4 text-center"></i>
+              <span>Solicitar Rol Profesional</span>
+            </button>
+
+            <a href="/estudiantes"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+              <i class="fa-solid fa-users text-sm w-4 text-center"></i>
+              <span>Directorio Estudiantes</span>
+            </a>
+            <a href="/eventos"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+              <i class="fa-solid fa-calendar-days text-sm w-4 text-center"></i>
+              <span>Conversatorios</span>
+            </a>
+            <a href="/cursos"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+              <i class="fa-solid fa-graduation-cap text-sm w-4 text-center"></i>
+              <span>Cursos Online</span>
+            </a>
+          </nav>
+        </div>
+
+        <!-- Log Out -->
+        <div class="flex flex-col gap-2">
+          <div class="border-t border-slate-100 pt-4 flex flex-col gap-1">
+            <a href="/"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+              <i class="fa-solid fa-globe text-sm w-4 text-center text-sky-500"></i>
+              <span>Volver a la Web</span>
+            </a>
+            <a href="/logout"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50/50 transition duration-200">
+              <i class="fa-solid fa-right-from-bracket text-sm w-4 text-center"></i>
+              <span>Cerrar Sesión</span>
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <div class="flex-1 flex flex-col h-screen overflow-hidden">
+
+        <!-- Top Utility Header Bar -->
+        <header
+          class="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-6 md:px-10 flex-shrink-0">
+
+          <div class="flex items-center gap-4">
+            <button id="mobile-menu-toggle"
+              class="lg:hidden w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition border border-slate-100 cursor-pointer">
+              <i class="fa-solid fa-bars-staggered"></i>
+            </button>
+            <div>
+              <h1 id="header-page-title" class="text-xl md:text-2xl font-black text-slate-900 leading-none">Panel del
+                Estudiante</h1>
+              <span class="text-[10px] text-slate-400 font-extrabold mt-1.5 block uppercase tracking-wider">
+                <%= new Date().toLocaleDateString('es-ES', { weekday: 'long' , day: 'numeric' , month: 'short' ,
+                  year: 'numeric' }) %>
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <% if (profile && profile.slug) { %>
+              <a href="/estudiantes/<%= profile.slug %>" target="_blank"
+                class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-[#0A3C84] hover:bg-blue-100 text-xs font-bold transition">
+                <i class="fa-solid fa-external-link text-[10px]"></i> Ver Mi Perfil Público
+              </a>
+              <% } %>
+                <div class="flex items-center gap-2.5">
+                  <div
+                    class="w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-100 flex items-center justify-center shadow-inner flex-shrink-0">
+                    <% if (profile && profile.foto) { %>
+                      <img src="<%= profile.foto %>" class="w-full h-full object-cover">
+                      <% } else { %>
+                        <i class="fa-solid fa-user text-slate-400 text-sm"></i>
+                        <% } %>
+                  </div>
+                  <span class="text-xs font-black text-slate-800 hidden sm:inline">
+                    <%= (profile.user ? profile.user.name : user.name).split(' ')[0] %></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scrollable content area -->
+    <main class="flex-1 overflow-y-auto bg-[#FAFBFD] p-6 md:p-10 flex flex-col gap-8">
+
+      <!-- Alert Messages -->
+      <% if (typeof successMessage !== ' undefined' && successMessage) { %>
+                      <div
+                        class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 flex items-center gap-3 text-xs font-bold">
+                        <i class="fa-solid fa-circle-check text-emerald-500 text-base"></i>
+                        <span>
+                          <%= successMessage %>
+                        </span>
+                      </div>
+                      <% } %>
+
+                        <% if (typeof errorMessage !=='undefined' && errorMessage) { %>
+                          <div
+                            class="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 flex items-center gap-3 text-xs font-bold">
+                            <i class="fa-solid fa-circle-exclamation text-rose-500 text-base"></i>
+                            <span>
+                              <%= errorMessage %>
+                            </span>
+                          </div>
+                          <% } %>
+
+                            <!-- Role Transition Pending Banner -->
+                            <% if (typeof pendingTransition !=='undefined' && pendingTransition) { %>
+                              <div
+                                class="bg-amber-50 border border-amber-200/80 text-amber-900 rounded-2xl p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                                <div class="flex items-center gap-3.5">
+                                  <div
+                                    class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold flex-shrink-0">
+                                    <i class="fa-solid fa-user-gear text-lg"></i>
+                                  </div>
+                                  <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                      <h4 class="font-extrabold text-xs text-amber-950">Solicitud de Cambio a Perfil
+                                        Profesional en Revisión</h4>
+                                      <span
+                                        class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300/50">
+                                        <%= pendingTransition.estado %>
+                                      </span>
+                                    </div>
+                                    <p class="text-[11px] text-amber-800 font-medium mt-0.5">
+                                      Tu solicitud enviada el <strong>
+                                        <%= new Date(pendingTransition.fechaSolicitud).toLocaleDateString('es-EC') %>
+                                      </strong> está siendo verificada por administración.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              <% } %>
+
+                                <!-- TAB 1: DASHBOARD OVERVIEW -->
+                                <div id="tab-content-dashboard" class="flex flex-col gap-8">
+
+                                  <!-- KPI Cards -->
+                                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <div
+                                      class="bg-gradient-to-br from-[#0A3C84] to-[#0a66c2] text-white p-6 rounded-[24px] shadow-lg flex flex-col gap-3 relative overflow-hidden">
+                                      <div class="flex items-center justify-between">
+                                        <span
+                                          class="text-[10px] font-black uppercase tracking-widest text-blue-100">Proyectos
+                                          Académicos</span>
+                                        <i class="fa-solid fa-diagram-project text-white/40 text-lg"></i>
+                                      </div>
+                                      <span class="text-3xl font-black">
+                                        <%= profile.projects ? profile.projects.length : 0 %>
+                                      </span>
+                                      <span class="text-[11px] text-blue-100 font-medium">Proyectos en tu perfil</span>
+                                    </div>
+
+                                    <div
+                                      class="bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm flex flex-col gap-3">
+                                      <div class="flex items-center justify-between text-slate-400">
+                                        <span class="text-[10px] font-black uppercase tracking-widest">Cursos
+                                          Externos</span>
+                                        <i class="fa-solid fa-graduation-cap text-indigo-500"></i>
+                                      </div>
+                                      <span class="text-3xl font-black text-slate-900">
+                                        <%= profile.externalCourses ? profile.externalCourses.length : 0 %>
+                                      </span>
+                                      <span class="text-[11px] text-slate-400 font-medium">Capacitaciones
+                                        registradas</span>
+                                    </div>
+
+                                    <div
+                                      class="bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm flex flex-col gap-3">
+                                      <div class="flex items-center justify-between text-slate-400">
+                                        <span class="text-[10px] font-black uppercase tracking-widest">Pasantías /
+                                          Experiencia</span>
+                                        <i class="fa-solid fa-briefcase text-emerald-500"></i>
+                                      </div>
+                                      <span class="text-3xl font-black text-slate-900">
+                                        <%= profile.experiences ? profile.experiences.length : 0 %>
+                                      </span>
+                                      <span class="text-[11px] text-slate-400 font-medium">Experiencias laborales</span>
+                                    </div>
+
+                                    <div
+                                      class="bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm flex flex-col gap-3">
+                                      <div class="flex items-center justify-between text-slate-400">
+                                        <span class="text-[10px] font-black uppercase tracking-widest">Certificados
+                                          Plataforma</span>
+                                        <i class="fa-solid fa-award text-amber-500"></i>
+                                      </div>
+                                      <% const totalCert=(profile.user?.certificates?.length || 0) +
+                                        (profile.user?.acquiredCertificates?.length || 0); %>
+                                        <span class="text-3xl font-black text-slate-900">
+                                          <%= totalCert %>
+                                        </span>
+                                        <span class="text-[11px] text-slate-400 font-medium">Logros académicos
+                                          obtenidas</span>
+                                    </div>
+                                  </div>
+
+                                  <!-- Academic Info Summary & Completion Card -->
+                                  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                                    <div
+                                      class="lg:col-span-8 bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-sm space-y-6">
+                                      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                                        <h2 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                                          <i class="fa-solid fa-graduation-cap text-[#0A3C84]"></i> Información
+                                          Académica Principal
+                                        </h2>
+                                        <button onclick="switchTab('profile')"
+                                          class="text-xs font-bold text-[#0A3C84] hover:underline">Editar</button>
+                                      </div>
+
+                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                                        <div>
+                                          <span class="text-slate-400 font-bold uppercase text-[10px] block">Institución
+                                            Educativa</span>
+                                          <p class="font-bold text-slate-900 text-sm mt-0.5">
+                                            <%= profile.institucionEducativa || 'No especificada' %>
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <span class="text-slate-400 font-bold uppercase text-[10px] block">Carrera /
+                                            Especialidad</span>
+                                          <p class="font-bold text-slate-900 text-sm mt-0.5">
+                                            <%= profile.carrera || 'No especificada' %>
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <span class="text-slate-400 font-bold uppercase text-[10px] block">Estado de
+                                            la Carrera</span>
+                                          <span
+                                            class="inline-block mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase <%= profile.estadoCarrera === 'EGRESADO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900' %>">
+                                            <%= profile.estadoCarrera==='EGRESADO' ? 'Egresado / Graduado' : 'En Curso'
+                                              %>
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span class="text-slate-400 font-bold uppercase text-[10px] block">Carnet
+                                            Estudiantil</span>
+                                          <p class="font-bold text-slate-900 text-sm mt-0.5">
+                                            <%= profile.carnetEstudiante || 'No registrado' %>
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <% if (profile.bio) { %>
+                                        <div class="pt-4 border-t border-slate-100 text-xs">
+                                          <span
+                                            class="text-slate-400 font-bold uppercase text-[10px] block mb-1">Biografía
+                                            / Presentación</span>
+                                          <p class="text-slate-600 leading-relaxed">
+                                            <%= profile.bio %>
+                                          </p>
+                                        </div>
+                                        <% } %>
+                                    </div>
+
+                                    <!-- Profile Completion Widget -->
+                                    <div
+                                      class="lg:col-span-4 bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm space-y-4">
+                                      <h3 class="font-extrabold text-sm text-slate-900">Completitud del Perfil</h3>
+                                      <% const pct=typeof profileCompletion !=='undefined' && profileCompletion ?
+                                        profileCompletion.percentage : 50; %>
+                                        <div class="space-y-2">
+                                          <div class="flex justify-between text-xs font-bold">
+                                            <span class="text-slate-600">Progreso</span>
+                                            <span class="text-[#0A3C84]">
+                                              <%= pct %>%
+                                            </span>
+                                          </div>
+                                          <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                            <div
+                                              class="bg-gradient-to-r from-[#0A3C84] to-sky-500 h-full rounded-full transition-all duration-500"
+                                              style="width: <%= pct %>%"></div>
+                                          </div>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 leading-relaxed">
+                                          Mantén tu perfil académico completo para destacar ante profesionales y acceder
+                                          a beneficios.
+                                        </p>
+                                    </div>
+                                  </div>
+
+                                </div>
+
+                                <!-- TAB 2: EDIT PROFILE -->
+                                <div id="tab-content-profile" class="hidden flex-col gap-6">
+                                  <div
+                                    class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-sm space-y-6">
+                                    <h2
+                                      class="font-extrabold text-base text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-4">
+                                      <i class="fa-solid fa-user-pen text-[#0A3C84]"></i> Configurar Perfil Académico & Multimedia
+                                    </h2>
+
+                                    <form action="/student/profile" method="POST" class="space-y-6">
+                                      
+                                      <!-- Banner de Fondo & Foto de Perfil Uploaders Section -->
+                                      <div class="space-y-4 bg-slate-50 border border-slate-200/80 p-5 rounded-2xl">
+                                        <h3 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                                          <i class="fa-solid fa-image text-[#0A3C84]"></i> Foto de Perfil e Imagen de Portada (Fondo)
+                                        </h3>
+                                        
+                                        <!-- Live Preview Card -->
+                                        <div class="rounded-2xl overflow-hidden border border-slate-200 bg-black relative shadow-inner">
+                                          <!-- Banner Preview -->
+                                          <div class="h-36 w-full bg-slate-900 relative overflow-hidden flex items-center justify-center">
+                                            <img id="banner-preview-img" src="<%= profile.banner || '' %>" class="w-full h-full object-cover <%= profile.banner ? '' : 'hidden' %>">
+                                            <div id="banner-placeholder" class="<%= profile.banner ? 'hidden' : '' %> text-slate-400 text-xs font-bold flex flex-col items-center gap-1">
+                                              <i class="fa-solid fa-panorama text-2xl text-slate-500"></i>
+                                              <span>Sin Imagen de Fondo Personalizada</span>
+                                            </div>
+                                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+                                          </div>
+                                          
+                                          <!-- Avatar Preview (Overlapping) -->
+                                          <div class="p-4 flex items-end justify-between bg-white relative">
+                                            <div class="w-20 h-20 rounded-full border-4 border-white bg-slate-800 overflow-hidden shadow-md -mt-12 relative z-10 shrink-0">
+                                              <img id="foto-preview-img" src="<%= profile.foto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300' %>" class="w-full h-full object-cover">
+                                            </div>
+                                            <span class="text-[11px] font-bold text-slate-400">Vista Previa de tu Encabezado</span>
+                                          </div>
+                                        </div>
+
+                                        <!-- Upload Controls -->
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                          <div>
+                                            <label class="block text-xs font-extrabold text-slate-700 mb-1.5">Foto de Perfil (Avatar)</label>
+                                            <input type="file" accept="image/*" onchange="convertFileToBase64Preview(this, 'hidden-foto-b64', 'foto-preview-img')"
+                                              class="w-full text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                                            <input type="hidden" name="fotoBase64" id="hidden-foto-b64">
+                                          </div>
+
+                                          <div>
+                                            <label class="block text-xs font-extrabold text-slate-700 mb-1.5">Imagen de Portada / Fondo</label>
+                                            <input type="file" accept="image/*" onchange="convertFileToBase64Preview(this, 'hidden-banner-b64', 'banner-preview-img', 'banner-placeholder')"
+                                              class="w-full text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                                            <input type="hidden" name="bannerBase64" id="hidden-banner-b64">
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">Institución
+                                            Educativa <span class="text-rose-500">*</span></label>
+                                          <input type="text" name="institucionEducativa"
+                                            value="<%= profile.institucionEducativa || '' %>" required
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">Carrera / Área
+                                            de Estudio <span class="text-rose-500">*</span></label>
+                                          <input type="text" name="carrera" value="<%= profile.carrera || '' %>"
+                                            required
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">Carnet
+                                            Estudiantil <span class="text-rose-500">*</span></label>
+                                          <input type="text" name="carnetEstudiante"
+                                            value="<%= profile.carnetEstudiante || '' %>" required
+                                            placeholder="Número de carnet o código institucional"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">Estado de la
+                                            Carrera</label>
+                                          <select name="estadoCarrera"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                            <option value="EN_CURSO" <%=profile.estadoCarrera==='EN_CURSO' ? 'selected'
+                                              : '' %>>En Curso (Estudiante)</option>
+                                            <option value="EGRESADO" <%=profile.estadoCarrera==='EGRESADO' ? 'selected'
+                                              : '' %>>Egresado / Graduado</option>
+                                          </select>
+                                        </div>
+
+                                        <div>
+                                          <label
+                                            class="block text-xs font-extrabold text-slate-700 mb-2">Provincia</label>
+                                          <input type="text" name="provincia" value="<%= profile.provincia || '' %>"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">Ciudad</label>
+                                          <input type="text" name="ciudad" value="<%= profile.ciudad || '' %>"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">Teléfono de
+                                            Contacto (WhatsApp)</label>
+                                          <input type="text" name="telefono" value="<%= profile.telefono || '' %>"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">LinkedIn
+                                            URL</label>
+                                          <input type="url" name="linkedinUrl" value="<%= profile.linkedinUrl || '' %>"
+                                            placeholder="https://linkedin.com/in/usuario"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">GitHub
+                                            URL</label>
+                                          <input type="url" name="githubUrl" value="<%= profile.githubUrl || '' %>"
+                                            placeholder="https://github.com/usuario"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+
+                                        <div>
+                                          <label class="block text-xs font-extrabold text-slate-700 mb-2">Instagram URL</label>
+                                          <input type="url" name="instagramUrl" value="<%= profile.instagramUrl || '' %>"
+                                            placeholder="https://instagram.com/usuario"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                        </div>
+                                      </div>
+
+                                      <div>
+                                        <label class="block text-xs font-extrabold text-slate-700 mb-2">Biografía /
+                                          Presentación Breve</label>
+                                        <textarea name="bio" rows="4"
+                                          class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition"
+                                          placeholder="Escribe una breve descripción de tus intereses académicos y profesionales..."><%= profile.bio || '' %></textarea>
+                                      </div>
+
+                                      <div class="flex justify-end">
+                                        <button type="submit"
+                                          class="bg-[#0A3C84] hover:bg-[#08306b] text-white font-extrabold text-xs px-8 py-3 rounded-xl shadow-md transition cursor-pointer">
+                                          Guardar Cambios
+                                        </button>
+                                      </div>
+                                    </form>
+                                  </div>
+                                </div>
+
+                                <!-- TAB 3: PROJECTS -->
+                                <div id="tab-content-projects" class="hidden flex-col gap-6">
+                                  <div
+                                    class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-sm space-y-6">
+                                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                                      <h2 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                                        <i class="fa-solid fa-diagram-project text-[#0A3C84]"></i> Proyectos Académicos
+                                        y Personales
+                                      </h2>
+                                      <button onclick="toggleModal('modal-project')"
+                                        class="bg-[#0A3C84] hover:bg-[#08306b] text-white font-extrabold text-xs px-4 py-2 rounded-xl transition cursor-pointer">
+                                        + Agregar Proyecto
+                                      </button>
+                                    </div>
+
+                                    <% if (profile.projects && profile.projects.length> 0) { %>
+                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <% profile.projects.forEach(function(proj) { %>
+                                          <div
+                                            class="p-5 rounded-2xl border border-slate-100 bg-slate-50 flex flex-col justify-between gap-3 text-xs">
+                                            <div class="space-y-2">
+                                              <h3 class="font-bold text-slate-900 text-sm">
+                                                <%= proj.titulo %>
+                                              </h3>
+                                              <% if (proj.areaTecnologia) { %>
+                                                <span
+                                                  class="inline-block px-2.5 py-0.5 rounded-full bg-blue-100 text-[#0A3C84] text-[10px] font-bold">
+                                                  <%= proj.areaTecnologia %>
+                                                </span>
+                                                <% } %>
+                                                  <% if (proj.descripcion) { %>
+                                                    <p class="text-slate-600 leading-relaxed">
+                                                      <%= proj.descripcion %>
+                                                    </p>
+                                                    <% } %>
+                                              <% if (proj.imagenes && proj.imagenes.length > 0) { %>
+                                                <div class="flex items-center gap-2 pt-2 overflow-x-auto">
+                                                  <% proj.imagenes.slice(0, 5).forEach(function(imgUrl) { %>
+                                                    <a href="<%= imgUrl %>" target="_blank" class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 hover:opacity-80 transition shadow-sm">
+                                                      <img src="<%= imgUrl %>" class="w-full h-full object-cover">
+                                                    </a>
+                                                  <% }); %>
+                                                </div>
+                                              <% } else if (proj.imagenUrl) { %>
+                                                <div class="pt-2">
+                                                  <a href="<%= proj.imagenUrl %>" target="_blank" class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 block hover:opacity-80 transition shadow-sm">
+                                                    <img src="<%= proj.imagenUrl %>" class="w-full h-full object-cover">
+                                                  </a>
+                                                </div>
+                                              <% } %>
+                                            </div>
+                                            <div
+                                              class="flex items-center justify-between pt-2 border-t border-slate-200/50">
+                                              <% if (proj.enlaceRepo) { %>
+                                                <a href="<%= proj.enlaceRepo %>" target="_blank"
+                                                  class="text-[#0A3C84] font-bold hover:underline flex items-center gap-1">
+                                                  <i class="fa-solid fa-link"></i> Ver Enlace
+                                                </a>
+                                                <% } else { %><span></span>
+                                                  <% } %>
+                                                    <form action="/student/projects/<%= proj.id %>/delete" method="POST"
+                                                      onsubmit="return confirm('¿Eliminar este proyecto?')">
+                                                      <button type="submit"
+                                                        class="text-rose-500 hover:text-rose-700 font-bold cursor-pointer">Eliminar</button>
+                                                    </form>
+                                            </div>
+                                          </div>
+                                          <% }); %>
+                                      </div>
+                                      <% } else { %>
+                                        <p class="text-xs text-slate-400 text-center py-8">No has registrado proyectos
+                                          aún.</p>
+                                        <% } %>
+                                  </div>
+                                </div>
+
+                                <!-- TAB 4: COURSES & CERTIFICATES -->
+                                <div id="tab-content-courses" class="hidden flex-col gap-6">
+
+                                  <!-- Configure Certificate Name Section -->
+                                  <div
+                                    class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-sm space-y-4">
+                                    <h2
+                                      class="font-extrabold text-base text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+                                      <i class="fa-solid fa-id-card text-[#0A3C84]"></i> Nombre para Certificados
+                                    </h2>
+                                    <p class="text-xs text-slate-500 leading-relaxed">
+                                      Este nombre constará impreso en todos los certificados emitidos por la plataforma.
+                                      Solo puede cambiarse una vez cada 60 días.
+                                    </p>
+                                    <form id="form-config-nombre-cert" onsubmit="saveCertName(event)"
+                                      class="flex flex-col sm:flex-row gap-3 max-w-lg">
+                                      <input type="text" id="input-nombre-cert"
+                                        value="<%= user.nombreCertificado || user.name %>" required
+                                        class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84] focus:bg-white transition">
+                                      <button type="submit"
+                                        class="bg-[#0A3C84] hover:bg-[#08306b] text-white font-extrabold text-xs px-5 py-2.5 rounded-xl transition cursor-pointer">
+                                        Actualizar Nombre
+                                      </button>
+                                    </form>
+                                  </div>
+
+                                  <!-- Cursos Matriculados en Profesionales Ecuador (ej: Medicina) -->
+                                  <div class="space-y-3">
+                                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                      <i class="fa-solid fa-graduation-cap text-[#0A3C84]"></i> Mis Cursos Online Matriculados
+                                    </h3>
+                                    <% if (typeof enrollments !== 'undefined' && enrollments && enrollments.length > 0) { %>
+                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <% enrollments.forEach(function(enroll) { %>
+                                          <% const item = enroll.curso || enroll.conversatorio; %>
+                                          <% if (item) { %>
+                                            <div class="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm flex flex-col justify-between gap-3 text-xs">
+                                              <div class="flex items-start gap-3">
+                                                <div class="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-200">
+                                                  <img src="<%= item.banner || item.revistaPortada || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=400' %>" class="w-full h-full object-cover">
+                                                </div>
+                                                <div class="min-w-0 flex-1">
+                                                  <span class="text-[9px] font-black text-[#0A3C84] uppercase tracking-wider block"><%= enroll.curso ? 'Curso Online' : 'Conversatorio' %></span>
+                                                  <h4 class="font-extrabold text-slate-900 text-xs mt-0.5 truncate"><%= item.titulo %></h4>
+                                                  <span class="text-[10px] text-slate-500 block truncate"><%= item.slogan || item.areaProfesional || 'Capacitación Continua' %></span>
+                                                </div>
+                                              </div>
+                                              <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                                                <span class="text-[10px] font-bold text-slate-400">Inscrito</span>
+                                                <% if (enroll.curso) { %>
+                                                  <a href="/cursos/<%= item.id %>/aula" class="px-3.5 py-1.5 rounded-xl bg-[#0A3C84] hover:bg-[#08306b] text-white font-extrabold text-[10px] transition flex items-center gap-1.5 shadow-sm">
+                                                    <i class="fa-solid fa-graduation-cap"></i> Ingresar al Aula
+                                                  </a>
+                                                <% } else { %>
+                                                  <a href="/conversatorios/<%= item.slug || item.id %>" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-[10px] transition flex items-center gap-1.5 shadow-sm">
+                                                    <i class="fa-solid fa-circle-play"></i> Ver Evento
+                                                  </a>
+                                                <% } %>
+                                              </div>
+                                            </div>
+                                          <% } %>
+                                        <% }); %>
+                                      </div>
+                                    <% } else { %>
+                                      <p class="text-xs text-slate-400 italic">No tienes cursos o conversatorios matriculados actualmente.</p>
+                                    <% } %>
+                                  </div>
+
+                                  <!-- Certificados Obtenidos en Profesionales Ecuador -->
+                                  <div class="space-y-3">
+                                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Certificados en Profesionales Ecuador</h3>
+                                    <% if (profile && profile.user && (profile.user.certificates.length> 0 ||
+                                      profile.user.acquiredCertificates.length > 0)) { %>
+                                      <div class="space-y-2">
+                                        <% profile.user.certificates.forEach(function(c) { %>
+                                          <div
+                                            class="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-center justify-between text-xs">
+                                            <div>
+                                              <span class="font-bold text-slate-900">
+                                                <%= c.curso ? c.curso.titulo : 'Curso de Capacitación' %>
+                                              </span>
+                                              <span class="block text-[10px] text-slate-500 font-semibold">Código: <%=
+                                                  c.codigo %></span>
+                                            </div>
+                                            <span
+                                              class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">Aprobado</span>
+                                          </div>
+                                          <% }); %>
+                                            <% profile.user.acquiredCertificates.forEach(function(ac) { %>
+                                              <div
+                                                class="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-xs">
+                                                <div>
+                                                  <span class="font-bold text-slate-900">
+                                                    <%= ac.nombreEvento %>
+                                                  </span>
+                                                  <span class="block text-[10px] text-slate-500 font-semibold">
+                                                    <%= ac.horas %> horas académicas
+                                                  </span>
+                                                </div>
+                                                <a href="/certificados/<%= ac.codigo %>" target="_blank"
+                                                  class="px-3 py-1 rounded-xl bg-[#0a66c2] text-white font-bold text-[10px]">Ver
+                                                  Certificado</a>
+                                              </div>
+                                              <% }); %>
+                                      </div>
+                                      <% } else { %>
+                                        <p class="text-xs text-slate-400 italic">No posees certificados aún en la
+                                          plataforma.</p>
+                                        <% } %>
+                                  </div>
+
+                                  <% if (profile.externalCourses && profile.externalCourses.length> 0) { %>
+                                    <div class="space-y-3">
+                                      <% profile.externalCourses.forEach(function(ec) { %>
+                                        <div
+                                          class="p-4 rounded-2xl border border-slate-100 bg-slate-50 flex items-center justify-between text-xs">
+                                          <div>
+                                            <h4 class="font-bold text-slate-900">
+                                              <%= ec.nombreCurso %>
+                                            </h4>
+                                            <p class="text-slate-500 text-[11px]">
+                                              <%= ec.institucion %>
+                                                <%= ec.horas ? '· ' + ec.horas + ' horas' : '' %>
+                                                  <%= ec.anioEmision ? '· Año ' + ec.anioEmision : '' %>
+                                            </p>
+                                            <% if (ec.certificadoUrl) { 
+                                               let certLink = ec.certificadoUrl;
+                                               if (certLink.includes('cloudinary.com') && certLink.includes('/raw/upload/')) {
+                                                 const fn = certLink.split('/').pop();
+                                                 if (fn && !fn.includes('.')) certLink += '.pdf';
+                                               }
+                                             %>
+                                               <a href="<%= certLink %>" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0A3C84] hover:underline mt-1">
+                                                 <i class="fa-solid fa-file-pdf text-rose-500"></i> Ver Certificado
+                                               </a>
+                                             <% } %>
+                                          </div>
+                                          <form action="/student/external-courses/<%= ec.id %>/delete" method="POST"
+                                            onsubmit="return confirm('¿Eliminar este registro?')">
+                                            <button type="submit"
+                                              class="text-rose-500 hover:text-rose-700 font-bold cursor-pointer">Eliminar</button>
+                                          </form>
+                                        </div>
+                                        <% }); %>
+                                    </div>
+                                    <% } else { %>
+                                      <p class="text-xs text-slate-400 text-center py-6">No has registrado cursos
+                                        externos.</p>
+                                      <% } %>
+                                </div>
+
+                <!-- TAB 5: EXPERIENCES -->
+                <div id="tab-content-experiences" class="hidden flex-col gap-6">
+                  <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-sm space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                      <h2 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-briefcase text-[#0A3C84]"></i> Pasantías Preprofesionales & Experiencia
+                      </h2>
+                      <button onclick="toggleModal('modal-experience')"
+                        class="bg-[#0A3C84] hover:bg-[#08306b] text-white font-extrabold text-xs px-4 py-2 rounded-xl transition cursor-pointer">
+                        + Agregar Experiencia
+                      </button>
+                    </div>
+
+                    <% if (profile.experiences && profile.experiences.length> 0) { %>
+                      <div class="space-y-4">
+                        <% profile.experiences.forEach(function(exp) { %>
+                          <div
+                            class="p-5 rounded-2xl border border-slate-100 bg-slate-50 space-y-2 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="space-y-1">
+                              <span class="text-[10px] font-bold uppercase tracking-wider text-[#0A3C84]">
+                                <%= exp.tipo ? exp.tipo.replace('_', ' ' ) : 'EXPERIENCIA' %>
+                              </span>
+                              <h3 class="font-bold text-slate-900 text-sm">
+                                <%= exp.cargo %> — <%= exp.empresaInstitucion %>
+                              </h3>
+                              <% if (exp.descripcionFunciones) { %>
+                                <p class="text-slate-600 leading-relaxed">
+                                  <%= exp.descripcionFunciones %>
+                                </p>
+                                <% } %>
+                              <% if (exp.imagenes && exp.imagenes.length > 0) { %>
+                                <div class="flex items-center gap-2 pt-2 overflow-x-auto">
+                                  <% exp.imagenes.slice(0, 5).forEach(function(imgUrl) { %>
+                                    <a href="<%= imgUrl %>" target="_blank" class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 hover:opacity-80 transition shadow-sm">
+                                      <img src="<%= imgUrl %>" class="w-full h-full object-cover">
+                                    </a>
+                                  <% }); %>
+                                </div>
+                              <% } %>
+                            </div>
+                            <form action="/student/experiences/<%= exp.id %>/delete" method="POST"
+                              onsubmit="return confirm('¿Eliminar esta experiencia?')">
+                              <button type="submit"
+                                class="text-rose-500 hover:text-rose-700 font-bold cursor-pointer">Eliminar</button>
+                            </form>
+                          </div>
+                          <% }); %>
+                      </div>
+                      <% } else { %>
+                        <p class="text-xs text-slate-400 text-center py-8">No has registrado pasantías o experiencia
+                          laboral.</p>
+                        <% } %>
+                  </div>
+                </div>
+
+                <!-- TAB 6: ROLE TRANSITION REQUEST -->
+                <div id="tab-content-transition" class="hidden flex-col gap-6">
+                  <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-sm space-y-6">
+                    <h2
+                      class="font-extrabold text-base text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-4">
+                      <i class="fa-solid fa-user-gear text-[#0A3C84]"></i> Solicitar Transición a Perfil Profesional
+                    </h2>
+
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                      Si ya egresaste o te graduaste y deseas ofrecer tus servicios como Profesional verificado en la
+                      plataforma, adjunta tu título profesional o acta de grado para que administración apruebe tu
+                      cambio de rol.
+                    </p>
+
+                    <form action="/student/request-transition" method="POST" class="space-y-5 max-w-xl">
+                      <div>
+                        <label class="block text-xs font-extrabold text-slate-700 mb-2">Motivo de la Solicitud</label>
+                        <input type="text" name="motivoSolicitud"
+                          placeholder="Ej: He culminado mi carrera y cuento con título profesional" required
+                          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-[#0A3C84]">
+                      </div>
+
+                      <div>
+                        <label class="block text-xs font-extrabold text-slate-700 mb-2">Título Profesional / Acta de
+                          Grado (Base64 / Foto)</label>
+                        <input type="file" id="input-titulo-file" accept="image/*,.pdf"
+                          onchange="convertFileToBase64(this, 'hidden-titulo-b64')"
+                          class="w-full text-xs font-semibold text-slate-600">
+                        <input type="hidden" name="tituloCertificadoBase64" id="hidden-titulo-b64" required>
+                      </div>
+
+                      <button type="submit"
+                        class="bg-[#0A3C84] hover:bg-[#08306b] text-white font-extrabold text-xs px-6 py-3 rounded-xl transition cursor-pointer">
+                        Enviar Solicitud
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                </main>
+          </div>
+      </div>
+
+      <!-- Modal: Agregar Proyecto -->
+      <div id="modal-project"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full space-y-5 shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="font-extrabold text-sm text-slate-900">Nuevo Proyecto Académico</h3>
+            <button onclick="toggleModal('modal-project')"
+              class="text-slate-400 hover:text-slate-600 text-base cursor-pointer">&times;</button>
+          </div>
+          <form action="/student/projects" method="POST" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Título del Proyecto <span
+                  class="text-rose-500">*</span></label>
+              <input type="text" name="titulo" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Área / Tecnología</label>
+              <input type="text" name="areaTecnologia" placeholder="Ej: React, Medicina Preventiva, Derecho Penal"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Enlace / Repositorio</label>
+              <input type="url" name="enlaceRepo" placeholder="https://..."
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Imágenes / Evidencias (Máximo 5 imágenes)</label>
+              <input type="file" accept="image/*,.pdf" multiple onchange="handleStudentMultiUpload(this, 'proj-img-preview', 'proj-img-b64')"
+                class="w-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+              <div id="proj-img-preview" class="flex flex-wrap gap-2 mt-2"></div>
+              <input type="hidden" name="imagenesBase64" id="proj-img-b64">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Descripción</label>
+              <textarea name="descripcion" rows="3"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+              <button type="button" onclick="toggleModal('modal-project')"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100">Cancelar</button>
+              <button type="submit"
+                class="px-5 py-2 rounded-xl text-xs font-bold bg-[#0A3C84] text-white">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal: Agregar Curso Externo -->
+      <div id="modal-external-course"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full space-y-5 shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="font-extrabold text-sm text-slate-900">Registrar Curso Externo</h3>
+            <button onclick="toggleModal('modal-external-course')"
+              class="text-slate-400 hover:text-slate-600 text-base cursor-pointer">&times;</button>
+          </div>
+          <form action="/student/external-courses" method="POST" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Curso <span
+                  class="text-rose-500">*</span></label>
+              <input type="text" name="nombreCurso" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Institución Emisora <span
+                  class="text-rose-500">*</span></label>
+              <input type="text" name="institucion" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Horas Académicas</label>
+                <input type="number" name="horas"
+                  class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Año de Emisión</label>
+                <input type="number" name="anioEmision" value="2026"
+                  class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Certificado / Acreditación (PDF o Imagen)</label>
+              <input type="file" accept="image/*,.pdf" onchange="convertFileToBase64(this, 'ext-course-cert-b64')"
+                class="w-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+              <input type="hidden" name="certificadoBase64" id="ext-course-cert-b64">
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+              <button type="button" onclick="toggleModal('modal-external-course')"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100">Cancelar</button>
+              <button type="submit"
+                class="px-5 py-2 rounded-xl text-xs font-bold bg-[#0A3C84] text-white">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal: Agregar Experiencia -->
+      <div id="modal-experience"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full space-y-5 shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="font-extrabold text-sm text-slate-900">Agregar Pasantía / Experiencia</h3>
+            <button onclick="toggleModal('modal-experience')"
+              class="text-slate-400 hover:text-slate-600 text-base cursor-pointer">&times;</button>
+          </div>
+          <form action="/student/experiences" method="POST" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Tipo</label>
+              <select name="tipo"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+                <option value="PASANTIA_PREPROFESIONAL">Pasantía Preprofesional</option>
+                <option value="EXPERIENCIA_LABORAL">Experiencia Laboral</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Empresa / Institución <span
+                  class="text-rose-500">*</span></label>
+              <input type="text" name="empresaInstitucion" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Cargo / Rol <span
+                  class="text-rose-500">*</span></label>
+              <input type="text" name="cargo" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Imágenes / Evidencias / Certificados (Máximo 5 imágenes)</label>
+              <input type="file" accept="image/*,.pdf" multiple onchange="handleStudentMultiUpload(this, 'exp-img-preview', 'exp-img-b64')"
+                class="w-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+              <div id="exp-img-preview" class="flex flex-wrap gap-2 mt-2"></div>
+              <input type="hidden" name="imagenesBase64" id="exp-img-b64">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Descripción de Funciones</label>
+              <textarea name="descripcionFunciones" rows="3"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+              <button type="button" onclick="toggleModal('modal-experience')"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100">Cancelar</button>
+              <button type="submit"
+                class="px-5 py-2 rounded-xl text-xs font-bold bg-[#0A3C84] text-white">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+        function switchTab(tabId) {
+          const tabs = ['dashboard', 'profile', 'projects', 'courses', 'experiences', 'transition'];
+          tabs.forEach(t => {
+            const content = document.getElementById(`tab-content-${t}`);
+            const btn = document.getElementById(`btn-tab-${t}`);
+            if (content) content.classList.add('hidden');
+            if (btn) {
+              btn.classList.remove('bg-[#0A3C84]', 'text-white');
+              btn.classList.add('text-slate-500');
+            }
+          });
+
+          const activeContent = document.getElementById(`tab-content-${tabId}`);
+          const activeBtn = document.getElementById(`btn-tab-${tabId}`);
+          if (activeContent) activeContent.classList.remove('hidden');
+          if (activeBtn) {
+            activeBtn.classList.add('bg-[#0A3C84]', 'text-white');
+            activeBtn.classList.remove('text-slate-500');
+          }
+        }
+
+        function toggleModal(modalId) {
+          const m = document.getElementById(modalId);
+          if (m) m.classList.toggle('hidden');
+        }
+
+        function isAllowedFileType(file) {
+          if (!file) return false;
+          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+          return allowedTypes.includes(file.type.toLowerCase()) || file.type.startsWith('image/');
+        }
+
+        function convertFileToBase64(fileInput, hiddenInputId) {
+          const file = fileInput.files[0];
+          if (file) {
+            if (!isAllowedFileType(file)) {
+              alert('Formato no permitido. Solo se aceptan imágenes (JPG, PNG, WEBP) o PDF.');
+              fileInput.value = '';
+              return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+              alert('El archivo excede el tamaño máximo permitido de 10MB.');
+              fileInput.value = '';
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = function (e) {
+              document.getElementById(hiddenInputId).value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+          }
+        }
+
+        function convertFileToBase64Preview(fileInput, hiddenInputId, previewImgId, placeholderId) {
+          const file = fileInput.files[0];
+          if (file) {
+            if (!file.type.startsWith('image/')) {
+              alert('Formato no permitido. Para este campo solo se aceptan imágenes (JPG, PNG, WEBP).');
+              fileInput.value = '';
+              return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+              alert('La imagen excede el tamaño máximo permitido de 10MB.');
+              fileInput.value = '';
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = function (e) {
+              document.getElementById(hiddenInputId).value = e.target.result;
+              const previewImg = document.getElementById(previewImgId);
+              if (previewImg) {
+                previewImg.src = e.target.result;
+                previewImg.classList.remove('hidden');
+              }
+              if (placeholderId) {
+                const placeholder = document.getElementById(placeholderId);
+                if (placeholder) placeholder.classList.add('hidden');
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        }
+
+        function handleStudentMultiUpload(inputEl, previewId, hiddenId) {
+          let files = Array.from(inputEl.files);
+          
+          // Validar archivos individualmente
+          const validFiles = files.filter(f => {
+            if (!isAllowedFileType(f)) {
+              alert(`El archivo "${f.name}" no es una imagen o PDF válido.`);
+              return false;
+            }
+            if (f.size > 10 * 1024 * 1024) {
+              alert(`El archivo "${f.name}" supera los 10MB.`);
+              return false;
+            }
+            return true;
+          }).slice(0, 5);
+
+          const previewEl = document.getElementById(previewId);
+          const hiddenEl = document.getElementById(hiddenId);
+          if (!previewEl || !hiddenEl) return;
+          previewEl.innerHTML = '';
+          const b64List = [];
+          if (validFiles.length === 0) { hiddenEl.value = ''; return; }
+          let loaded = 0;
+          validFiles.forEach((file, idx) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              const b64 = e.target.result;
+              b64List.push(b64);
+              const div = document.createElement('div');
+              div.className = 'relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex-shrink-0';
+              if (file.type.includes('pdf')) {
+                div.innerHTML = `<div class="w-full h-full bg-rose-50 flex items-center justify-center text-rose-600 font-bold text-[10px]">PDF ${idx+1}</div>`;
+              } else {
+                div.innerHTML = `<img src="${b64}" class="w-full h-full object-cover">`;
+              }
+              previewEl.appendChild(div);
+              loaded++;
+              if (loaded === validFiles.length) {
+                hiddenEl.value = JSON.stringify(b64List);
+              }
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        async function saveCertName(e) {
+          e.preventDefault();
+          const val = document.getElementById('input-nombre-cert').value;
+          try {
+            const res = await fetch('/student/configurar-nombre', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nombreCertificado: val })
+            });
+            const data = await res.json();
+            alert(data.message || data.error);
+          } catch (err) {
+            alert('Error al actualizar nombre.');
+          }
+        }
+      </script>
+</body>
+
+</html>

@@ -1,0 +1,42 @@
+export const ORGANIZATION_TYPE = {
+  INDIVIDUAL: "INDIVIDUAL",
+  CLINIC: "CLINIC",
+  OFFICE: "OFFICE",
+  INSTITUTION: "INSTITUTION",
+  BUSINESS: "BUSINESS",
+  OTHER: "OTHER",
+} as const;
+
+export type OrganizationType = (typeof ORGANIZATION_TYPE)[keyof typeof ORGANIZATION_TYPE];
+
+export const ORGANIZATION_STATUS = {
+  ACTIVE: "ACTIVE",
+  SUSPENDED: "SUSPENDED",
+  ARCHIVED: "ARCHIVED",
+} as const;
+
+export type OrganizationStatus = (typeof ORGANIZATION_STATUS)[keyof typeof ORGANIZATION_STATUS];
+
+export const ORGANIZATION_MEMBER_ROLE = {
+  OWNER: "OWNER",
+  ADMIN: "ADMIN",
+  PROFESSIONAL: "PROFESSIONAL",
+  ASSISTANT: "ASSISTANT",
+  SECRETARY: "SECRETARY",
+} as const;
+
+export type OrganizationMemberRole = (typeof ORGANIZATION_MEMBER_ROLE)[keyof typeof ORGANIZATION_MEMBER_ROLE];
+
+export const ORGANIZATION_MEMBER_STATUS = {
+  INVITED: "INVITED",
+  ACTIVE: "ACTIVE",
+  SUSPENDED: "SUSPENDED",
+  REMOVED: "REMOVED",
+} as const;
+
+export type OrganizationMemberStatus = (typeof ORGANIZATION_MEMBER_STATUS)[keyof typeof ORGANIZATION_MEMBER_STATUS];
+
+export const VALID_ORGANIZATION_TYPES = Object.values(ORGANIZATION_TYPE);
+export const VALID_ORGANIZATION_STATUSES = Object.values(ORGANIZATION_STATUS);
+export const VALID_MEMBER_ROLES = Object.values(ORGANIZATION_MEMBER_ROLE);
+export const VALID_MEMBER_STATUSES = Object.values(ORGANIZATION_MEMBER_STATUS);

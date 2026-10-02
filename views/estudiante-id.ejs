@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es" class="<%= studentId.theme === 'dark' ? 'dark' : '' %>">
+<head>
+  <%- include('partials/head') %>
+  <title><%= title %></title>
+  <meta name="description" content="<%= metaDescription %>">
+  
+  <!-- OpenGraph Metadata -->
+  <meta property="og:title" content="<%= user.name %> — Estudiantes ID">
+  <meta property="og:description" content="<%= metaDescription %>">
+  <meta property="og:image" content="<%= profile.foto || '/img/default-avatar.png' %>">
+  <meta property="og:type" content="profile">
+
+  <style>
+    <% if (studentId.theme === 'dark') { %>
+      body { background-color: #0F172A !important; color: #F8FAFC !important; }
+    <% } else if (studentId.theme === 'emerald') { %>
+      body { background-color: #FAFDFB !important; color: #064E3B !important; }
+    <% } else if (studentId.theme === 'purple') { %>
+      body { background-color: #FAFAFF !important; color: #3B0764 !important; }
+    <% } else { %>
+      /* Default / academic_blue / light: Fondo Blanco */
+      body { background-color: #FFFFFF !important; color: #0F172A !important; }
+    <% } %>
+
+    .id-btn-shape-rectangle { border-radius: 0.5rem !important; }
+    .id-btn-shape-rounded { border-radius: 1.25rem !important; }
+    .id-btn-shape-pill { border-radius: 9999px !important; }
+
+    .id-align-center { text-align: center; justify-content: center; }
+    .id-align-left { text-align: left; justify-content: flex-start; }
+  </style>
+</head>
+<body class="bg-white dark:bg-[#0B0F19] text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-brand-blue selection:text-white">
+
+  <!-- Floating Utility Header (Share & QR Code) -->
+  <div class="fixed top-4 right-4 z-40 flex items-center gap-2">
+    <button onclick="openQrModal()" class="w-10 h-10 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-700 shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer" title="Ver Código QR">
+      <i class="fa-solid fa-qrcode text-sm"></i>
+    </button>
+    <button onclick="shareIdLink()" class="w-10 h-10 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-700 shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer" title="Compartir enlace">
+      <i class="fa-solid fa-share-nodes text-sm"></i>
+    </button>
+  </div>
+
+  <!-- Central Card Container (Mobile First Design) -->
+  <main class="w-full max-w-md mx-auto min-h-screen px-4 py-8 flex flex-col justify-between">
+    
+    <div class="flex flex-col gap-6">
+
+      <!-- BLOQUE 1 — IDENTIDAD ACADÉMICA -->
+      <div class="flex flex-col items-center text-center pt-4">
+        <!-- Photo with status indicator -->
+        <div class="relative w-24 h-24 mb-4">
+          <div class="w-full h-full rounded-full overflow-hidden border-4 border-slate-100 dark:border-slate-800 shadow-xl bg-slate-100 flex items-center justify-center">
+            <% if (profile.foto) { %>
+              <img src="<%= profile.foto %>" alt="<%= user.name %>" class="w-full h-full object-cover">
+            <% } else { %>
+              <i class="fa-solid fa-user-graduate text-4xl text-slate-400"></i>
+            <% } %>
+          </div>
+          <div class="absolute bottom-0 right-0 w-7 h-7 bg-[#0A3C84] text-white rounded-full flex items-center justify-center shadow-md border-2 border-white dark:border-slate-800" title="Estudiante / Egresado Verificado">
+            <i class="fa-solid fa-graduation-cap text-xs"></i>
+          </div>
+        </div>
+
+        <!-- Name & Username -->
+        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5 justify-center">
+          <%= user.name %>
+        </h1>
+
+        <!-- Carrera y Estado Académico -->
+        <span class="text-xs font-bold text-[#0A3C84] dark:text-sky-400 mt-1 uppercase tracking-wider">
+          <%= profile.carrera || "Estudiante Universitario" %>
+        </span>
+
+        <!-- Universidad / Institución Educativa -->
+        <div class="flex items-center gap-1.5 mt-1.5 text-slate-700 dark:text-slate-300 text-xs font-semibold">
+          <i class="fa-solid fa-university text-[#0A3C84] dark:text-sky-400"></i>
+          <span><%= profile.institucionEducativa || (university ? university.nombre : 'Universidad de Ecuador') %></span>
+        </div>
+
+        <!-- Estado de Carrera Badge (ej: 8vo Semestre o Egresado) -->
+        <span class="text-[11px] font-extrabold text-[#0A3C84] dark:text-sky-300 bg-sky-50 dark:bg-sky-950/80 border border-sky-200 dark:border-sky-800 px-3.5 py-1 rounded-full mt-2.5 font-mono shadow-xs">
+          <%= profile.estadoCarrera === 'EGRESADO' ? 'Egresado / Graduado' : 'Estudiante en Curso' %> • @<%= studentId.slug %>
+        </span>
+
+        <!-- Short Description -->
+        <% if (studentId.shortDescription) { %>
+          <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mt-3.5 max-w-xs leading-relaxed">
+            <%= studentId.shortDescription %>
+          </p>
+        <% } %>
+      </div>
+
+      <!-- BLOQUE 2 — BOTÓN PRINCIPAL DESTACADO -->
+      <% if (studentId.primaryActionType) { %>
+        <% 
+          let primaryHref = "#";
+          let primaryIcon = "fa-solid fa-file-pdf";
+          let primaryBg = "bg-[#0A3C84] hover:bg-[#082C62] text-white shadow-lg shadow-[#0A3C84]/20";
+
+          if (studentId.primaryActionType === "WHATSAPP") {
+            const rawPhone = (profile.telefono || '').replace(/[^0-9]/g, '');
+            let phoneNum = rawPhone;
+            if (phoneNum && !phoneNum.startsWith('593')) {
+              phoneNum = phoneNum.startsWith('0') ? '593' + phoneNum.substring(1) : '593' + phoneNum;
+            }
+            const msg = encodeURIComponent(`Hola ${user.name}, vi tu Estudiantes ID y me interesa consultarte sobre una oportunidad de pasantía / empleo.`);
+            primaryHref = studentId.primaryActionValue && studentId.primaryActionValue.includes('wa.me') ? studentId.primaryActionValue : `https://wa.me/${phoneNum}?text=${msg}`;
+            primaryIcon = "fa-brands fa-whatsapp text-lg";
+            primaryBg = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25";
+          } else if (studentId.primaryActionType === "PORTFOLIO") {
+            primaryHref = `/estudiante/${profile.slug}#proyectos`;
+            primaryIcon = "fa-solid fa-folder-open";
+          } else if (studentId.primaryActionType === "LINKEDIN") {
+            primaryHref = profile.linkedinUrl ? (profile.linkedinUrl.startsWith('http') ? profile.linkedinUrl : `https://${profile.linkedinUrl}`) : '#';
+            primaryIcon = "fa-brands fa-linkedin text-lg";
+            primaryBg = "bg-[#0A66C2] hover:bg-[#004182] text-white shadow-lg shadow-blue-600/25";
+          } else if (studentId.primaryActionType === "CV_DOWNLOAD" || studentId.primaryActionType === "CUSTOM") {
+            primaryHref = studentId.primaryActionValue || (profile.slug ? `/estudiante/${profile.slug}` : '#');
+            primaryIcon = "fa-solid fa-file-pdf text-lg";
+          }
+
+          let isFileDownload = primaryHref && (primaryHref.startsWith('data:') || primaryHref.includes('student-id-documents') || primaryHref.includes('raw/upload') || studentId.primaryActionType === 'CV_DOWNLOAD');
+          if (isFileDownload && primaryHref.startsWith('http')) {
+            const downloadName = (user.name || 'Hoja_de_Vida').replace(/[^a-zA-Z0-9]/g, '_') + '_CV';
+            primaryHref = `/download/file?url=${encodeURIComponent(primaryHref)}&name=${encodeURIComponent(downloadName)}`;
+          }
+          const btnShapeClass = studentId.buttonStyle === 'pill' ? 'id-btn-shape-pill' : (studentId.buttonStyle === 'rectangle' ? 'id-btn-shape-rectangle' : 'id-btn-shape-rounded');
+        %>
+        <div class="w-full">
+          <a href="<%= primaryHref %>" <%= isFileDownload ? 'download' : 'target="_blank"' %> onclick="trackEvent('PRIMARY_ACTION')" class="w-full py-4 px-6 font-extrabold text-sm transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] <%= primaryBg %> <%= btnShapeClass %>">
+            <i class="<%= primaryIcon %>"></i>
+            <span><%= studentId.primaryActionTitle || "Descargar Hoja de Vida / CV" %></span>
+          </a>
+        </div>
+      <% } %>
+
+      <!-- BLOQUE 3 — LISTA DE BOTONES Y ENLACES ACADÉMICOS -->
+      <% if (links && links.length > 0) { %>
+        <div class="flex flex-col gap-3">
+          <% links.forEach(link => { %>
+            <% 
+              let targetUrl = link.url || '#';
+              if (link.type === 'PROFILE') targetUrl = `/estudiante/${profile.slug}`;
+              if (link.type === 'PORTFOLIO' || link.type === 'PROJECTS') targetUrl = `/estudiante/${profile.slug}#proyectos`;
+              if (link.type === 'WHATSAPP') {
+                if (link.url && link.url.includes('wa.me')) {
+                  targetUrl = link.url;
+                } else {
+                  const rawPhone = (profile.telefono || '').replace(/[^0-9]/g, '');
+                  let phoneNum = rawPhone;
+                  if (phoneNum && !phoneNum.startsWith('593')) {
+                    phoneNum = phoneNum.startsWith('0') ? '593' + phoneNum.substring(1) : '593' + phoneNum;
+                  }
+                  const msg = encodeURIComponent(`Hola ${user.name}, vi tu Estudiantes ID y me interesa consultarte sobre una oportunidad de pasantía / empleo.`);
+                  targetUrl = `https://wa.me/${phoneNum}?text=${msg}`;
+                }
+              }
+              if (link.type === 'PHONE') targetUrl = `tel:${(profile.telefono || '').replace(/[^0-9+]/g, '')}`;
+              if (link.type === 'EMAIL') targetUrl = `mailto:${user.email}`;
+
+              let isLinkFile = targetUrl && (targetUrl.startsWith('data:') || targetUrl.includes('student-id-documents') || targetUrl.includes('raw/upload') || link.type === 'CV' || link.type === 'DOCUMENT');
+              if (isLinkFile && targetUrl.startsWith('http')) {
+                const downloadName = (link.title || 'Documento').replace(/[^a-zA-Z0-9]/g, '_');
+                targetUrl = `/download/file?url=${encodeURIComponent(targetUrl)}&name=${encodeURIComponent(downloadName)}`;
+              }
+              const alignClass = studentId.alignment === 'left' ? 'id-align-left' : 'id-align-center';
+              const btnShapeClass = studentId.buttonStyle === 'pill' ? 'id-btn-shape-pill' : (studentId.buttonStyle === 'rectangle' ? 'id-btn-shape-rectangle' : 'id-btn-shape-rounded');
+            %>
+            <a href="<%= targetUrl %>" 
+               <%= isLinkFile ? 'download="' + (link.title || 'Documento').replace(/[^a-zA-Z0-9]/g, '_') + '.pdf"' : (targetUrl.startsWith('http') ? 'target="_blank"' : '') %>
+               onclick="trackEvent('LINK_CLICK', '<%= link.id %>')" 
+               class="w-full py-3.5 px-5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 font-bold text-xs shadow-sm transition-all duration-200 flex items-center gap-3 cursor-pointer hover:scale-[1.01] active:scale-[0.99] <%= alignClass %> <%= btnShapeClass %>">
+              <% if (link.icon && (link.icon.startsWith('data:') || link.icon.startsWith('http') || link.icon.startsWith('/'))) { %>
+                <img src="<%= link.icon %>" alt="Icon" class="w-5 h-5 object-contain shrink-0">
+              <% } else if (link.icon) { %>
+                <i class="<%= link.icon %> text-base text-[#0A3C84] dark:text-sky-400 shrink-0"></i>
+              <% } %>
+              <span class="truncate"><%= link.title %></span>
+            </a>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <!-- BLOQUE 4 — PROYECTOS DESTACADOS Y LOGROS -->
+      <% if (blocks && blocks.length > 0) { %>
+        <div class="flex flex-col gap-4 mt-2">
+          <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Proyectos & Logros Destacados</h2>
+          <% blocks.forEach(b => { %>
+            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+              <% if (b.image) { %>
+                <div class="w-full h-36 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-100 dark:border-slate-700">
+                  <img src="<%= b.image %>" alt="<%= b.title %>" class="w-full h-full object-cover">
+                </div>
+              <% } %>
+              <div class="flex flex-col gap-1">
+                <h3 class="font-extrabold text-sm text-slate-900 dark:text-white"><%= b.title %></h3>
+                <% if (b.description) { %>
+                  <p class="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed"><%= b.description %></p>
+                <% } %>
+              </div>
+              <% if (b.url) { %>
+                <a href="<%= b.url %>" target="_blank" onclick="trackEvent('BLOCK_CLICK')" class="w-full py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-650 text-slate-800 dark:text-slate-100 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition cursor-pointer">
+                  <span><%= b.buttonText || 'Ver Proyecto' %></span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </a>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+
+    </div>
+
+    <!-- BLOQUE 5 — FOOTER ACADÉMICO -->
+    <footer class="mt-12 pt-6 border-t border-slate-200 dark:border-slate-800 text-center flex flex-col items-center gap-2">
+      <a href="/" class="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-slate-200 tracking-tight hover:opacity-80 transition">
+        <div class="w-6 h-6 rounded-lg bg-[#0A3C84] text-white flex items-center justify-center font-extrabold text-[10px] shadow-sm">PE</div>
+        <span>Profesionales Ecuador • Estudiantes ID</span>
+      </a>
+      <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+        Identidad digital académica para estudiantes y egresados.
+      </p>
+    </footer>
+
+  </main>
+
+  <!-- Modal Código QR -->
+  <div id="qr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-xs w-full text-center shadow-2xl flex flex-col items-center gap-4 relative">
+      <button onclick="closeQrModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-base cursor-pointer">
+        <i class="fa-solid fa-times"></i>
+      </button>
+      <h3 class="font-extrabold text-slate-900 dark:text-white text-sm">Código QR Estudiantil</h3>
+      <div class="p-3 bg-white rounded-2xl border border-slate-200 shadow-inner">
+        <img id="qr-modal-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=<%= encodeURIComponent('https://profesionales.ec/estudiantes/@' + studentId.slug) %>" alt="QR" class="w-48 h-48 object-contain">
+      </div>
+      <span class="text-xs font-mono font-bold text-slate-500">@<%= studentId.slug %></span>
+    </div>
+  </div>
+
+  <script>
+    function trackEvent(eventType, linkId = null) {
+      try {
+        fetch('/api/student/id/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug: '<%= studentId.slug %>',
+            eventType,
+            linkId
+          })
+        });
+      } catch(e) {}
+    }
+
+    function shareIdLink() {
+      const url = window.location.href;
+      if (navigator.share) {
+        navigator.share({
+          title: '<%= user.name %> — Estudiantes ID',
+          url: url
+        }).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(url);
+        alert('¡Enlace copiado al portapapeles!');
+      }
+    }
+
+    function openQrModal() {
+      document.getElementById('qr-modal').classList.remove('hidden');
+    }
+
+    function closeQrModal() {
+      document.getElementById('qr-modal').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

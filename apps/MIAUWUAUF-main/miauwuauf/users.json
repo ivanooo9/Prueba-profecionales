@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Administrador",
+    "phone": null,
+    "cedula": null
+  },
+  {
+    "name": "Veterinario Test",
+    "phone": null,
+    "cedula": null
+  },
+  {
+    "name": "erick",
+    "phone": "09849786868",
+    "cedula": "1106002627"
+  },
+  {
+    "name": "TERRY ",
+    "phone": "0981990203",
+    "cedula": null
+  },
+  {
+    "name": "Test Owner Final",
+    "phone": "0999999999",
+    "cedula": "1755555555"
+  },
+  {
+    "name": "Lander Gonzalez",
+    "phone": null,
+    "cedula": null
+  },
+  {
+    "name": "Santiago Gonzalez",
+    "phone": "0984656026",
+    "cedula": "1106002628"
+  }
+]

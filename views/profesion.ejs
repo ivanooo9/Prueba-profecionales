@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bgLight flex flex-col min-h-screen text-slate-800 antialiased">
+  
+  <!-- Header / Navbar -->
+  <%- include('partials/header') %>
+
+  <!-- Profession Header Banner / Carousel -->
+  <section class="relative w-full h-[40vh] md:h-[50vh] bg-black overflow-hidden group">
+    <!-- Slides Container -->
+    <div id="profession-slider" class="relative w-full h-full">
+      <% 
+        let slideIdx = 0;
+      %>
+      <% if (typeof activeCategoryPromotions !== 'undefined' && activeCategoryPromotions && activeCategoryPromotions.length > 0) { %>
+        <% activeCategoryPromotions.forEach(function(promo) { %>
+          <div class="profession-slide absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out <%= slideIdx === 0 ? 'opacity-100' : 'opacity-0' %>" style="background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.7)), url('<%= promo.bannerCategory %>'); background-size: cover; background-position: center;">
+            <div class="absolute inset-0 flex flex-col justify-center px-6 md:px-16 lg:px-24">
+              <span class="bg-[#0A3C84] text-white text-[9px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded self-start mb-3 select-none">ANUNCIO DESTACADO</span>
+              <h1 class="text-white text-3xl md:text-5xl font-black max-w-3xl leading-tight mb-2 select-none">
+                <%= promo.profile.user.name %>
+              </h1>
+              <p class="text-slate-300 text-xs md:text-sm max-w-xl font-medium">
+                <%= promo.profile.slogan || 'Profesional Calificado y Destacado en ' + profession.nombre %>
+              </p>
+              <div class="mt-6">
+                <a href="<%= promo.profile.slug ? '/directorio/' + promo.profile.slug : '/directorio' %>" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-2.5 px-6 rounded-full shadow-lg transition text-xs inline-block">
+                  Ver Perfil Profesional <i class="fa-solid fa-arrow-right ml-1"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+          <% slideIdx++; %>
+        <% }); %>
+      <% } %>
+
+      <% if (carousels && carousels.length > 0) { %>
+        <% carousels.forEach(function(slide) { %>
+          <div class="profession-slide absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out <%= slideIdx === 0 ? 'opacity-100' : 'opacity-0' %>" style="background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.7)), url('<%= slide.imageUrl %>'); background-size: cover; background-position: center;">
+            <div class="absolute inset-0 flex flex-col justify-center px-6 md:px-16 lg:px-24">
+              <span class="text-xs font-black tracking-widest text-sky-400 uppercase mb-2"><i class="fa-solid fa-folder-open mr-1"></i> Categoría Profesional</span>
+              <h1 class="text-white text-3xl md:text-5xl font-black max-w-3xl leading-tight mb-2 select-none">
+                <%= slide.titulo || profession.nombre %>
+              </h1>
+              <p class="text-slate-300 text-xs md:text-sm max-w-xl font-medium">
+                <%= slide.subtitulo || profession.descripcion || 'Directorio y capacitación continua.' %>
+              </p>
+            </div>
+          </div>
+          <% slideIdx++; %>
+        <% }); %>
+      <% } %>
+
+      <% if (slideIdx === 0) { %>
+        <!-- Default Cover Slide -->
+        <% 
+          let defaultBg = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1200";
+          if (profession.nombre.toLowerCase().includes('salud')) defaultBg = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=1200";
+          else if (profession.nombre.toLowerCase().includes('derecho')) defaultBg = "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?q=80&w=1200";
+          else if (profession.nombre.toLowerCase().includes('economia')) defaultBg = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1200";
+        %>
+        <div class="profession-slide absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out opacity-100" style="background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.7)), url('<%= defaultBg %>'); background-size: cover; background-position: center;">
+          <div class="absolute inset-0 flex flex-col justify-center px-6 md:px-16 lg:px-24">
+            <span class="text-xs font-black tracking-widest text-sky-400 uppercase mb-2"><i class="fa-solid fa-folder-open mr-1"></i> Categoría Profesional</span>
+            <h1 class="text-white text-3xl md:text-5xl font-black max-w-3xl leading-tight mb-2 select-none">
+              <%= profession.nombre %>
+            </h1>
+            <p class="text-slate-300 text-xs md:text-sm max-w-xl font-medium">
+              <%= profession.descripcion || 'Encuentre profesionales acreditados y verifique sus especialidades.' %>
+            </p>
+          </div>
+        </div>
+        <% slideIdx = 1; %>
+      <% } %>
+    </div>
+
+    <% if (slideIdx > 1) { %>
+      <!-- Arrow Controls -->
+      <button id="slider-prev" class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition border border-white/10 z-10">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <button id="slider-next" class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition border border-white/10 z-10">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    <% } %>
+  </section>
+
+  <!-- Specialties Section -->
+  <main class="flex-grow max-w-7xl mx-auto w-full px-6 md:px-12 py-16 flex flex-col gap-10">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-100 pb-6" data-reveal="fade-up">
+      <div>
+        <h2 class="text-3xl font-black text-slate-900 tracking-tight">Especialidades Disponibles</h2>
+        <p class="text-slate-500 text-xs mt-1 font-semibold">Selecciona una rama para filtrar los profesionales autorizados.</p>
+      </div>
+      <a href="/directorio?profession=<%= encodeURIComponent(profession.nombre) %>" class="inline-flex items-center gap-1.5 text-xs font-black text-[#033E8C] hover:underline whitespace-nowrap">
+        Ver todos de <%= profession.nombre %> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+      </a>
+    </div>
+
+    <!-- Specialties Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-reveal-stagger="true" data-stagger-step="70">
+      <% if (specialties && specialties.length > 0) { %>
+        <% specialties.forEach(function(spec) { %>
+          <div class="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-col group relative premium-card-hover" data-reveal="fade-up">
+            
+            <% 
+              let specIcon = "fa-briefcase";
+              const profLower = profession.nombre.toLowerCase();
+              if (profLower.includes("salud") || profLower.includes("medicina")) {
+                specIcon = "fa-user-md";
+              } else if (profLower.includes("derecho") || profLower.includes("leyes")) {
+                specIcon = "fa-scale-balanced";
+              } else if (profLower.includes("tecnología") || profLower.includes("ingeniería")) {
+                specIcon = "fa-code";
+              } else if (profLower.includes("psicología") || profLower.includes("bienestar")) {
+                specIcon = "fa-brain";
+              } else if (profLower.includes("finanzas") || profLower.includes("contabilidad") || profLower.includes("economía")) {
+                specIcon = "fa-file-invoice-dollar";
+              } else if (profLower.includes("construcción") || profLower.includes("arquitectura")) {
+                specIcon = "fa-compass-drafting";
+              } else if (profLower.includes("marketing") || profLower.includes("diseño")) {
+                specIcon = "fa-bullhorn";
+              } else if (profLower.includes("educación") || profLower.includes("capacitación")) {
+                specIcon = "fa-graduation-cap";
+              } else if (profLower.includes("oficios") || profLower.includes("técnicos")) {
+                specIcon = "fa-screwdriver-wrench";
+              }
+            %>
+            <!-- Icon / Graphics placeholder -->
+            <div class="w-12 h-12 rounded-2xl bg-[#EAEFF8] text-[#033E8C] flex items-center justify-center text-lg mb-6 group-hover:bg-[#033E8C] group-hover:text-white transition duration-350">
+              <i class="fa-solid <%= specIcon %>"></i>
+            </div>
+
+            <h3 class="font-extrabold text-lg text-slate-900 group-hover:text-brand-blue transition mb-2">
+              <%= spec.nombre %>
+            </h3>
+            <p class="text-slate-500 text-xs font-semibold leading-relaxed mb-6">
+              <%= spec.descripcion || 'Encuentra consultorías especializadas, revisiones de casos y agendamiento de citas en línea.' %>
+            </p>
+
+            <div class="mt-auto flex items-center justify-between pt-4 border-t border-slate-50 text-xs">
+              <span class="text-slate-400 font-bold flex items-center gap-1.5">
+                <i class="fa-solid fa-user-md"></i> <%= spec.professionalCount %> <%= spec.professionalCount === 1 ? 'Profesional' : 'Profesionales' %>
+              </span>
+              <a href="/directorio?profession=<%= encodeURIComponent(profession.nombre) %>&specialty=<%= encodeURIComponent(spec.nombre) %>" class="text-brand-blue hover:text-sky-700 font-bold flex items-center gap-1">
+                Ver directorio <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              </a>
+            </div>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <div class="col-span-full text-center py-20 bg-white rounded-3xl border border-slate-100 text-slate-400 flex flex-col items-center justify-center shadow-sm">
+          <i class="fa-solid fa-list-check text-4xl mb-4 text-slate-300"></i>
+          <span class="text-sm font-bold">No se han registrado especialidades bajo esta profesión todavía.</span>
+          <a href="/directorio" class="text-xs font-bold text-brand-blue hover:underline mt-2">Explorar directorio general</a>
+        </div>
+      <% } %>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <%- include('partials/footer') %>
+
+  <!-- Slide Script if multiple carousels -->
+  <% if (typeof slideIdx !== 'undefined' && slideIdx > 1) { %>
+    <script>
+      const slides = document.querySelectorAll('.profession-slide');
+      const prevBtn = document.getElementById('slider-prev');
+      const nextBtn = document.getElementById('slider-next');
+      let currentSlide = 0;
+      let slideInterval;
+
+      function showSlide(index) {
+        slides.forEach((slide, i) => {
+          slide.style.opacity = i === index ? '1' : '0';
+        });
+        currentSlide = index;
+      }
+
+      function nextSlide() {
+        let index = (currentSlide + 1) % slides.length;
+        showSlide(index);
+      }
+
+      function prevSlide() {
+        let index = (currentSlide - 1 + slides.length) % slides.length;
+        showSlide(index);
+      }
+
+      if (prevBtn && nextBtn) {
+        prevBtn.addEventListener('click', () => {
+          prevSlide();
+          clearInterval(slideInterval);
+          slideInterval = setInterval(nextSlide, 6000);
+        });
+        nextBtn.addEventListener('click', () => {
+          nextSlide();
+          clearInterval(slideInterval);
+          slideInterval = setInterval(nextSlide, 6000);
+        });
+      }
+
+      slideInterval = setInterval(nextSlide, 6000);
+    </script>
+  <% } %>
+
+  <% if (typeof activePopup !== 'undefined' && activePopup) { %>
+    <!-- Popup Promocional de Categoría -->
+    <div id="promotional-popup" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-all duration-300">
+      <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl relative border border-slate-100 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+        <button type="button" onclick="closePromotionalPopup()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-655 text-lg cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div class="flex items-center justify-between border-b border-slate-50 pb-2">
+          <span class="bg-purple-100 text-purple-800 text-[8px] font-black px-2.5 py-0.5 rounded tracking-widest uppercase">RECOMENDADO</span>
+        </div>
+
+        <a href="<%= activePopup.popupLink || (activePopup.profile.slug ? '/directorio/' + activePopup.profile.slug : '/directorio') %>" class="aspect-square w-full rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center shadow-sm">
+          <img src="<%= activePopup.popupImage %>" class="w-full h-full object-cover">
+        </a>
+
+        <div class="flex flex-col gap-2 text-center font-sans">
+          <h4 class="font-black text-slate-900 text-xs">¡Conozca más sobre nuestro especialista!</h4>
+          <p class="text-[10px] text-slate-500 font-semibold leading-relaxed">Haga clic en la imagen o en el botón de abajo para ver el perfil completo.</p>
+          <a href="<%= activePopup.popupLink || (activePopup.profile.slug ? '/directorio/' + activePopup.profile.slug : '/directorio') %>" class="bg-[#0A3C84] text-white font-extrabold text-[10px] py-3 rounded-xl mt-1 shadow-md hover:bg-[#082C62] transition text-center">
+            Ver Perfil Profesional
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        const popupId = "promo_popup_<%= activePopup.id %>";
+        const hasSeen = sessionStorage.getItem(popupId);
+        if (!hasSeen) {
+          setTimeout(() => {
+            const popup = document.getElementById("promotional-popup");
+            if (popup) {
+              popup.classList.remove("hidden");
+              popup.classList.add("flex");
+            }
+          }, 1500); // Show popup after 1.5s
+        }
+      });
+
+      function closePromotionalPopup() {
+        const popup = document.getElementById("promotional-popup");
+        if (popup) {
+          popup.classList.add("hidden");
+          popup.classList.remove("flex");
+        }
+        sessionStorage.setItem("promo_popup_<%= activePopup.id %>", "true");
+      }
+    </script>
+  <% } %>
+</body>
+</html>

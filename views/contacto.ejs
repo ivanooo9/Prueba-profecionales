@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bgLight flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  <%- include('partials/header') %>
+
+  <main class="flex-grow max-w-7xl mx-auto w-full px-6 md:px-12 py-16">
+    <!-- Header Title -->
+    <div class="text-center space-y-3 max-w-2xl mx-auto mb-16" data-reveal="fade-up">
+      <h1 class="text-4xl md:text-5xl font-heading font-black tracking-tight text-slate-900">
+        Contáctanos
+      </h1>
+      <p class="text-slate-500 text-sm md:text-base font-medium leading-relaxed">
+        Estamos aquí para ayudarte. Envíanos un mensaje y te responderemos lo antes posible.
+      </p>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch">
+      <!-- Left Column: Info -->
+      <div class="lg:h-full flex flex-col gap-3 text-left" data-reveal="fade-right">
+        <!-- Contact Info Card -->
+        <div class="lg:flex-1 bg-slate-50 border border-slate-200 rounded-2xl p-8 space-y-6 shadow-[0_12px_32px_rgba(15,23,42,0.14)] premium-card-hover">
+          <h2 class="text-lg font-black tracking-tight text-slate-900 font-heading mb-4">
+            Información de Contacto
+          </h2>
+
+          <div class="space-y-5">
+            <!-- Email -->
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                <i class="fa-solid fa-envelope text-sm"></i>
+              </div>
+              <div>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-0.5">Email</span>
+                <a href="mailto:<%= contactoData.email %>" class="text-sm font-bold text-slate-800 hover:text-blue-600 transition"><%= contactoData.email %></a>
+              </div>
+            </div>
+
+            <!-- Phone -->
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                <i class="fa-solid fa-phone text-sm"></i>
+              </div>
+              <div>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-0.5">Teléfono</span>
+                <a href="tel:<%= contactoData.telefono.replace(/\s+/g, '') %>" class="text-sm font-bold text-slate-800 hover:text-blue-600 transition"><%= contactoData.telefono %></a>
+              </div>
+            </div>
+
+            <!-- Location -->
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                <i class="fa-solid fa-location-dot text-sm"></i>
+              </div>
+              <div>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-0.5">Ubicación</span>
+                <span class="text-sm font-bold text-slate-800"><%= contactoData.ubicacion %></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Checklist Reasons Section -->
+        <div class="lg:flex-1 bg-white border border-slate-200 rounded-2xl p-8 space-y-4 shadow-[0_12px_32px_rgba(15,23,42,0.14)] premium-card-hover">
+          <h3 class="text-lg font-black tracking-tight text-slate-900 font-heading">
+            ¿Por qué contactarnos?
+          </h3>
+          <ul class="space-y-1.5">
+            <% contactoData.razones.forEach(r => { %>
+              <li class="flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-650">
+                <i class="fa-regular fa-circle-check text-blue-500 text-sm flex-shrink-0"></i>
+                <span><%= r %></span>
+              </li>
+            <% }); %>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Right Column: Contact Form -->
+      <div class="h-full bg-white border border-slate-200 rounded-2xl p-8 md:p-10 shadow-[0_12px_32px_rgba(15,23,42,0.14)] text-left relative overflow-hidden premium-card-hover" data-reveal="fade-left">
+        <form id="contact-form" class="space-y-5" onsubmit="handleContactSubmit(event)">
+          <h2 class="text-xl font-black tracking-tight text-slate-900 font-heading">Envíanos un mensaje</h2>
+
+          <!-- Name & Email Rows -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Nombre Completo</label>
+              <input type="text" name="name" required placeholder="Tu nombre" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-brand-blue transition text-slate-800">
+            </div>
+            <div>
+              <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Correo Electrónico</label>
+              <input type="email" name="email" required placeholder="tu@correo.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-brand-blue transition text-slate-800">
+            </div>
+          </div>
+
+          <!-- Subject Dropdown -->
+          <div>
+            <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Asunto</label>
+            <select name="subject" required class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-brand-blue transition cursor-pointer text-slate-800">
+              <option value="Soporte Técnico">Soporte Técnico</option>
+              <option value="Consultas de Preinscripción">Consultas de Preinscripción</option>
+              <option value="Alianzas y Convenios">Alianzas y Convenios</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          <!-- Message Textarea -->
+          <div>
+            <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">Mensaje</label>
+            <textarea name="message" required rows="5" placeholder="¿En qué podemos ayudarte?" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs font-bold outline-none focus:bg-white focus:border-brand-blue transition resize-none text-slate-800"></textarea>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="submit-btn" class="w-full bg-brand-blue hover:bg-brand-blue/90 text-white font-extrabold py-3.5 rounded-xl transition shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-xs cursor-pointer">
+            <i class="fa-solid fa-paper-plane" id="submit-icon"></i>
+            <span id="submit-text">Enviar Mensaje</span>
+          </button>
+        </form>
+
+        <!-- Success overlay message -->
+        <div id="success-overlay" class="absolute inset-0 bg-white/95 flex flex-col items-center justify-center text-center p-8 z-30 hidden animate-in fade-in duration-200">
+          <div class="w-16 h-16 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-center text-emerald-500 text-2xl mb-4">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <h4 class="text-lg font-black text-slate-900 font-heading">¡Mensaje Enviado!</h4>
+          <p class="text-xs text-slate-500 font-medium max-w-xs mt-2 leading-relaxed">Hemos recibido tu mensaje de contacto con éxito. Nuestro equipo te responderá lo antes posible.</p>
+          <button type="button" onclick="resetContactForm()" class="mt-6 border border-slate-200 hover:bg-slate-50 text-slate-800 text-xs font-bold py-2.5 px-6 rounded-full transition cursor-pointer">Enviar otro mensaje</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <script>
+    function handleContactSubmit(event) {
+      event.preventDefault();
+      const form = event.target;
+      const btn = document.getElementById('submit-btn');
+      const text = document.getElementById('submit-text');
+      const icon = document.getElementById('submit-icon');
+      
+      btn.disabled = true;
+      text.innerText = 'Enviando...';
+      icon.className = 'fa-solid fa-spinner animate-spin';
+
+      const data = {
+        name: form.name.value,
+        email: form.email.value,
+        subject: form.subject.value,
+        message: form.message.value
+      };
+
+      fetch('/contacto/mensaje', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          document.getElementById('success-overlay').classList.remove('hidden');
+        } else {
+          alert('Hubo un error al enviar el mensaje. Por favor intente nuevamente.');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Hubo un error de conexión al enviar el mensaje.');
+      })
+      .finally(() => {
+        btn.disabled = false;
+        text.innerText = 'Enviar Mensaje';
+        icon.className = 'fa-solid fa-paper-plane';
+      });
+    }
+
+    function resetContactForm() {
+      document.getElementById('contact-form').reset();
+      document.getElementById('success-overlay').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

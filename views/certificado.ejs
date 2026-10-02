@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <!-- Google Fonts: Playfair Display, Montserrat & Cursive script fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Dancing+Script:wght@700&family=Great+Vibes&display=swap" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    /* Styling System */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #f1f5f9;
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-h: 100vh;
+      padding: 2rem;
+    }
+
+    /* Print styling to strip browser elements */
+    @media print {
+      @page {
+        size: 1100px 770px;
+        margin: 0;
+      }
+
+      html,
+      body {
+        background: white;
+        width: 1100px;
+        height: 770px;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        display: block;
+        overflow: hidden;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+      .certificate-container {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        width: 1100px !important;
+        height: 770px !important;
+        page-break-inside: avoid;
+      }
+    }
+
+    /* Action bar at the top */
+    .action-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      width: 100%;
+      max-width: 1100px;
+      justify-content: flex-end;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background-color: #0A3C84;
+      color: white;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 800;
+      border-radius: 0.75rem;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 6px -1px rgba(10, 60, 132, 0.15);
+    }
+    .btn:hover {
+      background-color: #082C62;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background-color: white;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+      box-shadow: none;
+    }
+    .btn-secondary:hover {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    /* Certificate Layout (Landscape Letter 1100px x 770px proportions) */
+    .certificate-container {
+      width: 1100px;
+      height: 770px;
+      background-color: #fbfbf9;
+      border-radius: 1.5rem;
+      position: relative;
+      box-shadow: 0 20px 45px -15px rgba(0,0,0,0.1);
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3.5rem 4rem;
+      z-index: 1;
+    }
+
+    /* Custom Background (if provided by administrator) */
+    .custom-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+      opacity: 0.98;
+    }
+
+    /* Default Border Frame (used if no custom bg covers it) */
+    .border-frame {
+      position: absolute;
+      inset: 1.5rem;
+      border: 4px double #d97706; /* amber border */
+      border-radius: 0.75rem;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .border-frame-inner {
+      position: absolute;
+      inset: 2rem;
+      border: 1px solid rgba(217, 119, 6, 0.35);
+      border-radius: 0.5rem;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Corners decorations */
+    .corner-dec {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-color: #d97706;
+      border-style: solid;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .top-left { top: 2rem; left: 2rem; border-width: 3px 0 0 3px; border-top-left-radius: 4px; }
+    .top-right { top: 2rem; right: 2rem; border-width: 3px 3px 0 0; border-top-right-radius: 4px; }
+    .bottom-left { bottom: 2rem; left: 2rem; border-width: 0 0 3px 3px; border-bottom-left-radius: 4px; }
+    .bottom-right { bottom: 2rem; right: 2rem; border-width: 0 3px 3px 0; border-bottom-right-radius: 4px; }
+
+    /* Content Styling */
+    .certificate-header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      width: 100%;
+    }
+    .institution-logo {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #0A3C84;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+    }
+    .cert-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.85rem;
+      font-weight: 800;
+      color: #0c172d;
+      letter-spacing: -0.01em;
+      margin-top: 0.25rem;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .certificate-body {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      width: 100%;
+      margin: 1rem 0;
+    }
+    .grant-text {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      letter-spacing: 0.05em;
+    }
+    .recipient-name {
+      font-family: 'Great Vibes', cursive;
+      font-size: 3.5rem;
+      font-weight: 500;
+      color: #0A3C84;
+      padding-bottom: 0.25rem;
+      min-width: 450px;
+      max-width: 850px;
+      text-align: center;
+      display: inline-block;
+      line-height: 1.1;
+    }
+    .event-desc {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #334155;
+      line-height: 1.7;
+      max-width: 820px;
+      text-align: justify;
+      text-align-last: center;
+    }
+    .event-title-highlight {
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    /* Signatures Section */
+    .signatures-row {
+      display: flex;
+      justify-content: space-evenly;
+      align-items: flex-end;
+      width: 100%;
+      margin-top: 1.5rem;
+      gap: 1rem;
+    }
+    .signature-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      min-width: 150px;
+      max-width: 220px;
+    }
+    .signature-img-container {
+      height: 48px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      margin-bottom: 0.5rem;
+      width: 100%;
+    }
+    .signature-img {
+      max-height: 100%;
+      max-width: 130px;
+      object-fit: contain;
+    }
+    .placeholder-signature {
+      font-family: 'Dancing Script', cursive;
+      font-size: 1.15rem;
+      color: #64748b;
+      opacity: 0.4;
+      font-weight: 500;
+    }
+    
+    .signature-line {
+      width: 150px;
+      border-top: 1px solid #cbd5e1;
+      margin-bottom: 0.4rem;
+    }
+    .signature-name {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #1e293b;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+    .signature-title {
+      font-size: 0.55rem;
+      font-weight: 600;
+      color: #64748b;
+      line-height: 1.2;
+    }
+
+    /* Endorsement Logos (Sponsors) Row at the very bottom */
+    .avales-row {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      border-top: 1px solid rgba(226, 232, 240, 0.6);
+      padding-top: 1rem;
+      margin-top: 1.5rem;
+    }
+    .avales-label {
+      font-size: 0.6rem;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+    .avales-logos {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 2rem;
+      width: 100%;
+    }
+    .aval-logo {
+      height: 28px;
+      max-width: 90px;
+      object-fit: contain;
+      filter: grayscale(10%) contrast(90%);
+      opacity: 0.85;
+      transition: opacity 0.2s;
+    }
+    .aval-logo:hover {
+      opacity: 1;
+    }
+
+    /* Verification Badge overlay (Absolute top right of print, or no-print watermark) */
+    .verification-watermark {
+      position: absolute;
+      top: 2.5rem;
+      left: 3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+    .verification-watermark .mini-qr {
+      width: 48px;
+      height: 48px;
+      border: 1px solid #e2e8f0;
+      padding: 1px;
+      background: white;
+      border-radius: 4px;
+    }
+    .verification-watermark .watermark-text {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+    .watermark-lbl {
+      font-size: 0.45rem;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .watermark-code {
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: #0A3C84;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <%
+    const hasAcademicHours = Number(certificate.horas) > 0;
+    const certificateTitle = hasAcademicHours ? 'CERTIFICADO DE HORAS ACADEMICAS' : 'CERTIFICADO DE ASISTENCIA';
+  %>
+
+  <!-- Top Action Bar for Downloading/Printing -->
+  <div class="action-bar no-print">
+    <button onclick="window.print()" class="btn">
+      <i class="fa-solid fa-print"></i> Imprimir Certificado
+    </button>
+    <!--
+    <a href="/certificados/<%= encodeURIComponent(certificate.codigo) %>/descargar.pdf" class="btn" title="Descargar el certificado como PDF">
+      <i class="fa-solid fa-download"></i> Descargar PDF
+    </a>
+    -->
+    <button onclick="if (document.referrer && document.referrer.includes(window.location.host)) { window.location.href = document.referrer; } else { window.location.href = '/dashboard/cliente'; }" class="btn btn-secondary">
+      <i class="fa-solid fa-arrow-left"></i> Volver
+    </button>
+  </div>
+
+  <!-- Verification Status Banner (no-print) -->
+  <div class="no-print" style="width: 1100px; margin-bottom: 1.5rem; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 1rem; padding: 1.25rem 1.75rem; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.05); display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; font-family: 'Montserrat', sans-serif;">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background-color: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div style="text-align: left;">
+        <h4 style="font-size: 0.85rem; font-weight: 800; color: #064e3b; text-transform: uppercase; letter-spacing: -0.01em; margin: 0; padding: 0;">Certificación Válida y Acreditada</h4>
+        <p style="font-size: 0.6rem; color: #047857; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 2px 0 0 0; padding: 0; font-family: monospace;">Código: <%= certificate.codigo %></p>
+      </div>
+    </div>
+    
+    <div style="display: flex; flex-grow: 1; border-left: 1px solid rgba(167, 243, 208, 0.6); padding-left: 1.5rem; gap: 2rem; justify-content: flex-start; text-align: left;">
+      <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+        <span style="font-size: 0.55rem; font-weight: 800; color: #047857; text-transform: uppercase; letter-spacing: 0.05em;">Participante</span>
+        <span style="font-size: 0.75rem; font-weight: 700; color: #064e3b; text-transform: uppercase;"><%= certificate.nombreUsuario || (certificate.user ? certificate.user.name : 'Participante') %></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+        <span style="font-size: 0.55rem; font-weight: 800; color: #047857; text-transform: uppercase; letter-spacing: 0.05em;"><%= hasAcademicHours ? 'Carga Horaria' : 'Tipo de Certificado' %></span>
+        <span style="font-size: 0.75rem; font-weight: 700; color: #064e3b;"><%= hasAcademicHours ? `${certificate.horas} Horas Académicas` : certificateTitle %></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.15rem; max-width: 320px;">
+        <span style="font-size: 0.55rem; font-weight: 800; color: #047857; text-transform: uppercase; letter-spacing: 0.05em;">Evento / Conversatorio</span>
+        <span style="font-size: 0.75rem; font-weight: 700; color: #0A3C84; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<%= certificate.nombreEvento %>"><%= certificate.nombreEvento %></span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center;">
+      <span style="background-color: #d1fae5; border: 1px solid #a7f3d0; color: #065f46; font-size: 0.65rem; font-weight: 800; padding: 0.35rem 0.75rem; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em;">
+        APROBADO
+      </span>
+    </div>
+  </div>
+
+  <!-- Main Certificate Template -->
+  <div class="certificate-container">
+    <!-- Template background image if provided -->
+    <% if (design && design.plantillaFondo) { %>
+      <img src="<%= design.plantillaFondo %>" class="custom-bg" alt="Fondo Certificado">
+    <% } %>
+
+    <!-- Frame Border Overlay (shown only if no background covers it) -->
+    <% if (!design || !design.plantillaFondo) { %>
+      <div class="border-frame"></div>
+      <div class="border-frame-inner"></div>
+      <div class="corner-dec top-left"></div>
+      <div class="corner-dec top-right"></div>
+      <div class="corner-dec bottom-left"></div>
+      <div class="corner-dec bottom-right"></div>
+    <% } %>
+
+    <!-- Verification mini QR in corner -->
+    <div class="verification-watermark">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=<%= encodeURIComponent("https://profesionalesecuador.ec/certificados/" + certificate.codigo) %>" class="mini-qr" alt="QR Verificación">
+      <div class="watermark-text">
+        <span class="watermark-lbl">Certificado Registro</span>
+        <span class="watermark-code"><%= certificate.codigo %></span>
+        <a href="https://profesionalesecuador.ec/certificados/<%= certificate.codigo %>" target="_blank" style="font-size: 0.45rem; color: #d97706; text-decoration: none; font-weight: 600;">Verificar en línea</a>
+      </div>
+    </div>
+
+    <!-- 1. Header Section -->
+    <div class="certificate-header">
+      <span class="institution-logo">Profesionales Ecuador</span>
+      <h1 class="cert-title"><%= certificateTitle %></h1>
+    </div>
+
+    <!-- 2. Body Text Section -->
+    <div class="certificate-body">
+      <p class="grant-text">Se otorga el presente reconocimiento con honor y distinción a:</p>
+      <h2 class="recipient-name"><%= certificate.nombreUsuario || (certificate.user ? certificate.user.name : 'Participante') %></h2>
+      <p class="event-desc font-sans">
+        Se certifica que usted participó en el <strong class="event-title-highlight"><%= certificate.nombreEvento %></strong>, demostrando compromiso, pasión por el aprendizaje y firme determinación de crecimiento. Su participación refleja el espíritu de superación que impulsa a los estudiantes y profesionales del Ecuador a prepararse mejor cada día, contribuyendo a la construcción de un país con más conocimiento, oportunidades y desarrollo.
+      </p>
+      <p class="grant-text" style="font-size: 0.7rem; margin-top: 0.25rem;">
+        Ecuador, <%= new Date(certificate.fechaEmision).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) %>
+        <% if (hasAcademicHours) { %>
+          &bull; Duración: <%= certificate.horas %> Horas Académicas.
+        <% } %>
+      </p>
+    </div>
+
+    <!-- 3. Signatures Row -->
+    <div class="signatures-row">
+      <% 
+        let signatures = [];
+        if (design && design.firmasJson) {
+          try {
+            signatures = JSON.parse(design.firmasJson);
+          } catch(e) {
+            console.error('Error parsing signatures JSON in certificate view:', e);
+          }
+        }
+      %>
+      <% if (signatures.length > 0) { %>
+        <% signatures.forEach(function(sig) { %>
+          <div class="signature-block">
+            <div class="signature-img-container">
+              <% if (sig.img) { %>
+                <img src="<%= sig.img %>" class="signature-img" alt="Firma">
+              <% } else { %>
+                <span class="placeholder-signature"><%= sig.name ? sig.name.substring(0, 12) : 'Firma' %></span>
+              <% } %>
+            </div>
+            
+            <div class="signature-line"></div>
+            <span class="signature-name"><%= sig.name || 'Autoridad' %></span>
+            <span class="signature-title"><%= sig.role || 'Directorio PE' %></span>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <!-- Default single signature fallback if no layout is designed -->
+        <div class="signature-block">
+          <div class="signature-img-container">
+            <% if (design && design.firmaImagen) { %>
+              <img src="<%= design.firmaImagen %>" class="signature-img" alt="Firma Autorizada">
+            <% } else { %>
+              <span class="placeholder-signature">Directorio Nacional</span>
+            <% } %>
+          </div>
+          <div class="signature-line"></div>
+          <span class="signature-name"><%= (design && design.firmaTexto) ? design.firmaTexto : 'Firma Autorizada' %></span>
+          <span class="signature-title">Profesionales Ecuador</span>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- 4. Endorsement Logos (Sponsors) Row at the very bottom -->
+    <% 
+      let avales = [];
+      if (design && design.avalesJson) {
+        try {
+          avales = JSON.parse(design.avalesJson);
+        } catch(e) {
+          console.error('Error parsing avales JSON in certificate view:', e);
+        }
+      }
+      const avalesConLogo = avales.filter(function(aval) { return aval && aval.img; });
+    %>
+    <% if (avalesConLogo.length > 0) { %>
+      <div class="avales-row">
+        <span class="avales-label">Con el aval de</span>
+        <div class="avales-logos">
+          <% avalesConLogo.forEach(function(aval) { %>
+            <img src="<%= aval.img %>" class="aval-logo" alt="Logo Aval">
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+  </div>
+
+</body>
+</html>

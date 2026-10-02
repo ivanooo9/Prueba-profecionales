@@ -1,0 +1,1 @@
+ALTER TABLE "BankAccount" ADD COLUMN "taxId" TEXT;

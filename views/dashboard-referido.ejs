@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <%- include('partials/head') %>
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<%
+  const safeSales = (typeof sales !== 'undefined' && sales) ? sales : [];
+  const safeRecentSales = (typeof recentSales !== 'undefined' && recentSales) ? recentSales : [];
+  const safeConversatorios = (typeof conversatorios !== 'undefined' && conversatorios) ? conversatorios : [];
+  const safeCursos = (typeof cursos !== 'undefined' && cursos) ? cursos : [];
+  const safeMembershipPlans = (typeof membershipPlans !== 'undefined' && membershipPlans) ? membershipPlans : [];
+  const safePromotionPlans = (typeof promotionPlans !== 'undefined' && promotionPlans) ? promotionPlans : [];
+  const safeWithdrawals = (typeof withdrawals !== 'undefined' && withdrawals) ? withdrawals : [];
+  const safeTransactions = (typeof transactions !== 'undefined' && transactions) ? transactions : [];
+%>
+<body class="bg-[#FAFBFD] text-slate-800 antialiased font-sans flex h-screen overflow-hidden">
+
+  <!-- Mobile Sidebar Backdrop -->
+  <div id="mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+
+  <!-- Left Sidebar Navigation -->
+  <aside id="sidebar-menu" class="w-64 h-full bg-white border-r border-slate-100 flex-shrink-0 flex flex-col justify-between py-6 px-5 fixed lg:static inset-y-0 left-0 -translate-x-full lg:translate-x-0 z-50 transition-all duration-300 ease-in-out shadow-sm lg:shadow-none">
+    
+    <div class="flex flex-col gap-6">
+      <!-- Branding & User Info -->
+      <div class="flex items-center gap-3 px-1">
+        <div class="w-11 h-11 rounded-2xl bg-[#0A3C84] text-white flex-shrink-0 shadow-md flex items-center justify-center font-black text-base">
+          <%= (user.name || 'R').charAt(0).toUpperCase() %>
+        </div>
+        <div class="min-w-0">
+          <h3 class="font-extrabold text-sm text-slate-900 leading-tight truncate"><%= profile.nombres ? (profile.nombres + ' ' + (profile.apellidos || '')) : user.name %></h3>
+          <span class="text-[10px] text-blue-700 font-extrabold uppercase tracking-wider block mt-0.5 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100/50 w-fit">
+            <i class="fa-solid fa-award text-[9px] mr-1"></i> Referido Oficial
+          </span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex flex-col gap-1.5" id="nav-tabs">
+        <button id="btn-tab-dashboard" onclick="switchTab('dashboard')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-extrabold transition duration-200 w-full text-left cursor-pointer bg-[#0A3C84] text-white shadow-sm shadow-[#0A3C84]/20">
+          <i class="fa-solid fa-chart-pie text-sm w-4 text-center"></i>
+          <span>Dashboard</span>
+        </button>
+
+        <button id="btn-tab-ventas" onclick="switchTab('ventas')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-cart-shopping text-sm w-4 text-center"></i>
+          <span>Mis Ventas</span>
+        </button>
+
+        <button id="btn-tab-billetera" onclick="switchTab('billetera')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-wallet text-sm w-4 text-center"></i>
+          <span>Billetera & Retiros</span>
+        </button>
+
+        <button id="btn-tab-config" onclick="switchTab('config')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-user-gear text-sm w-4 text-center"></i>
+          <span>Mi Configuración</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="flex flex-col gap-2">
+      <div class="border-t border-slate-100 pt-4 flex flex-col gap-1">
+        <a href="/" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+          <i class="fa-solid fa-globe text-sm w-4 text-center text-sky-500"></i>
+          <span>Volver a la Web</span>
+        </a>
+        <a href="/logout" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50/50 transition duration-200">
+          <i class="fa-solid fa-right-from-bracket text-sm w-4 text-center"></i>
+          <span>Cerrar Sesión</span>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    
+    <!-- Top Header Bar -->
+    <header class="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 flex-shrink-0">
+      <div class="flex items-center gap-4">
+        <button id="mobile-menu-btn" class="lg:hidden text-slate-500 hover:text-slate-700 text-lg">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div>
+          <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">Panel Comercial de Referidos</h1>
+          <p class="text-[10px] text-slate-400 font-bold hidden sm:block">Profesionales Ecuador • Sistema de Afiliados</p>
+        </div>
+      </div>
+
+      <!-- Quick Action & Profile -->
+      <div class="flex items-center gap-3">
+        <button onclick="openRegisterModal()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-cart-plus"></i> <span class="hidden sm:inline">Nueva Venta</span>
+        </button>
+        <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-xs font-bold text-slate-700 hidden md:inline"><%= user.email %></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scrollable Body Content -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+      <!-- Alerts -->
+      <% if (success === 'account_activated') { %>
+        <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-3 shadow-sm">
+          <i class="fa-solid fa-circle-check text-lg text-emerald-600"></i>
+          <span>¡Tu cuenta de referido ha sido activada correctamente! Ya puedes registrar ventas y generar comisiones.</span>
+        </div>
+      <% } else if (success === 'sale_registered') { %>
+        <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-3 shadow-sm">
+          <i class="fa-solid fa-circle-check text-lg text-emerald-600"></i>
+          <span>¡Venta registrada exitosamente! Se encuentra en revisión por el administrador.</span>
+        </div>
+      <% } else if (success === 'withdrawal_submitted') { %>
+        <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-3 shadow-sm">
+          <i class="fa-solid fa-circle-check text-lg text-emerald-600"></i>
+          <span>¡Solicitud de retiro enviada correctamente! La administración procesará la transferencia a tu cuenta bancaria.</span>
+        </div>
+      <% } else if (success === 'profile_updated') { %>
+        <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-3 shadow-sm">
+          <i class="fa-solid fa-circle-check text-lg text-emerald-600"></i>
+          <span>¡Tus Datos Personales y Cuenta Bancaria de Cobro se han actualizado correctamente!</span>
+        </div>
+      <% } else if (error) { %>
+        <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-3 shadow-sm">
+          <i class="fa-solid fa-circle-exclamation text-lg text-rose-600"></i>
+          <span>Ocurrió un aviso: <%= error %></span>
+        </div>
+      <% } %>
+
+      <!-- TAB 1: DASHBOARD OVERVIEW -->
+      <section id="tab-dashboard" class="dash-tab-pane space-y-6">
+        
+        <!-- Executive Banner -->
+        <div class="bg-gradient-to-r from-[#0A3C84] via-blue-900 to-slate-900 rounded-3xl p-6 sm:p-8 border border-blue-900/40 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div class="space-y-2">
+            <span class="text-[10px] font-black uppercase tracking-wider text-blue-300 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+              Programa Oficial de Referidos
+            </span>
+            <h2 class="text-2xl sm:text-3xl font-black">¡Hola, <%= profile.nombres || user.name %>!</h2>
+            <p class="text-xs sm:text-sm text-slate-200 max-w-xl">
+              Monitorea tus ventas registradas, comisiones en tiempo real y gestiona tus retiros bancarios.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button onclick="openRegisterModal()" class="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-cart-plus text-base"></i> Registrar Nueva Venta
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Disponible para Retirar</p>
+              <p class="text-2xl font-black text-slate-900 mt-1">$<%= (stats.saldoDisponible || 0).toFixed(2) %></p>
+              <p class="text-[10px] text-emerald-600 font-bold mt-1">Listo para cobro bancario</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xl flex-shrink-0">
+              <i class="fa-solid fa-wallet"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Generado Histórico</p>
+              <p class="text-2xl font-black text-slate-900 mt-1">$<%= (stats.totalGeneradoHistorico || 0).toFixed(2) %></p>
+              <p class="text-[10px] text-blue-600 font-bold mt-1">Mes actual: $<%= (stats.totalGeneradoMesActual || 0).toFixed(2) %></p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl flex-shrink-0">
+              <i class="fa-solid fa-chart-line"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ventas Aprobadas</p>
+              <p class="text-2xl font-black text-slate-900 mt-1"><%= stats.cantAprobadas || 0 %></p>
+              <p class="text-[10px] text-slate-400 font-medium mt-1">De <%= stats.totalVentas || 0 %> ventas registradas</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold text-xl flex-shrink-0">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Retiros en Proceso</p>
+              <p class="text-2xl font-black text-slate-900 mt-1">$<%= (stats.saldoPendiente || 0).toFixed(2) %></p>
+              <p class="text-[10px] text-amber-600 font-bold mt-1">Total retirado: $<%= (stats.saldoRetirado || 0).toFixed(2) %></p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xl flex-shrink-0">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts & Activity Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Chart -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+            <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-[#0A3C84]"></i> Estado de mis Ventas
+            </h3>
+            <div class="h-60 flex items-center justify-center">
+              <canvas id="chartEstados"></canvas>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-emerald-600"></i> Últimas Ventas Registradas
+              </h3>
+              <button onclick="switchTab('ventas')" class="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer">Ver Todas →</button>
+            </div>
+
+            <% if (!safeRecentSales || safeRecentSales.length === 0) { %>
+              <div class="text-center py-10 text-slate-400">
+                <i class="fa-solid fa-cart-arrow-down text-3xl mb-2 text-slate-300"></i>
+                <p class="text-xs font-semibold">Aún no has registrado ninguna venta.</p>
+                <button onclick="openRegisterModal()" class="inline-block mt-3 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold cursor-pointer">Registrar mi primera venta</button>
+              </div>
+            <% } else { %>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="text-slate-400 border-b border-slate-100 uppercase text-[10px] tracking-wider">
+                      <th class="pb-3 font-bold">Producto</th>
+                      <th class="pb-3 font-bold">Cliente</th>
+                      <th class="pb-3 font-bold">Valor</th>
+                      <th class="pb-3 font-bold">Comisión</th>
+                      <th class="pb-3 font-bold text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <% safeRecentSales.forEach(function(sale) { %>
+                      <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 font-bold text-slate-800"><%= sale.productName %></td>
+                        <td class="py-3 text-slate-600"><%= sale.clienteNombre %></td>
+                        <td class="py-3 font-bold text-slate-900">$<%= sale.valorPagado.toFixed(2) %></td>
+                        <td class="py-3 font-bold text-emerald-600">$<%= sale.comisionCalculada.toFixed(2) %> (<%= sale.comisionPorcentaje %>%)</td>
+                        <td class="py-3 text-center">
+                          <% if (sale.estado === 'APROBADO') { %>
+                            <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-1 rounded-full">Aprobado</span>
+                          <% } else if (sale.estado === 'PENDIENTE') { %>
+                            <span class="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-1 rounded-full">Pendiente</span>
+                          <% } else { %>
+                            <span class="bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-1 rounded-full">Rechazado</span>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 2: MIS VENTAS -->
+      <section id="tab-ventas" class="dash-tab-pane hidden space-y-6">
+        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-cart-shopping text-emerald-600"></i> Historial y Registro de Ventas
+              </h2>
+              <p class="text-xs text-slate-400 font-medium">Registra los comprobantes de tus clientes para validación de comisiones.</p>
+            </div>
+            <button onclick="openRegisterModal()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-plus-circle"></i> Registrar Nueva Venta
+            </button>
+          </div>
+
+          <% if (!safeSales || safeSales.length === 0) { %>
+            <div class="text-center py-12 text-slate-400">
+              <i class="fa-solid fa-receipt text-4xl mb-3 text-slate-300"></i>
+              <p class="text-sm font-bold text-slate-700">No hay ventas registradas aún</p>
+              <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Comienza registrando las ventas de tus clientes para acumular saldo en tu billetera.</p>
+              <button onclick="openRegisterModal()" class="mt-4 px-5 py-2.5 bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer">Registrar Venta Ahora</button>
+            </div>
+          <% } else { %>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100">
+                    <th class="p-4"># Venta / Fecha</th>
+                    <th class="p-4">Producto Comercializado</th>
+                    <th class="p-4">Datos del Cliente</th>
+                    <th class="p-4">Valor Pagado</th>
+                    <th class="p-4">Comisión Ganada</th>
+                    <th class="p-4">Comprobante</th>
+                    <th class="p-4 text-center">Estado</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <% safeSales.forEach(function(sale) { %>
+                    <tr class="hover:bg-slate-50/60 transition">
+                      <td class="p-4">
+                        <p class="font-extrabold text-slate-900">#<%= sale.id %></p>
+                        <p class="text-[10px] text-slate-400"><%= new Date(sale.createdAt).toLocaleDateString('es-EC') %></p>
+                      </td>
+                      <td class="p-4">
+                        <p class="font-bold text-slate-900"><%= sale.productName %></p>
+                        <span class="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100/50"><%= sale.productType %></span>
+                      </td>
+                      <td class="p-4">
+                        <p class="font-bold text-slate-800"><%= sale.clienteNombre %></p>
+                        <p class="text-[10px] text-slate-500"><%= sale.clienteEmail %> | <%= sale.clienteTelefono %></p>
+                      </td>
+                      <td class="p-4 font-black text-slate-900 text-sm">$<%= sale.valorPagado.toFixed(2) %></td>
+                      <td class="p-4 font-black text-emerald-600 text-sm">
+                        $<%= sale.comisionCalculada.toFixed(2) %>
+                        <span class="text-[10px] text-slate-400 font-bold block">(<%= sale.comisionPorcentaje %>%)</span>
+                      </td>
+                      <td class="p-4">
+                        <a href="<%= sale.comprobanteUrl %>" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                          <i class="fa-solid fa-file-invoice text-xs"></i> Ver Adjunto
+                        </a>
+                      </td>
+                      <td class="p-4 text-center">
+                        <% if (sale.estado === 'APROBADO') { %>
+                          <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full inline-flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check"></i> Aprobado
+                          </span>
+                        <% } else if (sale.estado === 'PENDIENTE') { %>
+                          <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-3 py-1 rounded-full inline-flex items-center gap-1">
+                            <i class="fa-solid fa-clock"></i> Pendiente
+                          </span>
+                        <% } else { %>
+                          <span class="bg-rose-100 text-rose-800 text-[10px] font-black px-3 py-1 rounded-full inline-flex items-center gap-1">
+                            <i class="fa-solid fa-circle-xmark"></i> Rechazado
+                          </span>
+                        <% } %>
+                        <% if (sale.observacionesAdmin) { %>
+                          <p class="text-[9px] text-slate-500 italic mt-1 max-w-xs mx-auto"><%= sale.observacionesAdmin %></p>
+                        <% } %>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      </section>
+
+      <!-- TAB 3: BILLETERA & RETIROS -->
+      <section id="tab-billetera" class="dash-tab-pane hidden space-y-6">
+        <!-- Digital Wallet Card -->
+        <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl p-6 sm:p-8 border border-blue-900/40 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div class="space-y-2">
+            <span class="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+              Billetera Virtual de Comisiones
+            </span>
+            <h2 class="text-3xl font-black">$<%= (wallet ? wallet.saldoDisponible : 0).toFixed(2) %> <span class="text-xs font-bold text-slate-300">USD Disponibles</span></h2>
+            <p class="text-xs text-slate-300">Retiros procesados directamente a tu cuenta bancaria registrada.</p>
+          </div>
+
+          <button onclick="openWithdrawModal()" class="px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap">
+            <i class="fa-solid fa-hand-holding-dollar text-sm"></i> Solicitar Retiro de Fondos
+          </button>
+        </div>
+
+        <!-- Withdrawals & Transactions List -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Retiros -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+            <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <i class="fa-solid fa-money-bill-transfer text-amber-600"></i> Historial de Solicitudes de Retiro
+            </h3>
+
+            <% if (!safeWithdrawals || safeWithdrawals.length === 0) { %>
+              <p class="text-xs text-slate-400 text-center py-8 font-semibold">No has realizado ninguna solicitud de retiro.</p>
+            <% } else { %>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs divide-y divide-slate-100">
+                  <thead>
+                    <tr class="text-slate-400 text-[10px] font-bold uppercase">
+                      <th class="pb-2">Fecha</th>
+                      <th class="pb-2">Monto</th>
+                      <th class="pb-2 text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <% safeWithdrawals.forEach(w => { %>
+                      <tr>
+                        <td class="py-2.5 text-slate-600"><%= new Date(w.createdAt).toLocaleDateString('es-EC') %></td>
+                        <td class="py-2.5 font-extrabold text-slate-900">$<%= w.monto.toFixed(2) %></td>
+                        <td class="py-2.5 text-center">
+                          <% if (w.estado === 'PAGADO') { %>
+                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">PAGADO</span>
+                          <% } else if (w.estado === 'SOLICITADO') { %>
+                            <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">EN PROCESO</span>
+                          <% } else { %>
+                            <span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">RECHAZADO</span>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Transacciones de Billetera -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+            <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <i class="fa-solid fa-clock-rotate-left text-blue-600"></i> Movimientos de la Billetera
+            </h3>
+
+            <% if (!safeTransactions || safeTransactions.length === 0) { %>
+              <p class="text-xs text-slate-400 text-center py-8 font-semibold">No existen movimientos registrados.</p>
+            <% } else { %>
+              <div class="space-y-3">
+                <% safeTransactions.forEach(t => { %>
+                  <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs">
+                    <div>
+                      <p class="font-bold text-slate-800"><%= t.descripcion %></p>
+                      <p class="text-[10px] text-slate-400"><%= new Date(t.createdAt).toLocaleString('es-EC') %></p>
+                    </div>
+                    <span class="font-black text-sm <%= t.monto >= 0 ? 'text-emerald-600' : 'text-rose-600' %>">
+                      <%= t.monto >= 0 ? '+' : '' %>$<%= t.monto.toFixed(2) %>
+                    </span>
+                  </div>
+                <% }); %>
+              </div>
+            <% } %>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 4: CONFIGURACION -->
+      <section id="tab-config" class="dash-tab-pane hidden space-y-6">
+        <form action="/dashboard/referido/configuracion" method="POST" class="space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Datos Personales -->
+            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+              <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+                <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <i class="fa-solid fa-user-id-card text-blue-600"></i> Datos Personales Registrados
+                </h3>
+                <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Actualizable</span>
+              </div>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Nombres *</label>
+                  <input type="text" name="nombres" value="<%= profile.nombres || '' %>" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Apellidos *</label>
+                  <input type="text" name="apellidos" value="<%= profile.apellidos || '' %>" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-blue-500">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Número de Cédula *</label>
+                  <input type="text" name="cedula" value="<%= profile.cedula || '' %>" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">WhatsApp / Celular *</label>
+                  <input type="text" name="whatsapp" value="<%= profile.whatsapp || '' %>" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-blue-500">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Ciudad *</label>
+                  <input type="text" name="ciudad" value="<%= profile.ciudad || '' %>" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Provincia *</label>
+                  <input type="text" name="provincia" value="<%= profile.provincia || '' %>" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-blue-500">
+                </div>
+              </div>
+
+              <div class="text-xs">
+                <label class="block font-bold text-slate-700 uppercase mb-1">Dirección Domiciliaria</label>
+                <input type="text" name="direccion" value="<%= profile.direccion || '' %>" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-medium text-slate-900 focus:outline-none focus:border-blue-500">
+              </div>
+            </div>
+
+            <!-- Datos Bancarios -->
+            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+              <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+                <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <i class="fa-solid fa-building-columns text-emerald-600"></i> Cuenta Bancaria de Cobro
+                </h3>
+                <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Transferencias Directas</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Institución Bancaria *</label>
+                  <input type="text" name="banco" value="<%= profile.banco || '' %>" placeholder="Ej. Banco Pichincha, Guayaquil..." required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Tipo de Cuenta *</label>
+                  <select name="tipoCuenta" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-emerald-500">
+                    <option value="Ahorros" <%= profile.tipoCuenta === 'Ahorros' ? 'selected' : '' %>>Cuenta de Ahorros</option>
+                    <option value="Corriente" <%= profile.tipoCuenta === 'Corriente' ? 'selected' : '' %>>Cuenta Corriente</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="text-xs">
+                <label class="block font-bold text-slate-700 uppercase mb-1">Número de Cuenta *</label>
+                <input type="text" name="numeroCuenta" value="<%= profile.numeroCuenta || '' %>" placeholder="Ej. 2200123456" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-500">
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Nombre del Titular *</label>
+                  <input type="text" name="titularNombre" value="<%= profile.titularNombre || '' %>" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div>
+                  <label class="block font-bold text-slate-700 uppercase mb-1">Cédula del Titular *</label>
+                  <input type="text" name="titularCedula" value="<%= profile.titularCedula || '' %>" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-900 focus:outline-none focus:border-emerald-500">
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Botón de Guardar Cambios -->
+          <div class="flex items-center justify-end border-t border-slate-100 pt-4">
+            <button type="submit" class="px-6 py-3 rounded-2xl bg-[#0A3C84] hover:bg-blue-800 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-floppy-disk"></i> Guardar y Actualizar Configuración
+            </button>
+          </div>
+        </form>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Modal: Registrar Venta -->
+  <div id="modalVenta" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 relative shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+        <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-cart-plus text-emerald-600"></i> Registrar Venta de Cliente
+        </h3>
+        <button onclick="closeRegisterModal()" class="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form action="/dashboard/referido/ventas" method="POST" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Nombre Completo del Cliente *</label>
+          <input type="text" name="clienteNombre" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="Ej. Carlos Alberto Mendoza">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Correo Electrónico *</label>
+            <input type="email" name="clienteEmail" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="cliente@correo.com">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Número de Cédula *</label>
+            <input type="text" name="clienteCedula" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="1723456789">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Teléfono / WhatsApp *</label>
+            <input type="text" name="clienteTelefono" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="0991234567">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Tipo de Producto *</label>
+            <select id="saleProductType" name="productType" required onchange="updateProductSelectorOptions()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-800 focus:outline-none">
+              <option value="CONVERSATORIO">Conversatorio</option>
+              <option value="CURSO">Curso Académico</option>
+              <option value="PLAN_AFILIACION">Plan de Afiliación</option>
+              <option value="PLAN_PROMOCION">Plan de Promoción</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Seleccionar Producto / Servicio Específico *</label>
+          
+          <div class="relative mb-1.5">
+            <input type="text" id="productSearchInput" oninput="filterProductOptions()" placeholder="🔍 Escribe para buscar (ej: Penal, Ludopatía, Plan...)" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+          </div>
+
+          <select id="saleProductIdSelect" onchange="handleProductSelected()" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:outline-none focus:border-blue-500 text-xs">
+          </select>
+
+          <input type="hidden" name="productId" id="hiddenProductId">
+          <input type="hidden" name="productName" id="hiddenProductName" required>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Valor Total Pagado ($ USD) *</label>
+          <input type="number" step="0.01" min="0.01" id="inputValorPagado" name="valorPagado" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-black text-emerald-600 text-sm focus:outline-none" placeholder="25.00">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Adjuntar Comprobante de Pago / Depósito (Imagen o PDF) *</label>
+          <div onclick="document.getElementById('fileComprobanteInput').click()" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/40 rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2">
+            <div id="fileUploadPrompt" class="flex flex-col items-center">
+              <i class="fa-solid fa-cloud-arrow-up text-2xl text-blue-600 mb-1"></i>
+              <p class="font-extrabold text-xs text-slate-800">Haz clic aquí para seleccionar el archivo del comprobante</p>
+              <p class="text-[10px] text-slate-400 font-semibold mt-0.5">Formatos aceptados: Imagen (JPG, PNG) o PDF (máximo 10MB)</p>
+            </div>
+            
+            <div id="fileSelectedPreview" class="hidden flex items-center justify-between gap-3 w-full bg-white p-3 rounded-xl border border-emerald-200 shadow-sm">
+              <div class="flex items-center gap-3 overflow-hidden">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 font-bold text-lg">
+                  <i id="fileIcon" class="fa-solid fa-file-image"></i>
+                </div>
+                <div class="text-left truncate">
+                  <p id="fileNameText" class="font-extrabold text-xs text-slate-900 truncate">comprobante.png</p>
+                  <p id="fileSizeText" class="text-[10px] font-bold text-emerald-600">Archivo cargado correctamente</p>
+                </div>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); resetComprobanteFile();" class="text-rose-500 hover:text-rose-700 text-xs font-extrabold px-3 py-1.5 bg-rose-50 hover:bg-rose-100 rounded-xl transition">
+                Cambiar
+              </button>
+            </div>
+          </div>
+
+          <input type="file" id="fileComprobanteInput" accept="image/*,.pdf" onchange="handleComprobanteFileSelected(this)" class="hidden">
+          <input type="hidden" name="comprobanteUrl" id="hiddenComprobanteUrl" required>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button type="button" onclick="closeRegisterModal()" class="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold cursor-pointer">Cancelar</button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-md cursor-pointer">Registrar Venta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Solicitar Retiro -->
+  <div id="modalWithdraw" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+        <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-hand-holding-dollar text-amber-500"></i> Solicitar Retiro de Fondos
+        </h3>
+        <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form action="/dashboard/referido/retiros" method="POST" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Monto a Retirar ($ USD) *</label>
+          <input type="number" step="0.01" min="1" max="<%= wallet ? wallet.saldoDisponible : 0 %>" name="monto" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-black text-slate-900 text-sm focus:outline-none focus:border-amber-500" placeholder="0.00">
+          <p class="text-[10px] text-slate-400 font-bold mt-1">Saldo disponible actual: $<%= (wallet ? wallet.saldoDisponible : 0).toFixed(2) %></p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Notas / Observaciones (Opcional)</label>
+          <textarea name="observacionesReferido" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium text-slate-900 focus:outline-none" placeholder="Instrucciones adicionales para la transferencia..."></textarea>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button type="button" onclick="closeWithdrawModal()" class="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold cursor-pointer">Cancelar</button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold shadow-md cursor-pointer">Enviar Solicitud</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching logic
+    function switchTab(tabName) {
+      document.querySelectorAll('.dash-tab-pane').forEach(pane => pane.classList.add('hidden'));
+
+      const activePane = document.getElementById(`tab-${tabName}`);
+      if (activePane) activePane.classList.remove('hidden');
+
+      const tabs = ['dashboard', 'ventas', 'billetera', 'config'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`btn-tab-${t}`);
+        if (btn) {
+          if (t === tabName) {
+            btn.className = 'flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-extrabold transition duration-200 w-full text-left cursor-pointer bg-[#0A3C84] text-white shadow-sm shadow-[#0A3C84]/20';
+          } else {
+            btn.className = 'flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer';
+          }
+        }
+      });
+    }
+
+    // Auto-open tab from URL parameter if provided
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['dashboard', 'ventas', 'billetera', 'config'].includes(tabParam)) {
+      switchTab(tabParam);
+    } else {
+      switchTab('<%= typeof activeTab !== "undefined" ? activeTab : "dashboard" %>');
+    }
+
+    // Mobile Sidebar Drawer Toggle
+    const mobileBtn = document.getElementById('mobile-menu-btn');
+    const sidebar = document.getElementById('sidebar-menu');
+    const backdrop = document.getElementById('mobile-sidebar-backdrop');
+
+    if (mobileBtn && sidebar && backdrop) {
+      mobileBtn.addEventListener('click', () => {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+      });
+      backdrop.addEventListener('click', () => {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      });
+    }
+
+    // Copy Referral Link
+    function copyRefLink() {
+      const input = document.getElementById('refLinkInput');
+      if (!input) return;
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      
+      const copyBtnText = document.getElementById('copyBtnText');
+      if (copyBtnText) {
+        copyBtnText.textContent = '¡Copiado!';
+        setTimeout(() => { copyBtnText.textContent = 'Copiar'; }, 2000);
+      }
+    }
+
+    // Modals
+    function openRegisterModal() {
+      document.getElementById('modalVenta').classList.remove('hidden');
+      document.getElementById('modalVenta').classList.add('flex');
+      updateProductSelectorOptions();
+    }
+    function closeRegisterModal() {
+      document.getElementById('modalVenta').classList.add('hidden');
+      document.getElementById('modalVenta').classList.remove('flex');
+    }
+
+    function openWithdrawModal() {
+      document.getElementById('modalWithdraw').classList.remove('hidden');
+      document.getElementById('modalWithdraw').classList.add('flex');
+    }
+    function closeWithdrawModal() {
+      document.getElementById('modalWithdraw').classList.add('hidden');
+      document.getElementById('modalWithdraw').classList.remove('flex');
+    }
+
+    // Products Data for Sale Modal
+    const systemConversatorios = <%- JSON.stringify(conversatorios.map(c => ({ id: c.id, titulo: c.titulo, precio: c.precio }))) %>;
+    const systemCursos = <%- JSON.stringify(cursos.map(c => ({ id: c.id, titulo: c.titulo, precio: c.precio }))) %>;
+    const systemMembershipPlans = <%- JSON.stringify(membershipPlans.map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio }))) %>;
+    const systemPromotionPlans = <%- JSON.stringify(promotionPlans.map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio }))) %>;
+
+    function updateProductSelectorOptions() {
+      const typeSelect = document.getElementById('saleProductType');
+      const productSelect = document.getElementById('saleProductIdSelect');
+      const searchInput = document.getElementById('productSearchInput');
+      if (!typeSelect || !productSelect) return;
+
+      const type = typeSelect.value;
+      const filterText = (searchInput?.value || '').trim().toLowerCase();
+      productSelect.innerHTML = '';
+
+      let items = [];
+      let labelPrefix = '';
+
+      if (type === 'CONVERSATORIO') {
+        items = systemConversatorios;
+        labelPrefix = 'Conversatorio';
+      } else if (type === 'CURSO') {
+        items = systemCursos;
+        labelPrefix = 'Curso';
+      } else if (type === 'PLAN_AFILIACION') {
+        items = systemMembershipPlans;
+        labelPrefix = 'Plan Afiliación';
+      } else if (type === 'PLAN_PROMOCION') {
+        items = systemPromotionPlans;
+        labelPrefix = 'Plan Promoción';
+      }
+
+      if (filterText) {
+        items = items.filter(item => {
+          const title = (item.titulo || item.nombre || '').toLowerCase();
+          return title.includes(filterText);
+        });
+      }
+
+      if (items.length === 0) {
+        productSelect.innerHTML = '<option value="" disabled selected>-- No se encontraron coincidencias --</option>';
+        document.getElementById('hiddenProductId').value = '';
+        document.getElementById('hiddenProductName').value = '';
+        return;
+      }
+
+      productSelect.innerHTML = '<option value="" disabled selected>-- Selecciona un producto/servicio --</option>';
+
+      items.forEach(item => {
+        const title = item.titulo || item.nombre;
+        const price = Number(item.precio || 0).toFixed(2);
+        const fullName = `${labelPrefix}: ${title}`;
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.setAttribute('data-name', fullName);
+        option.setAttribute('data-price', price);
+        option.textContent = `${fullName} ($${price} USD)`;
+        productSelect.appendChild(option);
+      });
+    }
+
+    function filterProductOptions() {
+      updateProductSelectorOptions();
+    }
+
+    function handleProductSelected() {
+      const productSelect = document.getElementById('saleProductIdSelect');
+      const hiddenId = document.getElementById('hiddenProductId');
+      const hiddenName = document.getElementById('hiddenProductName');
+      const valorInput = document.getElementById('inputValorPagado');
+
+      const selectedOption = productSelect.options[productSelect.selectedIndex];
+      if (!selectedOption || !selectedOption.value) return;
+
+      hiddenId.value = selectedOption.value;
+      hiddenName.value = selectedOption.getAttribute('data-name') || '';
+      valorInput.value = selectedOption.getAttribute('data-price') || '0.00';
+    }
+
+    function handleComprobanteFileSelected(input) {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      if (file.size > 10 * 1024 * 1024) {
+        alert("El archivo excede el tamaño máximo permitido de 10MB.");
+        input.value = "";
+        return;
+      }
+
+      const prompt = document.getElementById('fileUploadPrompt');
+      const preview = document.getElementById('fileSelectedPreview');
+      const fileNameText = document.getElementById('fileNameText');
+      const fileSizeText = document.getElementById('fileSizeText');
+      const fileIcon = document.getElementById('fileIcon');
+      const hiddenInput = document.getElementById('hiddenComprobanteUrl');
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        hiddenInput.value = e.target.result;
+        
+        fileNameText.textContent = file.name;
+        fileSizeText.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB - Listo para enviar`;
+        
+        if (file.type.includes('pdf')) {
+          fileIcon.className = 'fa-solid fa-file-pdf text-rose-600';
+        } else {
+          fileIcon.className = 'fa-solid fa-file-image text-emerald-600';
+        }
+
+        prompt.classList.add('hidden');
+        preview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resetComprobanteFile() {
+      const input = document.getElementById('fileComprobanteInput');
+      const hiddenInput = document.getElementById('hiddenComprobanteUrl');
+      const prompt = document.getElementById('fileUploadPrompt');
+      const preview = document.getElementById('fileSelectedPreview');
+
+      if (input) input.value = '';
+      if (hiddenInput) hiddenInput.value = '';
+      
+      if (prompt) prompt.classList.remove('hidden');
+      if (preview) preview.classList.add('hidden');
+    }
+
+    // Initialize Chart
+    const ctx = document.getElementById('chartEstados')?.getContext('2d');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Aprobadas', 'Pendientes', 'Rechazadas'],
+          datasets: [{
+            data: [<%= stats.cantAprobadas || 0 %>, <%= stats.cantPendientes || 0 %>, <%= stats.cantRechazadas || 0 %>],
+            backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>

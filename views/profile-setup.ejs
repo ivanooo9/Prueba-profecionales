@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-slate-50 flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  <%- include('partials/header') %>
+
+  <main class="flex-grow flex flex-col items-center justify-center py-10 px-6">
+    <!-- Breadcrumbs / Migas de Pan (Nielsen H1: Visibilidad del estado & H3: Control del usuario) -->
+    <div class="max-w-lg w-full mb-6">
+      <nav class="flex items-center justify-between flex-wrap gap-2 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-sm text-xs" aria-label="Migas de pan">
+        <ol class="flex items-center flex-wrap gap-1.5 text-slate-500 font-medium list-none p-0 m-0">
+          <li class="inline-flex items-center">
+            <a href="/" class="inline-flex items-center gap-1.5 text-slate-600 hover:text-[#0A3C84] font-semibold transition">
+              <i class="fa-solid fa-house text-[11px] text-[#0A3C84]"></i>
+              <span>Inicio</span>
+            </a>
+          </li>
+          <li class="inline-flex items-center text-slate-300">
+            <i class="fa-solid fa-chevron-right text-[9px]"></i>
+          </li>
+          <li class="inline-flex items-center" aria-current="page">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 text-[#0A3C84] font-extrabold border border-blue-100/80 shadow-2xs">
+              <i class="fa-solid fa-user-gear text-[10px]"></i>
+              <span>Configuración de Cuenta</span>
+            </span>
+          </li>
+        </ol>
+        <a href="/" class="inline-flex items-center gap-1 text-slate-500 hover:text-[#0A3C84] text-[11px] font-bold transition">
+          <i class="fa-solid fa-arrow-left text-[10px]"></i> Inicio
+        </a>
+      </nav>
+    </div>
+
+    <div class="bg-white p-8 md:p-12 rounded-3xl border border-slate-150/80 shadow-lg max-w-lg w-full">
+      <div class="text-center mb-8">
+        <% if (typeof systemConfig !== 'undefined' && systemConfig.systemLogo) { %>
+          <div class="inline-block p-2 rounded-2xl bg-slate-900">
+            <img src="<%= systemConfig.systemLogo %>" alt="<%= systemConfig.systemName %>" class="h-24 max-w-[300px] object-contain" style="filter: brightness(0) invert(1);">
+          </div>
+        <% } else if (typeof systemConfig !== 'undefined' && systemConfig.footerLogo) { %>
+          <div class="inline-block p-2 rounded-2xl bg-slate-900">
+            <img src="<%= systemConfig.footerLogo %>" alt="<%= systemConfig.systemName %>" class="h-24 max-w-[300px] object-contain" style="filter: brightness(0) invert(1);">
+          </div>
+        <% } else { %>
+          <span class="text-4xl font-extrabold tracking-tight text-slate-900 font-sans">P<span class="text-sky-500">.</span>ec</span>
+        <% } %>
+        <h2 class="text-2xl font-bold text-slate-800 mt-4">Configura tu Cuenta</h2>
+        <p class="text-slate-500 text-sm mt-2">
+          Para comenzar, por favor completa tu información personal y define tu nueva contraseña de acceso.
+        </p>
+      </div>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="bg-rose-50 border border-rose-100 text-rose-600 rounded-xl p-4 text-xs font-semibold mb-6 flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-sm"></i>
+          <span><%= error %></span>
+        </div>
+      <% } %>
+
+      <form id="setup-form" action="/profile-setup" method="POST" class="flex flex-col gap-5" onsubmit="return validateForm()">
+        
+        <!-- Nombre Completo -->
+        <div class="flex flex-col gap-1.5">
+          <label for="name" class="text-xs font-bold text-slate-700">Nombres Completos</label>
+          <div class="relative">
+            <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="name" name="name" required value="<%= user.name !== 'Nuevo Alumno' ? user.name : '' %>" placeholder="Ej: Juan Andrés Pérez" class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-11 pr-4 text-sm font-semibold outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Teléfono -->
+          <div class="flex flex-col gap-1.5">
+            <label for="telefono" class="text-xs font-bold text-slate-700">Teléfono Celular</label>
+            <div class="relative">
+              <i class="fa-solid fa-phone absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <input type="tel" id="telefono" name="telefono" required value="<%= user.telefono || '' %>" placeholder="Ej: 0999999999" maxlength="10" inputmode="numeric" pattern="\d{10}" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10)" class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-11 pr-4 text-sm font-semibold outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            </div>
+          </div>
+
+          <!-- Provincia -->
+          <div class="flex flex-col gap-1.5">
+            <label for="ciudad" class="text-xs font-bold text-slate-700">Provincia de Residencia</label>
+            <div class="relative">
+              <i class="fa-solid fa-location-dot absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <select id="ciudad" name="ciudad" required class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-11 pr-4 text-sm font-semibold outline-none focus:bg-white focus:border-[#0A3C84] transition appearance-none">
+                <option value="" disabled <%= !user.ciudad ? 'selected' : '' %>>Selecciona una provincia</option>
+                <% const provinciasEcuador = ['Azuay', 'Bolívar', 'Cañar', 'Carchi', 'Chimborazo', 'Cotopaxi', 'El Oro', 'Esmeraldas', 'Galápagos', 'Guayas', 'Imbabura', 'Loja', 'Los Ríos', 'Manabí', 'Morona Santiago', 'Napo', 'Orellana', 'Pastaza', 'Pichincha', 'Santa Elena', 'Santo Domingo de los Tsáchilas', 'Sucumbíos', 'Tungurahua', 'Zamora Chinchipe']; %>
+                <% provinciasEcuador.forEach(function(provincia) { %>
+                  <option value="<%= provincia %>" <%= user.ciudad === provincia ? 'selected' : '' %>><%= provincia %></option>
+                <% }); %>
+              </select>
+              <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nombre en Certificado -->
+        <div class="flex flex-col gap-1.5">
+          <label for="nombreCertificado" class="text-xs font-bold text-slate-700">Nombre que constará en el Certificado</label>
+          <div class="relative">
+            <i class="fa-solid fa-award absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="nombreCertificado" name="nombreCertificado" required value="<%= user.nombreCertificado || '' %>" placeholder="Ej: Dr. Juan Andrés Pérez" class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-11 pr-4 text-sm font-semibold outline-none focus:bg-white focus:border-[#0A3C84] transition">
+          </div>
+          <p class="text-[10px] text-slate-400 font-medium">Escribe exactamente cómo deseas que se imprima tu nombre en los certificados digitales.</p>
+        </div>
+
+        <!-- Nueva Contraseña -->
+        <div class="flex flex-col gap-1.5">
+          <label for="password" class="text-xs font-bold text-slate-700">Nueva Contraseña</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="password" id="password" name="password" required placeholder="Ingresa una nueva contraseña" class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-11 pr-10 text-sm font-semibold outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <button type="button" onclick="togglePasswordVisibility('password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer bg-transparent border-none p-0 leading-none">
+              <i class="fa-solid fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Confirmar Contraseña -->
+        <div class="flex flex-col gap-1.5">
+          <label for="confirmPassword" class="text-xs font-bold text-slate-700">Confirmar Nueva Contraseña</label>
+          <div class="relative">
+            <i class="fa-solid fa-circle-check absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Repite tu nueva contraseña" class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-11 pr-10 text-sm font-semibold outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <button type="button" onclick="togglePasswordVisibility('confirmPassword', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer bg-transparent border-none p-0 leading-none">
+              <i class="fa-solid fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="validation-error" class="bg-rose-50 border border-rose-100 text-rose-600 rounded-xl p-4 text-xs font-semibold hidden flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-sm"></i>
+          <span id="validation-error-msg"></span>
+        </div>
+
+        <button type="submit" class="w-full bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3.5 rounded-xl transition text-sm shadow-md mt-2 cursor-pointer flex items-center justify-center gap-2">
+          <span>Guardar y Continuar</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <script>
+    function validateForm() {
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const telefono = document.getElementById('telefono').value;
+      const errorDiv = document.getElementById('validation-error');
+      const errorMsg = document.getElementById('validation-error-msg');
+
+      errorDiv.classList.add('hidden');
+
+      if (!/^\d{10}$/.test(telefono)) {
+        errorMsg.innerText = "El teléfono debe contener exactamente 10 números.";
+        errorDiv.classList.remove('hidden');
+        return false;
+      }
+
+      if (password.length < 6) {
+        errorMsg.innerText = "La contraseña debe tener al menos 6 caracteres.";
+        errorDiv.classList.remove('hidden');
+        return false;
+      }
+
+      if (password !== confirmPassword) {
+        errorMsg.innerText = "Las contraseñas no coinciden.";
+        errorDiv.classList.remove('hidden');
+        return false;
+      }
+
+      return true;
+    }
+
+    function togglePasswordVisibility(id, btn) {
+      const input = document.getElementById(id);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+  </script>
+</body>
+</html>

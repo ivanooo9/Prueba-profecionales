@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bgLight flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  <div id="course-loading" class="fixed inset-0 z-50 hidden items-center justify-center bg-brand-bgLight/85 backdrop-blur-sm">
+    <div class="rounded-3xl border border-white/70 bg-white shadow-2xl px-6 py-5 flex items-center gap-4">
+      <div class="h-10 w-10 rounded-full border-4 border-slate-200 border-t-[#0252A4] animate-spin"></div>
+      <div>
+        <p class="text-sm font-extrabold text-slate-900">Aplicando filtros</p>
+        <p class="text-[11px] font-semibold text-slate-500">Cargando cursos...</p>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/header') %>
+
+  <main class="flex-grow max-w-7xl mx-auto w-full px-6 md:px-12 py-16 flex flex-col gap-12">
+    <div class="flex flex-col items-center text-center gap-2" data-reveal="fade-up">
+      <span class="text-xs font-black tracking-widest text-[#0252A4] uppercase"></span>
+      <h1 class="text-4xl md:text-5xl font-black tracking-tight text-slate-900 leading-none">
+        Cursos de Educación Continua
+      </h1>
+      <p class="text-brand-grayText text-sm max-w-xl leading-relaxed">
+        Adquiere nuevas destrezas y capacítate con certificación oficial avalada por nuestra red.
+      </p>
+    </div>
+
+    <form action="/cursos" method="GET" id="course-filter-form" class="bg-white p-5 md:p-6 rounded-3xl border border-slate-100 shadow-sm" data-reveal="fade-up" data-reveal-delay="100">
+      <div class="flex flex-col gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_auto] gap-3 items-end">
+          <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" name="search" value="<%= (typeof query !== 'undefined' && query.search) ? query.search : '' %>" placeholder="Buscar por nombre de curso, tema o palabras clave..." class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3.5 pl-11 pr-4 text-sm outline-none focus:bg-white focus:border-[#0252A4] transition">
+          </div>
+
+          <button type="submit" class="inline-flex items-center justify-center gap-2 bg-[#0252A4] hover:bg-[#02448A] text-white font-bold px-5 py-3 rounded-2xl transition text-sm whitespace-nowrap shadow-sm">
+            <i class="fa-solid fa-magnifying-glass"></i> Buscar
+          </button>
+
+          <a href="/cursos" class="inline-flex items-center justify-center gap-2 border border-[#0252A4] hover:bg-slate-50 text-[#0252A4] font-bold px-5 py-3 rounded-2xl transition text-sm whitespace-nowrap">
+            <i class="fa-solid fa-trash-can"></i> Limpiar
+          </a>
+        </div>
+
+        <details class="group rounded-2xl border border-slate-100 bg-slate-50/70">
+          <summary class="list-none cursor-pointer px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-black text-slate-900">Filtros y orden</p>
+              <p class="text-[11px] font-semibold text-slate-500">Profesión, categoría, rama, precio y orden</p>
+            </div>
+            <span class="h-9 w-9 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-500 transition group-open:rotate-180">
+              <i class="fa-solid fa-chevron-down text-xs"></i>
+            </span>
+          </summary>
+
+          <div class="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Profesión</span>
+              <select name="professionId" id="filter-profession" onchange="onProfessionChange(this.value)" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:bg-white focus:border-[#0252A4] transition font-semibold text-slate-700">
+                <option value="">Todas las profesiones</option>
+                <% if (typeof professions !== 'undefined' && professions && professions.length > 0) { %>
+                  <% professions.forEach(function(p) { %>
+                    <option value="<%= p.id %>" <%= (typeof query !== 'undefined' && query.professionId == p.id) ? 'selected' : '' %>><%= p.nombre %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Categoría</span>
+              <select name="categoryId" id="filter-category" onchange="onCategoryChange(this.value)" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:bg-white focus:border-[#0252A4] transition font-semibold text-slate-700">
+                <option value="">Todas las categorías</option>
+                <% if (typeof categories !== 'undefined' && categories && categories.length > 0) { %>
+                  <% categories.forEach(function(c) { %>
+                    <option value="<%= c.id %>" data-prof-id="<%= c.professionId || '' %>" <%= (typeof query !== 'undefined' && query.categoryId == c.id) ? 'selected' : '' %>><%= c.nombre %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Rama</span>
+              <select name="branchId" id="filter-branch" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:bg-white focus:border-[#0252A4] transition font-semibold text-slate-700">
+                <option value="">Todas las ramas</option>
+                <% if (typeof branches !== 'undefined' && branches && branches.length > 0) { %>
+                  <% branches.forEach(function(b) { %>
+                    <option value="<%= b.id %>" data-cat-id="<%= b.categoryId %>" <%= (typeof query !== 'undefined' && query.branchId == b.id) ? 'selected' : '' %>><%= b.nombre %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Precio</span>
+              <select name="precio" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:bg-white focus:border-[#0252A4] transition font-semibold text-slate-700">
+                <option value="">Todos los precios</option>
+                <option value="free" <%= (typeof query !== 'undefined' && query.precio === 'free') ? 'selected' : '' %>>Gratuitos</option>
+                <option value="paid" <%= (typeof query !== 'undefined' && query.precio === 'paid') ? 'selected' : '' %>>De pago</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ordenar</span>
+              <select name="sort" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:bg-white focus:border-[#0252A4] transition text-slate-700 font-medium">
+                <option value="destacados" <%= (typeof query !== 'undefined' && (query.sort === 'destacados' || !query.sort)) ? 'selected' : '' %>>Destacados primero</option>
+                <option value="recientes" <%= (typeof query !== 'undefined' && query.sort === 'recientes') ? 'selected' : '' %>>Más recientes</option>
+                <option value="nombre_asc" <%= (typeof query !== 'undefined' && query.sort === 'nombre_asc') ? 'selected' : '' %>>Nombre: A - Z</option>
+              </select>
+            </div>
+          </div>
+        </details>
+      </div>
+    </form>
+
+    <section class="flex flex-col gap-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" data-reveal-stagger="true" data-stagger-step="80">
+        <% if (typeof cursos !== 'undefined' && cursos && cursos.length > 0) { %>
+          <% cursos.forEach(function(cur) { %>
+            <div class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm flex flex-col premium-card-hover" data-reveal="fade-up">
+              <div class="h-48 overflow-hidden bg-slate-100 relative">
+                <img src="<%= cur.banner || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800' %>" alt="<%= cur.titulo %>" class="w-full h-full object-cover">
+                <% if (cur.gratuito) { %>
+                  <span class="absolute top-4 left-4 bg-emerald-500 text-white font-black text-[9px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md">Gratuito</span>
+                <% } else { %>
+                  <% if (cur.hasActiveDiscount) { %>
+                    <span class="absolute top-4 left-4 bg-rose-500 text-white font-black text-[9px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md">-<%= cur.discountPercent %>% OFF</span>
+                  <% } else { %>
+                    <span class="absolute top-4 left-4 bg-[#0252A4] text-white font-black text-[9px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md">$<%= cur.precio.toFixed(2) %></span>
+                  <% } %>
+                <% } %>
+              </div>
+
+              <div class="p-6 flex flex-col flex-grow">
+                <div class="flex flex-wrap gap-1.5 mb-3">
+                  <% if (cur.profession) { %>
+                    <span class="bg-blue-50 text-blue-700 text-[10px] font-extrabold px-3 py-1 rounded-full border border-blue-100/60"><%= cur.profession.nombre %></span>
+                  <% } else if (cur.areaProfesional) { %>
+                    <span class="bg-blue-50 text-blue-700 text-[10px] font-extrabold px-3 py-1 rounded-full border border-blue-100/60"><%= cur.areaProfesional %></span>
+                  <% } %>
+                  <% if (cur.category) { %>
+                    <span class="bg-indigo-50 text-indigo-700 text-[10px] font-extrabold px-3 py-1 rounded-full border border-indigo-100/60"><%= cur.category.nombre %></span>
+                  <% } %>
+                  <% if (cur.branch) { %>
+                    <span class="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-3 py-1 rounded-full border border-slate-200/60"><%= cur.branch.nombre %></span>
+                  <% } %>
+                </div>
+
+                <h3 class="font-extrabold text-lg text-slate-900 leading-snug mb-1"><%= cur.titulo %></h3>
+                <p class="text-[#0252A4] text-xs font-bold mb-4"><%= cur.slogan || 'Programa de Capacitación' %></p>
+                <p class="text-slate-500 text-xs mb-4 font-semibold line-clamp-3"><%= cur.descripcion || 'Sin descripción disponible.' %></p>
+
+                <% if (!cur.gratuito && cur.hasActiveDiscount) { %>
+                  <div class="flex items-center gap-2 mb-4">
+                    <span class="text-slate-400 line-through text-xs font-mono font-bold">$<%= cur.precio.toFixed(2) %></span>
+                    <span class="text-rose-600 font-mono font-black text-sm">$<%= cur.activePrice.toFixed(2) %> USD</span>
+                  </div>
+                <% } %>
+
+                <div class="flex flex-col gap-2 pt-4 border-t border-slate-50 text-slate-650 text-xs mt-auto font-medium">
+                  <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-slate-400 w-4"></i>
+                    <span><%= cur.modules ? cur.modules.length : 0 %> Módulos / Unidades</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-video text-slate-400 w-4"></i>
+                    <span><%= cur.modules ? cur.modules.reduce((acc, m) => acc + (m.lessons ? m.lessons.length : 0), 0) : 0 %> Video Lecciones</span>
+                  </div>
+                </div>
+                <a href="/cursos/<%= cur.slug || cur.id %>" class="mt-5 w-full text-center bg-[#0252A4] hover:bg-[#02448A] text-white font-extrabold py-3 rounded-xl text-xs transition block shadow-sm">
+                  Ver Detalles del Curso
+                </a>
+              </div>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="col-span-full text-center py-16 bg-white border border-slate-100 rounded-3xl text-slate-400 flex flex-col items-center justify-center">
+            <i class="fa-solid fa-graduation-cap text-4xl mb-3 text-slate-300"></i>
+            <span class="text-sm font-extrabold text-slate-700">No se encontraron cursos académicos.</span>
+            <span class="text-xs text-slate-400 mt-1">Prueba seleccionando otros filtros o palabras clave de búsqueda.</span>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <script>
+    function filterCategoryOptions(profId) {
+      const catSelect = document.getElementById('filter-category');
+      if (!catSelect) return;
+
+      const options = catSelect.querySelectorAll('option');
+      options.forEach(opt => {
+        if (!opt.value) {
+          opt.hidden = false;
+          return;
+        }
+
+        const itemProfId = opt.getAttribute('data-prof-id');
+        opt.hidden = !!profId && itemProfId !== profId;
+      });
+    }
+
+    function filterBranchOptions(catId) {
+      const branchSelect = document.getElementById('filter-branch');
+      if (!branchSelect) return;
+
+      const options = branchSelect.querySelectorAll('option');
+      options.forEach(opt => {
+        if (!opt.value) {
+          opt.hidden = false;
+          return;
+        }
+
+        const itemCatId = opt.getAttribute('data-cat-id');
+        opt.hidden = !!catId && itemCatId !== catId;
+      });
+    }
+
+    function onProfessionChange(profId) {
+      filterCategoryOptions(profId);
+      const catSelect = document.getElementById('filter-category');
+      const branchSelect = document.getElementById('filter-branch');
+      if (catSelect) catSelect.value = '';
+      if (branchSelect) branchSelect.value = '';
+      filterBranchOptions('');
+    }
+
+    function onCategoryChange(catId) {
+      filterBranchOptions(catId);
+      const branchSelect = document.getElementById('filter-branch');
+      if (branchSelect) branchSelect.value = '';
+    }
+
+    (function () {
+      const form = document.getElementById('course-filter-form');
+      const overlay = document.getElementById('course-loading');
+      if (!form || !overlay) return;
+
+      function showLoading() {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+      }
+
+      function hideLoading() {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      }
+
+      form.addEventListener('submit', showLoading);
+      window.addEventListener('pageshow', hideLoading);
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const profSelect = document.getElementById('filter-profession');
+        const catSelect = document.getElementById('filter-category');
+        if (profSelect && profSelect.value) {
+          filterCategoryOptions(profSelect.value);
+        }
+        if (catSelect && catSelect.value) {
+          filterBranchOptions(catSelect.value);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

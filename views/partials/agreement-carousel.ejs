@@ -1,0 +1,149 @@
+<%
+  const sectionTitle = typeof title !== 'undefined' ? title : 'Nuestros Convenios';
+  const items = typeof agreements !== 'undefined' && agreements ? agreements : [];
+%>
+<section class="max-w-7xl mx-auto w-full px-6 md:px-12 py-16 border-t border-slate-100 scroll-reveal book-scroll-section">
+  <div class="flex flex-col items-center text-center mb-12">
+    <div class="flex items-center gap-3 mb-5 w-full max-w-md">
+      <span class="h-px flex-1 bg-gradient-to-r from-transparent via-brand-blue/30 to-brand-blue/70"></span>
+      <span class="w-2 h-2 rounded-full bg-brand-blue ring-4 ring-brand-blue/10"></span>
+      <span class="h-px flex-1 bg-gradient-to-l from-transparent via-brand-blue/30 to-brand-blue/70"></span>
+    </div>
+    <h2 class="text-3xl md:text-4xl font-black text-brand-black tracking-tight mb-2"><%= sectionTitle %></h2>
+    <p class="text-brand-grayText text-sm max-w-xl">Alianzas estratégicas que fortalecen tu crecimiento profesional</p>
+  </div>
+
+  <div class="relative w-full px-2 md:px-14">
+    <div class="overflow-hidden w-full">
+      <div id="<%= carouselId %>" class="flex gap-4 md:gap-6 overflow-x-auto scroll-smooth snap-x pb-4 scrollbar-none <% if (items.length <= 2) { %>md:justify-center<% } %>" style="scrollbar-width: none;">
+        <% if (items.length > 0) { %>
+          <% items.forEach(function(a) { %>
+            <div class="snap-start w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] min-h-[414px] md:min-h-[460px] flex-shrink-0 bg-white rounded-3xl border border-slate-100 p-6 md:p-10 transition-all duration-300 flex flex-col items-center text-center relative group scroll-reveal" style="transition-delay: <%= (items.indexOf(a) * 100) %>ms; box-shadow: none !important;">
+              <div class="absolute top-6 right-6 bg-brand-blue text-white w-8 h-8 rounded-full flex items-center justify-center" style="box-shadow: none !important;">
+                <i class="fa-solid fa-handshake text-xs"></i>
+              </div>
+              <div class="w-28 h-28 rounded-full border border-slate-100 flex items-center justify-center mb-6 bg-slate-50 overflow-hidden relative" style="box-shadow: none !important;">
+                <% if (a.logo) { %>
+                  <img src="<%= a.logo %>" alt="<%= a.titulo %>" class="w-28 object-cover">
+                <% } else { %>
+                  <% if (a.titulo.toLowerCase().includes('rodar')) { %>
+                    <div class="flex flex-col items-center">
+                      <span class="text-xs font-black tracking-tighter text-emerald-600 flex items-center gap-0.5"><i class="fa-solid fa-car text-[10px]"></i> RODAR</span>
+                      <span class="text-[6px] text-slate-500 uppercase tracking-widest">Conducción</span>
+                    </div>
+                  <% } else if (a.titulo.toLowerCase().includes('reforma')) { %>
+                    <div class="flex flex-col items-center justify-center text-center">
+                      <span class="text-2xl font-black text-rose-600">LR</span>
+                      <span class="text-[5px] text-slate-400 uppercase tracking-tight">La Reforma</span>
+                    </div>
+                  <% } else { %>
+                    <div class="flex flex-col items-center justify-center text-center">
+                      <span class="text-xl font-black text-brand-blue"><%= a.titulo.split(' ').map(w => w.charAt(0)).join('').slice(0, 3).toUpperCase() %></span>
+                    </div>
+                  <% } %>
+                <% } %>
+              </div>
+              <h3 class="font-black text-xl text-slate-900 mb-1 line-clamp-2"><%= a.titulo %></h3>
+              <span class="bg-[#EAEFF8] text-[#033E8C] text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4"><%= a.categoria %></span>
+              <p class="text-slate-500 text-xs leading-relaxed max-w-xs mb-6 line-clamp-5">
+                <%= a.descripcion || '' %>
+              </p>
+              <% if (a.link) { %>
+                <a href="<%= a.link %>" target="_blank" class="text-xs font-bold text-brand-blue hover:text-sky-700 flex items-center gap-1 mt-auto">
+                  Visitar sitio <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </a>
+              <% } %>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="w-full py-12 text-center text-slate-450 font-semibold text-xs">
+            No hay convenios disponibles en este momento.
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <button id="<%= prevId %>" class="absolute left-0 md:-left-12 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-[#033E8C] hover:bg-[#022A60] text-white flex items-center justify-center transition-colors border border-white/10 z-10 cursor-pointer">
+      <i class="fa-solid fa-chevron-left text-xs md:text-sm"></i>
+    </button>
+    <button id="<%= nextId %>" class="absolute right-0 md:-right-12 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-[#033E8C] hover:bg-[#022A60] text-white flex items-center justify-center transition-colors border border-white/10 z-10 cursor-pointer">
+      <i class="fa-solid fa-chevron-right text-xs md:text-sm"></i>
+    </button>
+  </div>
+
+  <div class="flex items-center justify-center gap-1.5 mt-8">
+    <% if (items.length > 0) { %>
+      <% items.forEach(function(a, idx) { %>
+        <button class="<%= dotClass %> <%= idx === 0 ? 'w-8 bg-brand-blue' : 'w-2 bg-slate-300' %> h-2 rounded-full transition-all duration-300" data-index="<%= idx %>"></button>
+      <% }); %>
+    <% } %>
+  </div>
+</section>
+
+<script>
+  (function() {
+    function setupAgreementCarousel() {
+      const carousel = document.getElementById('<%= carouselId %>');
+      const prev = document.getElementById('<%= prevId %>');
+      const next = document.getElementById('<%= nextId %>');
+      const dotsList = document.querySelectorAll('.<%= dotClass %>');
+      if (!carousel) return;
+
+      function getScrollStep() {
+        const firstCard = carousel.querySelector(':scope > *');
+        if (firstCard) {
+          return firstCard.offsetWidth + 24;
+        }
+        return 440;
+      }
+
+      if (prev) {
+        prev.addEventListener('click', (e) => {
+          e.preventDefault();
+          carousel.scrollBy({ left: -getScrollStep(), behavior: 'smooth' });
+        });
+      }
+      if (next) {
+        next.addEventListener('click', (e) => {
+          e.preventDefault();
+          carousel.scrollBy({ left: getScrollStep(), behavior: 'smooth' });
+        });
+      }
+
+      carousel.addEventListener('scroll', () => {
+        const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+        if (maxScroll <= 0) return;
+        const currentScroll = carousel.scrollLeft;
+        const scrollPercent = currentScroll / maxScroll;
+        const activeDot = Math.min(Math.round(scrollPercent * (dotsList.length - 1)), dotsList.length - 1);
+
+        dotsList.forEach((dot, i) => {
+          if (i === activeDot) {
+            dot.classList.add('bg-brand-blue', 'w-8');
+            dot.classList.remove('bg-slate-300', 'w-2');
+          } else {
+            dot.classList.remove('bg-brand-blue', 'w-8');
+            dot.classList.add('bg-slate-300', 'w-2');
+          }
+        });
+      });
+
+      dotsList.forEach((dot, i) => {
+        dot.addEventListener('click', (e) => {
+          e.preventDefault();
+          const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+          carousel.scrollTo({
+            left: (maxScroll * i) / (dotsList.length - 1 || 1),
+            behavior: 'smooth'
+          });
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupAgreementCarousel);
+    } else {
+      setupAgreementCarousel();
+    }
+  })();
+</script>

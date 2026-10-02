@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+  <!-- Google Fonts: Outfit for modern, friendly medical aesthetics -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS for Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Leaflet JS for Maps -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-[#F8FAFC] flex flex-col min-h-screen text-[#1E293B] antialiased">
+  <% if (!previewMode) { %>
+    <%- include('partials/header') %>
+  <% } %>
+
+  <!-- Premium Medical Hero Header -->
+  <section class="relative bg-gradient-to-br from-[#F0F7FF] via-[#E0F2FE] to-[#F8FAFC] border-b border-slate-100 overflow-hidden py-10 lg:py-16">
+    <!-- Abstract background shape -->
+    <div class="absolute -right-16 -top-16 w-96 h-96 rounded-full bg-blue-100/40 blur-3xl"></div>
+    <div class="absolute left-10 bottom-0 w-72 h-72 rounded-full bg-sky-100/30 blur-3xl"></div>
+
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        
+        <!-- Left Hero Column: Text Content -->
+        <div class="lg:col-span-7 space-y-5 text-left">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-blue-100/80 shadow-sm text-xs font-semibold text-[#0a66c2]">
+            <i class="fa-solid fa-user-doctor"></i> Especialista Verificado
+          </div>
+          
+          <!-- Heading -->
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight">
+            <%= profile.user.name %>
+          </h1>
+          
+          <!-- Profession and specialty info -->
+          <% 
+            let specSubtitle = 'Profesional de la Salud';
+            if (profile.specialties && profile.specialties.length > 0) {
+              const spec = profile.specialties[0].specialty;
+              if (spec.profession) {
+                specSubtitle = `${spec.profession.nombre} en ${spec.nombre}`;
+              } else {
+                specSubtitle = spec.nombre;
+              }
+            }
+          %>
+          <p class="text-base sm:text-lg font-bold text-slate-700 leading-relaxed">
+            <%= specSubtitle %>
+          </p>
+          
+          <!-- Slogan -->
+          <p class="text-slate-500 font-semibold italic text-sm leading-relaxed max-w-lg">
+            "<%= profile.slogan || 'Dedicación, profesionalismo y calidez para cuidar tu bienestar.' %>"
+          </p>
+
+          <!-- Tarifa Info -->
+          <div class="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-100/80 rounded-xl px-4 py-2 text-xs font-bold text-emerald-800 shadow-sm">
+            <i class="fa-solid fa-circle-dollar-to-slot text-base text-emerald-600"></i>
+            <span>Consulta: Desde $<%= profile.tarifa ? profile.tarifa.toFixed(2) : '0.00' %></span>
+          </div>
+
+          <!-- CTAs -->
+          <div class="flex flex-wrap gap-3 pt-2">
+            <a href="#agendar-cita" class="bg-[#0a66c2] hover:bg-[#004182] text-white font-bold py-2.5 px-6 rounded-full text-xs shadow-md shadow-blue-500/10 hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer">
+              <i class="fa-solid fa-calendar-check"></i> Agendar Cita
+            </a>
+            <% if (profile.website) { %>
+              <a href="<%= profile.website.startsWith('http') ? profile.website : 'https://' + profile.website %>" target="_blank" class="bg-white/80 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold py-2.5 px-6 rounded-full text-xs shadow-sm transition flex items-center gap-1.5">
+                <i class="fa-solid fa-globe"></i> Sitio Web
+              </a>
+            <% } %>
+            <div class="flex items-center gap-1.5 sm:pl-3">
+              <% if (profile.facebook) { %>
+                <a href="<%= profile.facebook.startsWith('http') ? profile.facebook : 'https://' + profile.facebook %>" target="_blank" class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-[#1877F2] hover:border-blue-200 flex items-center justify-center transition shadow-sm" title="Facebook">
+                  <i class="fa-brands fa-facebook-f text-xs"></i>
+                </a>
+              <% } %>
+              <% if (profile.instagram) { %>
+                <a href="<%= profile.instagram.startsWith('http') ? profile.instagram : 'https://' + profile.instagram %>" target="_blank" class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200 flex items-center justify-center transition shadow-sm" title="Instagram">
+                  <i class="fa-brands fa-instagram text-xs"></i>
+                </a>
+              <% } %>
+              <% if (profile.linkedin) { %>
+                <a href="<%= profile.linkedin.startsWith('http') ? profile.linkedin : 'https://' + profile.linkedin %>" target="_blank" class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-[#0A66C2] hover:border-blue-300 flex items-center justify-center transition shadow-sm" title="LinkedIn">
+                  <i class="fa-brands fa-linkedin-in text-xs"></i>
+                </a>
+              <% } %>
+              <% if (profile.xTwitter) { %>
+                <a href="<%= profile.xTwitter.startsWith('http') ? profile.xTwitter : 'https://' + profile.xTwitter %>" target="_blank" class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-black hover:border-slate-350 flex items-center justify-center transition shadow-sm" title="X / Twitter">
+                  <i class="fa-brands fa-x-twitter text-xs"></i>
+                </a>
+              <% } %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Hero Column: Photo Cutout -->
+        <div class="lg:col-span-5 flex justify-center relative">
+          <!-- Circular Pattern backing -->
+          <div class="relative w-60 h-60 md:w-72 md:h-72 rounded-full border-4 border-dashed border-blue-200 p-3.5 flex items-center justify-center bg-gradient-to-tr from-blue-50/50 to-white shadow-sm">
+            <!-- Profile Image -->
+            <div class="w-full h-full rounded-full overflow-hidden border-4 border-white shadow-md relative z-10">
+              <img src="<%= profile.photo || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400' %>" alt="<%= profile.user.name %>" class="w-full h-full object-cover">
+            </div>
+          </div>
+        </div>
+    </div>
+  </section>
+
+  <!-- Main Grid Content -->
+  <main class="max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 flex-grow">
+    <% if (typeof previewMode !== 'undefined' && previewMode) { %>
+      <div class="w-full mb-6 rounded-2xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3.5 flex items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-eye text-amber-600"></i>
+          <p class="text-sm font-semibold">Estás en vista previa — Los cambios aún no están publicados</p>
+        </div>
+        <a href="#" class="text-amber-500 hover:text-amber-700 transition" aria-label="Cerrar aviso de vista previa">
+          <i class="fa-solid fa-xmark"></i>
+        </a>
+      </div>
+    <% } %>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- LEFT COLUMN: Main Sections (8 Cols) -->
+      <div class="lg:col-span-8 space-y-8">
+        
+        <!-- About Section (Biografía) -->
+        <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 flex flex-col text-left">
+          <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2 pb-2 border-b border-slate-50">
+            <i class="fa-solid fa-file-waveform text-[#0a66c2]"></i> Acerca de mí
+          </h2>
+          <div class="text-xs text-slate-650 leading-relaxed font-normal whitespace-pre-line text-slate-600">
+            <%= profile.bio || 'Este especialista aún no ha configurado su biografía profesional.' %>
+          </div>
+        </section>
+
+        <!-- Our Medical Services Section (Mockup Services Grid) -->
+        <section id="servicios" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 flex flex-col text-left scroll-mt-24">
+          <div class="text-center max-w-lg mx-auto mb-6">
+            <h2 class="text-lg font-bold text-slate-900 mb-1 text-center">Nuestros Servicios Médicos</h2>
+            <p class="text-[10px] font-bold text-slate-400">Atención personalizada con los más altos estándares de calidad.</p>
+          </div>
+
+          <% if (profile.services && profile.services.length > 0) { %>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <% profile.services.forEach(function(serv) { %>
+                <div class="border border-slate-100 rounded-2xl p-5 flex flex-col justify-between hover:bg-gradient-to-b hover:from-white hover:to-blue-50/20 hover:border-blue-100 hover:shadow-md transition-all group duration-300 relative overflow-hidden">
+                  <!-- Decorative subtle background shape -->
+                  <div class="absolute -right-8 -top-8 w-16 h-16 rounded-full bg-blue-50/30 group-hover:bg-blue-100/30 transition-all duration-300"></div>
+
+                  <div>
+                    <div class="flex items-center justify-between mb-2 relative z-10">
+                      <h3 class="font-bold text-slate-800 text-xs group-hover:text-[#0a66c2] transition duration-300"><%= serv.nombre %></h3>
+                      <span class="text-emerald-700 font-extrabold text-sm shrink-0 ml-2">$<%= serv.precio ? serv.precio.toFixed(2) : '0.00' %></span>
+                    </div>
+                    
+                    <% if (serv.descripcion && serv.descripcion.trim()) { %>
+                      <p class="text-slate-500 text-[11px] font-medium leading-relaxed line-clamp-3"><%= serv.descripcion %></p>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <div class="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+              <i class="fa-solid fa-hand-holding-medical text-slate-400 text-2xl mb-2"></i>
+              <p class="text-slate-500 text-xs font-bold">No hay servicios registrados en este perfil.</p>
+            </div>
+          <% } %>
+        </section>
+
+
+
+        <!-- Location & Map Section -->
+        <section id="contacto-info" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 flex flex-col text-left">
+          <h2 class="text-lg font-bold text-slate-900 mb-5 flex items-center gap-2 pb-2 border-b border-slate-50">
+            <i class="fa-solid fa-map-location-dot text-[#0a66c2]"></i> Ubicación y Contacto Directo
+          </h2>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5 text-xs font-semibold text-slate-700">
+            <div class="space-y-4">
+              <div>
+                <span class="text-slate-400 uppercase text-[9px] font-extrabold tracking-wider block mb-0.5">Dirección Principal</span>
+                <span class="text-slate-800"><%= profile.callePrincipal || profile.direccion || 'No especificada' %></span>
+              </div>
+              <div>
+                <span class="text-slate-400 uppercase text-[9px] font-extrabold tracking-wider block mb-0.5">Referencia de ubicación</span>
+                <span class="text-slate-800"><%= profile.referencia || 'Sin referencia registrada' %></span>
+              </div>
+            </div>
+            
+            <div class="space-y-4">
+              <div>
+                <span class="text-slate-400 uppercase text-[9px] font-extrabold tracking-wider block mb-0.5">Ciudad / Provincia</span>
+                <span class="text-slate-800"><%= profile.ciudad || 'No especificada' %>, <%= profile.provincia || 'No especificada' %></span>
+              </div>
+              <div>
+                <span class="text-slate-400 uppercase text-[9px] font-extrabold tracking-wider block mb-0.5">Celular de Contacto</span>
+                <span class="text-[#0a66c2] font-extrabold text-sm"><%= profile.telefono || profile.whatsapp || 'Sin teléfono de contacto' %></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leaflet Map Container -->
+          <div class="mb-6 relative">
+            <% if (profile.latitud && profile.longitud) { %>
+              <div id="leaflet-viewer-map" class="h-60 rounded-2xl border border-slate-100 shadow-inner z-0"></div>
+            <% } else { %>
+              <div class="h-60 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col items-center justify-center text-slate-400">
+                <i class="fa-solid fa-map-location text-3xl text-slate-300 mb-2"></i>
+                <span class="text-xs font-bold text-slate-500">Mapa de ubicación no configurado</span>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Contact Actions -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <%
+              let cleanPhone = (profile.whatsapp || profile.telefono) ? (profile.whatsapp || profile.telefono).replace(/\D/g, '') : '';
+              if (cleanPhone && !cleanPhone.startsWith('593')) {
+                if (cleanPhone.startsWith('0')) {
+                  cleanPhone = '593' + cleanPhone.substring(1);
+                } else {
+                  cleanPhone = '593' + cleanPhone;
+                }
+              }
+            %>
+            
+            <% if (cleanPhone) { %>
+              <a href="https://wa.me/<%= cleanPhone %>?text=Hola%20<%= encodeURIComponent(profile.user.name) %>,%20te%20contacto%20desde%20Profesionales%20Ecuador." target="_blank" class="bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 shadow-md shadow-emerald-500/10 hover:shadow-lg transition text-xs">
+                <i class="fa-brands fa-whatsapp text-lg"></i> Contactar por WhatsApp
+              </a>
+            <% } else { %>
+              <button disabled class="bg-slate-105 bg-slate-100 text-slate-400 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 text-xs cursor-not-allowed border border-slate-200">
+                <i class="fa-brands fa-whatsapp text-lg"></i> WhatsApp no disponible
+              </button>
+            <% } %>
+
+            <a href="mailto:<%= profile.user.email %>?subject=Consulta%20Médica%20-%20Contacto%20Directorio" class="bg-[#0a66c2] hover:bg-[#004182] text-white font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 shadow-md shadow-blue-500/10 hover:shadow-lg transition text-xs">
+              <i class="fa-solid fa-envelope text-xs"></i> Enviar Correo Electrónico
+            </a>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- RIGHT COLUMN: Schedules & Booking Form (4 Cols) -->
+      <div class="lg:col-span-4 space-y-6">
+        
+        <% if (typeof previewMode === 'undefined' || !previewMode) { %>
+        <!-- Booking Form Widget (Agenda una Cita) -->
+        <section id="agendamiento" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col text-left scroll-mt-24">
+          <h2 class="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-calendar-plus text-[#0a66c2]"></i> Reserva una cita
+          </h2>
+          <p class="text-slate-450 text-[10px] font-bold mb-4 leading-relaxed">Completa el formulario y el especialista se comunicará contigo.</p>
+
+          <% if (typeof successMsg !== 'undefined' && successMsg) { %>
+            <div class="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl p-3 text-[11px] font-bold flex items-center gap-2 mb-4 shadow-sm">
+              <i class="fa-solid fa-circle-check text-sm text-emerald-500"></i>
+              <span><%= successMsg %></span>
+            </div>
+          <% } %>
+          <% if (typeof errorMsg !== 'undefined' && errorMsg) { %>
+            <div id="appointment-server-error" class="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-3 text-[11px] font-bold flex items-center gap-2 mb-4 shadow-sm">
+              <i class="fa-solid fa-circle-xmark text-sm text-rose-500"></i>
+              <span><%= errorMsg %></span>
+            </div>
+          <% } %>
+          
+          <form action="/citas/agendar" method="POST" class="flex flex-col gap-3.5" novalidate>
+            <input type="hidden" name="profileId" value="<%= profile.id %>">
+            
+            <div class="flex flex-col gap-1">
+              <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Nombres Completos</label>
+              <input type="text" name="nombre" required maxlength="40" value="<%= user ? user.name : '' %>" placeholder="Ej: Juan Pérez" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold outline-none focus:bg-white focus:border-[#0a66c2] transition">
+              <span data-appointment-error="nombre" class="hidden text-red-500 text-[10px] mt-0.5 font-semibold"></span>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Correo Electrónico</label>
+              <input type="email" name="correo" required value="<%= user ? user.email : '' %>" placeholder="Ej: correo@ejemplo.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold outline-none focus:bg-white focus:border-[#0a66c2] transition">
+              <span data-appointment-error="correo" class="hidden text-red-500 text-[10px] mt-0.5 font-semibold"></span>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Número de Celular</label>
+              <input type="text" name="telefono" inputmode="numeric" pattern="[0-9]*" maxlength="10" required placeholder="Ej: 0999999999" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold outline-none focus:bg-white focus:border-[#0a66c2] transition">
+              <span data-appointment-error="telefono" class="hidden text-red-500 text-[10px] mt-0.5 font-semibold"></span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="flex flex-col gap-1">
+                <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Fecha</label>
+                <div class="appointment-date-picker relative" data-primary-color="#0a66c2">
+                  <input type="hidden" name="fecha" id="appointment-fecha" required>
+                  <button type="button" id="appointment-fecha-trigger" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-2 text-xs font-bold text-center outline-none focus:bg-white focus:border-[#0a66c2] transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-calendar text-slate-400"></i>
+                    <span id="appointment-fecha-display" class="text-slate-400">Selecciona una fecha</span>
+                  </button>
+                  <span data-appointment-error="fecha" class="hidden mt-1 text-[10px] font-bold text-red-500"></span>
+                  <p id="appointment-fecha-hint" class="text-[9px] text-slate-500 mt-1 font-semibold">
+                    Días disponibles: <span id="appointment-fecha-hint-days"></span>
+                  </p>
+                  <div id="appointment-fecha-calendar" class="hidden absolute z-50 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 w-80 max-w-[calc(100vw-2rem)]" style="left: 0; top: 100%;">
+                    <div class="flex items-center justify-between mb-3">
+                      <button type="button" id="appointment-fecha-prev" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
+                      </button>
+                      <div id="appointment-fecha-monthyear" class="text-sm font-black text-slate-800 capitalize"></div>
+                      <button type="button" id="appointment-fecha-next" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                      </button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 mb-1">
+                      <div class="text-[10px] font-bold text-slate-400 text-center py-1">D</div>
+                      <div class="text-[10px] font-bold text-slate-400 text-center py-1">L</div>
+                      <div class="text-[10px] font-bold text-slate-400 text-center py-1">M</div>
+                      <div class="text-[10px] font-bold text-slate-400 text-center py-1">X</div>
+                      <div class="text-[10px] font-bold text-slate-400 text-center py-1">J</div>
+                      <div class="text-[10px] font-bold text-slate-400 text-center py-1">V</div>
+                      <div class="text-[10px] font-bold text-slate-400 text-center py-1">S</div>
+                    </div>
+                    <div id="appointment-fecha-days" class="grid grid-cols-7 gap-1"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Hora</label>
+                <select name="hora" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-2 text-xs font-bold text-center outline-none focus:bg-white focus:border-[#0a66c2] transition cursor-pointer">
+                  <option value="" disabled selected>Selecciona una hora</option>
+                </select>
+                <span data-appointment-error="hora" class="hidden text-red-500 text-[10px] mt-0.5 font-semibold"></span>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Motivo de Consulta</label>
+              <textarea name="motivo" rows="3" required maxlength="100" placeholder="Describe brevemente los síntomas o motivo..." class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-xs font-semibold outline-none resize-none focus:bg-white focus:border-[#0a66c2] transition"></textarea>
+              <div class="flex items-center justify-between mt-0.5">
+                <span data-appointment-error="motivo" class="hidden text-red-500 text-[10px] font-semibold"></span>
+                <span data-appointment-motivo-counter class="text-[10px] text-slate-400 font-semibold ml-auto">0/100</span>
+              </div>
+            </div>
+
+            <button type="submit" class="w-full bg-[#0a66c2] hover:bg-[#004182] text-white font-bold py-3 rounded-full text-xs shadow-md shadow-blue-500/10 hover:shadow-lg transition mt-2 cursor-pointer">
+              Solicitar Reservación
+            </button>
+          </form>
+
+          <script>
+            window.PROFESSIONAL_SCHEDULES = <%- JSON.stringify(profile.schedules || []) %>;
+            window.APPOINTMENT_TODAY = "<%= new Date().toISOString().split('T')[0] %>";
+          </script>
+          <style>
+            .appointment-input-error {
+              border-color: rgb(248 113 113) !important;
+              background-color: rgb(254 242 242) !important;
+            }
+          </style>
+          <script>
+            (function() {
+              const SCHEDULES = Array.isArray(window.PROFESSIONAL_SCHEDULES) ? window.PROFESSIONAL_SCHEDULES : [];
+              const TODAY_ISO = window.APPOINTMENT_TODAY || new Date().toISOString().split('T')[0];
+
+              const JS_DAY_TO_DB = {
+                0: 'DOMINGO', 1: 'LUNES', 2: 'MARTES', 3: 'MIERCOLES',
+                4: 'JUEVES', 5: 'VIERNES', 6: 'SABADO'
+              };
+              const DB_DAY_LABEL = {
+                LUNES: 'Lunes', MARTES: 'Martes', MIERCOLES: 'Miércoles',
+                JUEVES: 'Jueves', VIERNES: 'Viernes', SABADO: 'Sábado', DOMINGO: 'Domingo'
+              };
+              const DAY_ORDER = ['LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO','DOMINGO'];
+
+              function timeToMin(t) {
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + (m || 0);
+              }
+              function minToTime(m) {
+                return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+              }
+
+              const form = document.querySelector('form[action="/citas/agendar"]');
+              if (!form) return;
+              const fechaInput = form.querySelector('input[name="fecha"]');
+              const horaSelect = form.querySelector('select[name="hora"]');
+
+              function rebuildHoraOptions() {
+                if (!horaSelect) return;
+                const placeholder = horaSelect.querySelector('option[value=""]');
+                horaSelect.innerHTML = '';
+                if (placeholder) {
+                  horaSelect.appendChild(placeholder);
+                } else {
+                  const ph = document.createElement('option');
+                  ph.value = '';
+                  ph.disabled = true;
+                  ph.selected = true;
+                  ph.textContent = 'Selecciona una hora';
+                  horaSelect.appendChild(ph);
+                }
+                horaSelect.disabled = false;
+                placeholder.selected = true;
+
+                if (!SCHEDULES.length) {
+                  const opt = document.createElement('option');
+                  opt.value = '';
+                  opt.disabled = true;
+                  opt.textContent = 'Este profesional no tiene horarios configurados, contáctalo directamente';
+                  horaSelect.appendChild(opt);
+                  horaSelect.disabled = true;
+                  return;
+                }
+
+                const fechaVal = fechaInput && fechaInput.value;
+                if (!fechaVal) return;
+
+                const [y, mo, d] = fechaVal.split('-').map(Number);
+                const dt = new Date(y, mo - 1, d);
+                if (isNaN(dt.getTime())) return;
+                const dbDay = JS_DAY_TO_DB[dt.getDay()];
+                const ranges = SCHEDULES.filter(s => s.dia === dbDay);
+                if (!ranges.length) {
+                  const opt = document.createElement('option');
+                  opt.value = '';
+                  opt.disabled = true;
+                  opt.textContent = 'Este profesional no atiende ese día';
+                  horaSelect.appendChild(opt);
+                  horaSelect.disabled = true;
+                  return;
+                }
+
+                const isToday = fechaVal === TODAY_ISO;
+                const nowMin = isToday ? (new Date().getHours() * 60 + new Date().getMinutes()) : -1;
+                const slotSet = new Set();
+                ranges.forEach(r => {
+                  const start = timeToMin(r.horaInicio);
+                  const end = timeToMin(r.horaFin);
+                  for (let t = start; t < end; t += 30) {
+                    if (t < end && (!isToday || t > nowMin)) slotSet.add(t);
+                  }
+                });
+                const slots = [...slotSet].sort((a, b) => a - b);
+                if (!slots.length) {
+                  const opt = document.createElement('option');
+                  opt.value = '';
+                  opt.disabled = true;
+                  opt.textContent = isToday ? 'No quedan horarios disponibles para hoy' : 'No hay horarios disponibles para ese día';
+                  horaSelect.appendChild(opt);
+                  horaSelect.disabled = true;
+                  return;
+                }
+                slots.forEach(s => {
+                  const opt = document.createElement('option');
+                  opt.value = minToTime(s);
+                  opt.textContent = minToTime(s);
+                  horaSelect.appendChild(opt);
+                });
+              }
+
+              const datePicker = form.querySelector('.appointment-date-picker');
+              if (datePicker && fechaInput) {
+                const trigger = datePicker.querySelector('#appointment-fecha-trigger');
+                const calendar = datePicker.querySelector('#appointment-fecha-calendar');
+                const monthYearEl = datePicker.querySelector('#appointment-fecha-monthyear');
+                const daysEl = datePicker.querySelector('#appointment-fecha-days');
+                const prevBtn = datePicker.querySelector('#appointment-fecha-prev');
+                const nextBtn = datePicker.querySelector('#appointment-fecha-next');
+                const displayEl = datePicker.querySelector('#appointment-fecha-display');
+                const hintDaysEl = datePicker.querySelector('#appointment-fecha-hint-days');
+                const hintWrap = datePicker.querySelector('#appointment-fecha-hint');
+                const primaryColor = datePicker.dataset.primaryColor || '#0A3C84';
+
+                const validDays = new Set(SCHEDULES.map(s => s.dia));
+
+                const todayParts = TODAY_ISO.split('-').map(Number);
+                const today = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+                today.setHours(0, 0, 0, 0);
+
+                const maxMonth = new Date(today.getFullYear(), today.getMonth() + 6, 1);
+
+                let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                let selectedDate = null;
+
+                if (hintDaysEl && hintWrap) {
+                  if (SCHEDULES.length) {
+                    const unique = [...new Set(SCHEDULES.map(s => s.dia))];
+                    unique.sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
+                    hintDaysEl.textContent = unique.map(d => DB_DAY_LABEL[d]).join(', ');
+                  } else {
+                    hintWrap.classList.add('hidden');
+                  }
+                }
+
+                if (fechaInput.value && /^\d{4}-\d{2}-\d{2}$/.test(fechaInput.value)) {
+                  const parts = fechaInput.value.split('-').map(Number);
+                  const pre = new Date(parts[0], parts[1] - 1, parts[2]);
+                  if (!isNaN(pre.getTime()) && pre.getTime() >= today.getTime()) {
+                    selectedDate = pre;
+                    currentMonth = new Date(pre.getFullYear(), pre.getMonth(), 1);
+                  } else {
+                    fechaInput.value = '';
+                  }
+                }
+
+                function isSameDay(a, b) {
+                  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+                }
+
+                function toISO(d) {
+                  const y = d.getFullYear();
+                  const m = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  return `${y}-${m}-${day}`;
+                }
+
+                function updateDisplay() {
+                  if (selectedDate) {
+                    displayEl.textContent = selectedDate.toLocaleDateString('es-EC', {
+                      day: 'numeric', month: 'long', year: 'numeric'
+                    });
+                    displayEl.classList.remove('text-slate-400');
+                    displayEl.classList.add('text-slate-700');
+                  } else {
+                    displayEl.textContent = SCHEDULES.length ? 'Selecciona una fecha' : 'Sin horarios disponibles';
+                    displayEl.classList.add('text-slate-400');
+                    displayEl.classList.remove('text-slate-700');
+                  }
+                }
+
+                function renderDays() {
+                  const year = currentMonth.getFullYear();
+                  const month = currentMonth.getMonth();
+                  const firstDay = new Date(year, month, 1);
+                  const startOffset = firstDay.getDay();
+                  const startDate = new Date(year, month, 1 - startOffset);
+
+                  monthYearEl.textContent = currentMonth.toLocaleDateString('es-EC', { month: 'long', year: 'numeric' });
+
+                  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                  prevBtn.disabled = currentMonth.getTime() <= currentMonthStart.getTime();
+                  nextBtn.disabled = currentMonth.getTime() >= maxMonth.getTime();
+
+                  daysEl.innerHTML = '';
+
+                  for (let i = 0; i < 42; i++) {
+                    const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
+                    const isCurrentMonth = date.getMonth() === month;
+                    const isPast = date.getTime() < today.getTime();
+                    const dbDay = JS_DAY_TO_DB[date.getDay()];
+                    const isValidDay = validDays.has(dbDay);
+                    const isToday = isSameDay(date, today);
+                    const isSelected = selectedDate && isSameDay(date, selectedDate);
+
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.textContent = String(date.getDate());
+
+                    let classes = 'h-9 w-full rounded-lg text-xs font-bold flex items-center justify-center transition';
+
+                    if (!isCurrentMonth) {
+                      classes += ' text-slate-300 cursor-default';
+                    } else if (isPast) {
+                      classes += ' text-slate-300 line-through cursor-not-allowed';
+                    } else if (!isValidDay) {
+                      classes += ' text-slate-300 cursor-not-allowed';
+                    } else if (isSelected) {
+                      classes += ' text-white';
+                    } else if (isToday) {
+                      classes += ' text-slate-700 cursor-pointer hover:bg-slate-100';
+                    } else {
+                      classes += ' text-slate-700 cursor-pointer hover:bg-slate-100';
+                    }
+
+                    cell.className = classes;
+
+                    if (isSelected) {
+                      cell.style.backgroundColor = primaryColor;
+                    } else if (isCurrentMonth && !isPast && isValidDay && isToday) {
+                      cell.style.boxShadow = `inset 0 0 0 2px ${primaryColor}55`;
+                    }
+
+                    if (isCurrentMonth && !isPast && isValidDay) {
+                      cell.addEventListener('click', () => {
+                        selectedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                        fechaInput.value = toISO(selectedDate);
+                        updateDisplay();
+                        renderDays();
+                        calendar.classList.add('hidden');
+                        fechaInput.dispatchEvent(new Event('change', { bubbles: true }));
+                      });
+                    } else {
+                      cell.disabled = true;
+                    }
+
+                    daysEl.appendChild(cell);
+                  }
+                }
+
+                function openCalendar() {
+                  if (!SCHEDULES.length) return;
+                  calendar.classList.remove('hidden');
+                  renderDays();
+                }
+                function closeCalendar() {
+                  calendar.classList.add('hidden');
+                }
+                function toggleCalendar() {
+                  if (calendar.classList.contains('hidden')) openCalendar();
+                  else closeCalendar();
+                }
+
+                if (trigger) {
+                  if (!SCHEDULES.length) {
+                    trigger.disabled = true;
+                  } else {
+                    trigger.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      toggleCalendar();
+                    });
+                  }
+                }
+
+                if (prevBtn) {
+                  prevBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (prevBtn.disabled) return;
+                    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+                    renderDays();
+                  });
+                }
+                if (nextBtn) {
+                  nextBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (nextBtn.disabled) return;
+                    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+                    renderDays();
+                  });
+                }
+
+                document.addEventListener('click', (e) => {
+                  if (!datePicker.contains(e.target)) {
+                    closeCalendar();
+                  }
+                });
+
+                document.addEventListener('keydown', (e) => {
+                  if (e.key === 'Escape') closeCalendar();
+                });
+
+                updateDisplay();
+              }
+
+              const validators = {
+                nombre: (v) => {
+                  const t = (v || '').trim();
+                  if (!t) return { ok: false, msg: 'Ingresa tu nombre completo.' };
+                  if (t.length > 40) return { ok: false, msg: 'Máximo 40 caracteres.' };
+                  if (/\d/.test(t)) return { ok: false, msg: 'El nombre no puede contener números.' };
+                  return { ok: true };
+                },
+                correo: (v) => {
+                  const t = (v || '').trim();
+                  if (!t) return { ok: false, msg: 'Ingresa tu correo electrónico.' };
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) return { ok: false, msg: 'Formato de correo inválido. Ej: usuario@dominio.com' };
+                  return { ok: true };
+                },
+                telefono: (v) => {
+                  const t = (v || '').trim();
+                  if (!t) return { ok: false, msg: 'Ingresa tu número de celular.' };
+                  if (!/^\d{10}$/.test(t)) return { ok: false, msg: 'Debe tener exactamente 10 dígitos numéricos, sin espacios ni guiones.' };
+                  return { ok: true };
+                },
+                fecha: (v) => {
+                  if (!v) return { ok: false, msg: 'Selecciona una fecha.' };
+                  if (v < TODAY_ISO) return { ok: false, msg: 'La fecha no puede ser anterior a hoy.' };
+                  if (!SCHEDULES.length) return { ok: true };
+                  const [y, mo, d] = v.split('-').map(Number);
+                  const dt = new Date(y, mo - 1, d);
+                  if (isNaN(dt.getTime())) return { ok: false, msg: 'Fecha inválida.' };
+                  const dbDay = JS_DAY_TO_DB[dt.getDay()];
+                  if (!SCHEDULES.some(s => s.dia === dbDay)) return { ok: false, msg: 'El profesional no atiende ese día. Elige otro día.' };
+                  return { ok: true };
+                },
+                hora: (v) => {
+                  if (!v) return { ok: false, msg: 'Selecciona una hora disponible.' };
+                  if (!/^\d{2}:\d{2}$/.test(v)) return { ok: false, msg: 'Formato de hora inválido.' };
+                  return { ok: true };
+                },
+                motivo: (v) => {
+                  const t = (v || '').trim();
+                  if (!t) return { ok: false, msg: 'Describe brevemente el motivo de tu consulta.' };
+                  if (t.length > 100) return { ok: false, msg: 'El motivo no puede superar los 100 caracteres.' };
+                  return { ok: true };
+                }
+              };
+
+              function setFieldError(name, msg) {
+                const input = form.querySelector('[name="' + name + '"]');
+                const errEl = form.querySelector('[data-appointment-error="' + name + '"]');
+                if (input) input.classList.add('appointment-input-error');
+                if (errEl) {
+                  errEl.textContent = msg || '';
+                  errEl.classList.remove('hidden');
+                }
+              }
+              function clearFieldError(name) {
+                const input = form.querySelector('[name="' + name + '"]');
+                const errEl = form.querySelector('[data-appointment-error="' + name + '"]');
+                if (input) input.classList.remove('appointment-input-error');
+                if (errEl) errEl.classList.add('hidden');
+              }
+              function clearAllErrors() {
+                Object.keys(validators).forEach(clearFieldError);
+              }
+
+              const nombreInput = form.querySelector('input[name="nombre"]');
+              if (nombreInput) {
+                nombreInput.addEventListener('keydown', (e) => {
+                  if (/^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                });
+                nombreInput.addEventListener('input', () => {
+                  const cleaned = nombreInput.value.replace(/[0-9]/g, '');
+                  if (nombreInput.value !== cleaned) nombreInput.value = cleaned;
+                  if (nombreInput.classList.contains('appointment-input-error')) {
+                    const res = validators.nombre(nombreInput.value);
+                    if (res.ok) clearFieldError('nombre');
+                    else setFieldError('nombre', res.msg);
+                  }
+                });
+              }
+
+              ['correo', 'motivo'].forEach(name => {
+                const input = form.querySelector('[name="' + name + '"]');
+                if (!input) return;
+                input.addEventListener('input', () => {
+                  if (input.classList.contains('appointment-input-error')) {
+                    const res = validators[name](input.value);
+                    if (res.ok) clearFieldError(name);
+                    else setFieldError(name, res.msg);
+                  }
+                });
+              });
+
+              const motivoCounter = form.querySelector('[data-appointment-motivo-counter]');
+              if (motivoCounter) {
+                const motivoInput = form.querySelector('textarea[name="motivo"]');
+                if (motivoInput) {
+                  const updateCounter = () => {
+                    motivoCounter.textContent = motivoInput.value.length + '/100';
+                  };
+                  motivoInput.addEventListener('input', updateCounter);
+                  updateCounter();
+                }
+              }
+
+              const telInput = form.querySelector('input[name="telefono"]');
+              if (telInput) {
+                telInput.addEventListener('input', () => {
+                  const digits = telInput.value.replace(/\D/g, '').slice(0, 10);
+                  if (telInput.value !== digits) telInput.value = digits;
+                  if (telInput.classList.contains('appointment-input-error')) {
+                    const res = validators.telefono(telInput.value);
+                    if (res.ok) clearFieldError('telefono');
+                    else setFieldError('telefono', res.msg);
+                  }
+                });
+              }
+
+              if (fechaInput) {
+                fechaInput.addEventListener('change', () => {
+                  const res = validators.fecha(fechaInput.value);
+                  if (!res.ok) setFieldError('fecha', res.msg);
+                  else clearFieldError('fecha');
+                  rebuildHoraOptions();
+                  const errHora = form.querySelector('[data-appointment-error="hora"]');
+                  if (errHora) errHora.classList.add('hidden');
+                  if (horaSelect) horaSelect.classList.remove('appointment-input-error');
+                });
+              }
+
+              if (horaSelect) {
+                horaSelect.addEventListener('change', () => {
+                  const res = validators.hora(horaSelect.value);
+                  if (!res.ok) setFieldError('hora', res.msg);
+                  else clearFieldError('hora');
+                });
+              }
+
+              form.addEventListener('submit', (e) => {
+                clearAllErrors();
+                let firstInvalid = null;
+                Object.keys(validators).forEach(name => {
+                  const input = form.querySelector('[name="' + name + '"]');
+                  if (!input) return;
+                  const res = validators[name](input.value);
+                  if (!res.ok) {
+                    setFieldError(name, res.msg);
+                    if (!firstInvalid) firstInvalid = input;
+                  }
+                });
+                if (firstInvalid) {
+                  e.preventDefault();
+                  firstInvalid.focus();
+                  firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              });
+
+              rebuildHoraOptions();
+
+              const serverError = document.getElementById('appointment-server-error');
+              if (serverError) {
+                const target = document.getElementById('agendar-cita') || form;
+                if (target && target.scrollIntoView) {
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }
+            })();
+          </script>
+        </section>
+
+        <!-- Schedules Card (Horarios de Atención) -->
+        <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col text-left">
+          <h2 class="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-50 pb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-clock text-[#0a66c2]"></i> Horarios Disponibles
+          </h2>
+          <div class="flex flex-col gap-3 text-[11px] font-bold">
+            <% if (profile.schedules && profile.schedules.length > 0) { %>
+              <% 
+                const orderDays = { LUNES: 1, MARTES: 2, MIERCOLES: 3, JUEVES: 4, VIERNES: 5, SABADO: 6, DOMINGO: 7 };
+                const sortedScheds = [...profile.schedules].sort((a,b) => orderDays[a.dia] - orderDays[b.dia]);
+                sortedScheds.forEach(function(sched) { 
+              %>
+                <div class="flex items-center justify-between py-1 border-b border-slate-50 last:border-b-0 last:pb-0">
+                  <span class="text-slate-400 uppercase tracking-wider"><%= sched.dia %></span>
+                  <span class="text-slate-700"><%= sched.horaInicio %> - <%= sched.horaFin %></span>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <div class="text-slate-400 text-xs text-center py-2">
+                <span>No se han configurado horarios para este especialista.</span>
+              </div>
+            <% } %>
+          </div>
+        </section>
+        <% } %>
+
+      </div>
+
+    </div>
+
+    <!-- Formación y Certificaciones (Externo) -->
+    <% if (profile.education && profile.education.length > 0) { %>
+      <div class="bg-white p-6 md:p-8 rounded-3xl border border-slate-150/80 shadow-md mt-10">
+        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+          <i class="fa-solid fa-graduation-cap text-xl text-[#0A3C84]"></i>
+          <h2 class="text-xl font-extrabold text-slate-900">Formación y Certificaciones</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <% profile.education.forEach(function(edu) { %>
+            <div onclick="openEduModal('<%= edu.imagen.replace(/'/g, "\\'") %>', '<%= edu.titulo.replace(/'/g, "\\'") %>', '<%= edu.institucion.replace(/'/g, "\\'") %>')" class="border border-slate-100 rounded-2xl bg-slate-50 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-lg hover:border-[#0A3C84]/30 transition-all duration-300 cursor-pointer group">
+              <!-- Header Image -->
+              <div class="w-full h-36 bg-slate-200 relative overflow-hidden">
+                <img src="<%= edu.imagen %>" alt="<%= edu.titulo %>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+                <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between z-10">
+                  <% if (edu.tipo === 'TITULO_ACADEMICO') { %>
+                    <span class="bg-blue-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm">Título Académico</span>
+                  <% } else if (edu.tipo === 'CERTIFICACION_INTERNACIONAL') { %>
+                    <span class="bg-emerald-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm">Certificación Intl.</span>
+                  <% } else if (edu.tipo === 'PROYECTO_ESTUDIANTIL') { %>
+                    <span class="bg-violet-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm">Proyecto Estudiantil</span>
+                  <% } else if (edu.tipo === 'EXPERIENCIA_LABORAL') { %>
+                    <span class="bg-orange-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm">Experiencia Laboral</span>
+                  <% } else if (edu.tipo === 'PASANTIA_PREPROFESIONAL') { %>
+                    <span class="bg-teal-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm">Pasantía Preprofesional</span>
+                  <% } else { %>
+                    <span class="bg-amber-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm">Curso / Seminario</span>
+                  <% } %>
+                  <span class="text-white/90 text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded backdrop-blur-sm"><%= edu.anioEmision %></span>
+                </div>
+              </div>
+
+              <!-- Content -->
+              <div class="p-5 flex-grow flex flex-col justify-between">
+                <div>
+                  <h3 class="font-extrabold text-slate-900 text-sm leading-snug mb-1 line-clamp-2 group-hover:text-[#0A3C84] transition"><%= edu.titulo %></h3>
+                  <p class="text-slate-500 text-[11px] font-semibold mb-2"><%= edu.institucion %></p>
+                  <% if (edu.nivelEstudio) { %>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">
+                      <i class="fa-solid fa-award text-blue-500 mr-1"></i><%= edu.nivelEstudio %>
+                    </p>
+                  <% } %>
+                  <% if (edu.horas && edu.horas > 0) { %>
+                    <p class="text-slate-500 text-[11px] font-semibold">
+                      <i class="fa-regular fa-clock text-sky-500"></i> <%= edu.horas %> horas académicas
+                    </p>
+                  <% } %>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 mt-3 flex items-center justify-between text-[#0A3C84] text-xs font-bold">
+                  <span>Ver Documento</span>
+                  <i class="fa-solid fa-expand text-xs group-hover:translate-x-0.5 transition"></i>
+                </div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- SECCIÓN E-COMMERCE: Cursos & Capacitaciones Colaborativas -->
+    <% if (typeof collaboratedCursos !== 'undefined' && collaboratedCursos && collaboratedCursos.length > 0) { %>
+      <div class="bg-white p-6 md:p-8 rounded-3xl border border-slate-150/80 shadow-md mt-10">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-brand-lightBlue text-[#0A3C84] flex items-center justify-center text-lg font-black shadow-xs">
+              <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <div>
+              <span class="text-[10px] font-black tracking-widest text-[#0A3C84] uppercase block">Academia & Formación Continua</span>
+              <h2 class="text-xl font-extrabold text-slate-900">Cursos e Instructivos por este Profesional</h2>
+            </div>
+          </div>
+          <div class="text-xs font-bold text-slate-400">
+            <%= collaboratedCursos.length %> <%= collaboratedCursos.length === 1 ? 'curso disponible' : 'cursos disponibles' %>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <% collaboratedCursos.forEach(function(cur) { %>
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden group">
+              
+              <!-- Cover Image & Price Badge -->
+              <div class="relative w-full h-44 bg-slate-900 overflow-hidden">
+                <% if (cur.mediaUrl || cur.banner) { %>
+                  <img src="<%= cur.mediaUrl || cur.banner %>" alt="<%= cur.titulo %>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90">
+                <% } else { %>
+                  <div class="w-full h-full bg-gradient-to-br from-[#0A3C84] to-sky-900 flex items-center justify-center p-4 text-center">
+                    <span class="text-white font-black text-sm tracking-tight"><%= cur.titulo %></span>
+                  </div>
+                <% } %>
+
+                <!-- Price Badge -->
+                <div class="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 border border-slate-100">
+                  <% if (cur.gratuito || cur.precio === 0) { %>
+                    <span class="text-xs font-black text-emerald-600 uppercase tracking-wider">GRATUITO</span>
+                  <% } else { %>
+                    <span class="text-xs font-black text-slate-900">$<%= cur.precio.toFixed(2) %> USD</span>
+                  <% } %>
+                </div>
+
+                <!-- Category Badge -->
+                <% if (cur.category) { %>
+                  <div class="absolute bottom-3 left-3 bg-[#0A3C84]/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                    <%= cur.category.nombre %>
+                  </div>
+                <% } %>
+              </div>
+
+              <!-- Body Info -->
+              <div class="p-5 flex flex-col flex-grow justify-between gap-4">
+                <div class="flex flex-col gap-2">
+                  <% if (cur.slogan) { %>
+                    <span class="text-[10px] font-extrabold text-[#0A3C84] uppercase tracking-wider line-clamp-1"><%= cur.slogan %></span>
+                  <% } %>
+                  <h3 class="text-sm font-extrabold text-slate-900 group-hover:text-[#0A3C84] transition line-clamp-2 leading-snug"><%= cur.titulo %></h3>
+                  <p class="text-xs text-slate-500 line-clamp-2 font-medium leading-relaxed">
+                    <%= cur.descripcion || 'Formación académica de especialización práctica con certificación avalada.' %>
+                  </p>
+                </div>
+
+                <!-- Features & Badges -->
+                <div class="flex flex-col gap-3 pt-3 border-t border-slate-100">
+                  <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                    <span class="flex items-center gap-1 text-emerald-600 font-bold">
+                      <i class="fa-solid fa-certificate"></i> Certificado Oficial
+                    </span>
+                    <% if (cur.branch) { %>
+                      <span class="text-slate-400 truncate max-w-[120px]"><%= cur.branch.nombre %></span>
+                    <% } %>
+                  </div>
+
+                  <!-- Single CTA: Inscribirse al Curso -->
+                  <% 
+                    const courseSlug = cur.slug ? cur.slug : (cur.titulo ? cur.titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : cur.id);
+                  %>
+                  <a href="/cursos/<%= courseSlug %>" class="w-full bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3 px-4 rounded-xl text-xs transition text-center flex items-center justify-center gap-2 shadow-md hover:shadow-lg mt-1 cursor-pointer">
+                    <i class="fa-solid fa-arrow-right-to-bracket text-xs"></i> Inscribirse al Curso
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Certificados de Profesionales Ecuador -->
+    <% const approvedCertificates = profile.user && profile.user.acquiredCertificates ? profile.user.acquiredCertificates.filter(c => c.estado === 'APROBADO') : []; %>
+    <% if (approvedCertificates.length > 0) { %>
+      <div class="bg-white p-6 md:p-8 rounded-3xl border border-slate-150/80 shadow-md mt-10">
+        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+          <i class="fa-solid fa-award text-xl text-[#0A3C84]"></i>
+          <h2 class="text-xl font-extrabold text-slate-900">Certificados de Profesionales Ecuador</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <% approvedCertificates.forEach(function(cert) { %>
+            <% 
+              let coverImg = null;
+              if (cert.conversatorio) {
+                coverImg = cert.conversatorio.revistaPortada || cert.conversatorio.banner;
+              } else if (cert.curso) {
+                coverImg = cert.curso.revistaPortada || cert.curso.banner || cert.curso.mediaUrl;
+              }
+            %>
+            <div class="border border-slate-100 rounded-2xl bg-slate-50 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-lg hover:border-[#0A3C84]/20 transition-all duration-300">
+              <!-- Certificate Header (Cover Image or Gradient Fallback) -->
+              <% if (coverImg) { %>
+                <div class="w-full h-36 bg-slate-200 relative overflow-hidden">
+                  <img src="<%= coverImg %>" alt="<%= cert.nombreEvento %>" class="w-full h-full object-cover">
+                  <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent"></div>
+                  <div class="absolute bottom-2 left-3 right-3 flex items-center justify-between z-10">
+                    <span class="bg-[#0A3C84] text-white text-[9px] font-black px-2 py-0.5 rounded shadow-sm">Profesionales.ec</span>
+                    <span class="text-white/90 text-[9px] font-bold bg-black/40 px-2 py-0.5 rounded backdrop-blur-sm uppercase">Certificado</span>
+                  </div>
+                </div>
+              <% } else { %>
+                <div class="w-full h-32 bg-gradient-to-br from-[#0A3C84] to-[#1e5bb5] flex items-center justify-center relative">
+                  <i class="fa-solid fa-certificate text-white/20 text-6xl absolute"></i>
+                  <div class="text-center z-10 px-4">
+                    <i class="fa-solid fa-award text-white text-3xl mb-2"></i>
+                    <p class="text-white/80 text-[10px] font-bold uppercase tracking-wider">Certificado</p>
+                  </div>
+                </div>
+              <% } %>
+
+              <!-- Content -->
+              <div class="p-5 flex-grow flex flex-col justify-between">
+                <div>
+                  <h3 class="font-extrabold text-slate-900 text-sm leading-snug mb-2 line-clamp-2"><%= cert.nombreEvento %></h3>
+                  
+                  <% if (cert.horas && cert.horas > 0) { %>
+                    <p class="text-slate-500 text-[11px] font-semibold mb-1">
+                      <i class="fa-regular fa-clock text-sky-500"></i> <%= cert.horas %> horas académicas
+                    </p>
+                  <% } else { %>
+                    <p class="text-amber-700 text-[11px] font-bold mb-1 flex items-center gap-1">
+                      <i class="fa-solid fa-award text-amber-500"></i> Certificado de Asistencia
+                    </p>
+                  <% } %>
+
+                  <p class="text-slate-400 text-[10px] font-mono mb-3">
+                    <i class="fa-solid fa-fingerprint text-slate-300"></i> <%= cert.codigo %>
+                  </p>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 mt-2">
+                  <p class="text-slate-400 text-[10px] flex items-center gap-1">
+                    <i class="fa-regular fa-calendar"></i>
+                    <%= cert.fechaEmision instanceof Date ? cert.fechaEmision.toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date(cert.fechaEmision).toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+                  </p>
+                </div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Approved Articles Cards (Footer Grid - Colocado al Último) -->
+    <% const approvedArticles = profile.articles ? profile.articles.filter(a => a.estado === 'APROBADO') : []; %>
+    <% if (approvedArticles.length > 0) { %>
+      <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-sm mt-8 text-left">
+        <div class="flex items-center gap-2 mb-6 border-b border-slate-50 pb-4">
+          <i class="fa-solid fa-book-medical text-xl text-[#0a66c2]"></i>
+          <h2 class="text-lg font-bold text-slate-900">Artículos Científicos Publicados</h2>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <% approvedArticles.forEach(function(art) { %>
+            <div class="border border-slate-100 rounded-2xl bg-[#F8FAFC]/50 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md hover:border-[#0a66c2]/20 transition-all duration-300 group">
+              <!-- Article Image -->
+              <div class="w-full h-40 bg-slate-200 overflow-hidden relative">
+                <img src="<%= art.imagen || 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=400' %>" alt="<%= art.titulo %>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute bottom-3 left-3 bg-[#0a66c2]/90 text-white text-[9px] font-extrabold tracking-wider px-2.5 py-1 rounded shadow-sm">
+                  <%= art.createdAt instanceof Date ? art.createdAt.toLocaleDateString('es-EC', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Publicado' %>
+                </div>
+              </div>
+              
+              <!-- Details -->
+              <div class="p-4 flex-grow flex flex-col justify-between space-y-4">
+                <div class="space-y-1.5 text-left">
+                  <h3 class="font-bold text-xs text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0a66c2] transition duration-300"><%= art.titulo %></h3>
+                  <p class="text-slate-500 text-[10px] leading-relaxed line-clamp-3"><%= art.resumen %></p>
+                </div>
+                
+                <a href="/articulos/leer/<%= art.slug || art.id %>" target="_blank" class="border border-slate-200 hover:bg-slate-50 text-slate-700 text-[9px] font-bold py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm mt-2 w-full">
+                  <i class="fa-solid fa-book-open text-sky-500 text-xs"></i> Leer Artículo
+                </a>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+  <!-- Modal Lightbox de Documentos Académicos -->
+  <div id="modal-edu-lightbox" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4" onclick="closeEduModal()">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 relative overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200" onclick="event.stopPropagation()">
+      <button onclick="closeEduModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition cursor-pointer">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+      <h3 id="modal-edu-titulo" class="font-extrabold text-slate-900 text-base mb-0.5"></h3>
+      <p id="modal-edu-institucion" class="text-slate-500 text-xs font-semibold mb-4"></p>
+      <div class="w-full max-h-[70vh] overflow-auto rounded-2xl border border-slate-100 bg-slate-50 flex items-center justify-center p-2">
+        <img id="modal-edu-img" src="" alt="Documento Académico" class="max-w-full h-auto rounded-xl object-contain shadow-sm">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openEduModal(imgUrl, titulo, institucion) {
+      document.getElementById('modal-edu-img').src = imgUrl;
+      document.getElementById('modal-edu-titulo').innerText = titulo;
+      document.getElementById('modal-edu-institucion').innerText = institucion;
+      const modal = document.getElementById('modal-edu-lightbox');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+    function closeEduModal() {
+      const modal = document.getElementById('modal-edu-lightbox');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  </script>
+
+  </main>
+
+  <% if (!previewMode) { %>
+    <%- include('partials/footer') %>
+  <% } %>
+
+  <!-- Leaflet Map Script -->
+  <% if (profile.latitud && profile.longitud) { %>
+    <script>
+      const lat = <%= profile.latitud %>;
+      const lng = <%= profile.longitud %>;
+      const mapViewer = L.map('leaflet-viewer-map', {
+        zoomControl: false,
+        dragging: false,
+        touchZoom: false,
+        doubleClickZoom: false,
+        scrollWheelZoom: false,
+        boxZoom: false,
+        keyboard: false
+      }).setView([lat, lng], 15);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mapViewer);
+
+      // Customize icon
+      const mapIcon = L.divIcon({
+        html: '<div class="w-6 h-6 rounded-full bg-[#0a66c2] border border-white flex items-center justify-center shadow"><i class="fa-solid fa-location-dot text-white text-[10px]"></i></div>',
+        className: 'custom-leaflet-icon',
+        iconSize: [24, 24],
+        iconAnchor: [12, 24]
+      });
+
+      L.marker([lat, lng], { icon: mapIcon }).addTo(mapViewer)
+        .bindPopup('<div class="p-1 text-center font-sans font-semibold text-[10px]"><b class="text-slate-900"><%= profile.user.name %></b><p class="text-[9px] text-slate-500"><%= profile.direccion || profile.callePrincipal %></p></div>')
+        .openPopup();
+    </script>
+  <% } %>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bgLight flex flex-col min-h-screen text-slate-800 antialiased">
+  <%- include('partials/header') %>
+
+  <main class="flex-grow max-w-7xl mx-auto w-full px-6 md:px-12 py-16 flex flex-col gap-16">
+    <!-- Header Section -->
+    <div class="flex flex-col items-center text-center gap-2" data-reveal="fade-up">
+      <span class="text-xs font-black tracking-widest text-brand-blue uppercase"><i class="fa-solid fa-microphone-lines mr-1"></i> Educación Continua</span>
+      <h1 class="text-4xl md:text-5xl font-black tracking-tight text-slate-900 leading-none">
+        Conversatorios & Conferencias
+      </h1>
+      <p class="text-brand-grayText text-sm max-w-xl leading-relaxed">
+        Participe en conversatorios académicos dirigidos por expertos de primer nivel.
+      </p>
+    </div>
+
+    <!-- Certificate Validator is now available via the floating button in the bottom right corner -->
+
+    <% const conversatorioSections = [
+      {
+        title: 'Conversatorios Programados',
+        subtitle: 'Eventos planificados disponibles para inscripción o revisión.',
+        items: typeof programadosConversatorios !== 'undefined' ? programadosConversatorios : [],
+        emptyIcon: 'fa-regular fa-calendar-check',
+        emptyText: 'No hay conversatorios programados por el momento.',
+        accentClass: 'bg-amber-500',
+        badgeClass: 'bg-amber-50 text-amber-700 border-amber-100',
+        badgeText: 'Programado'
+      },
+      {
+        title: 'Conversatorios Activos',
+        subtitle: 'Eventos actualmente activos para participación y certificados.',
+        items: typeof activosConversatorios !== 'undefined' ? activosConversatorios : [],
+        emptyIcon: 'fa-solid fa-microphone-lines',
+        emptyText: 'No hay conversatorios activos por el momento.',
+        accentClass: 'bg-emerald-500',
+        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+        badgeText: 'Activo'
+      },
+      {
+        title: 'Conversatorios Finalizados',
+        subtitle: 'Histórico de eventos concluidos y certificados disponibles.',
+        items: typeof finalizadosConversatorios !== 'undefined' ? finalizadosConversatorios : [],
+        emptyIcon: 'fa-solid fa-microphone-slash',
+        emptyText: 'No se registran conversatorios finalizados.',
+        accentClass: 'bg-slate-500',
+        badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+        badgeText: 'Finalizado'
+      }
+    ]; %>
+
+    <% conversatorioSections.forEach(function(section) { %>
+      <section class="flex flex-col gap-8" data-reveal="fade-up">
+        <div class="flex items-start gap-3 border-b border-slate-100 pb-3" data-reveal="fade-right">
+          <div class="w-2.5 h-6 <%= section.accentClass %> rounded-full mt-1"></div>
+          <div class="flex flex-col gap-1">
+            <h2 class="text-xl font-extrabold text-slate-950"><%= section.title %></h2>
+            <p class="text-xs text-slate-450 font-semibold"><%= section.subtitle %></p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" data-reveal-stagger="true" data-stagger-step="80">
+          <% if (section.items && section.items.length > 0) { %>
+            <% section.items.forEach(function(conv) { %>
+              <a href="/conversatorios/<%= conv.slug || conv.id %>" class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm flex flex-col block premium-card-hover" data-reveal="fade-up">
+                <!-- Banner Image -->
+                <div class="h-48 overflow-hidden bg-slate-100 relative">
+                  <img src="<%= conv.banner || 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=800' %>" alt="<%= conv.titulo %>" class="w-full h-full object-cover">
+                  <span class="absolute top-4 right-4 <%= section.badgeClass %> border font-black text-[9px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md"><%= section.badgeText %></span>
+                  <% 
+                    const isStudentUserCard = typeof user !== 'undefined' && user && (user.role?.name === 'STUDENT' || user.roleName === 'STUDENT');
+                    const hasStudentDiscountCard = !conv.gratuito && conv.descuentoEstudianteUsd !== null && conv.descuentoEstudianteUsd !== undefined && conv.descuentoEstudianteUsd > 0 && conv.descuentoEstudianteUsd < conv.precio;
+                  %>
+                  <% if (conv.gratuito) { %>
+                    <span class="absolute top-4 left-4 bg-emerald-500 text-white font-black text-[9px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md">Gratuito</span>
+                  <% } else if (isStudentUserCard && hasStudentDiscountCard) { %>
+                    <span class="absolute top-4 left-4 bg-brand-blue text-white font-black text-[9px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md flex items-center gap-1.5">
+                      <span class="line-through text-slate-300 text-[8px]">$<%= conv.precio.toFixed(2) %></span>
+                      <span class="text-amber-300 font-extrabold">$<%= Number(conv.descuentoEstudianteUsd).toFixed(2) %></span>
+                      <i class="fa-solid fa-graduation-cap text-[9px]"></i>
+                    </span>
+                  <% } else { %>
+                    <span class="absolute top-4 left-4 bg-brand-blue text-white font-black text-[9px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md">$<%= conv.precio.toFixed(2) %></span>
+                  <% } %>
+                </div>
+
+                <!-- Content Body -->
+                <div class="p-6 flex flex-col flex-grow">
+                  <h3 class="font-extrabold text-lg text-slate-900 leading-snug mb-1"><%= conv.titulo %></h3>
+                  <p class="text-brand-blue text-xs font-bold mb-3"><%= conv.slogan || 'Encuentro Académico' %></p>
+                  <% if (hasStudentDiscountCard) { %>
+                    <div class="mb-3 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-[10px] font-extrabold text-emerald-800 flex items-center justify-between">
+                      <span class="flex items-center gap-1.5"><i class="fa-solid fa-graduation-cap text-emerald-600"></i> Descuento Estudiante:</span>
+                      <span class="text-emerald-700 font-black">$<%= Number(conv.descuentoEstudianteUsd).toFixed(2) %> USD</span>
+                    </div>
+                  <% } %>
+                  <p class="text-slate-500 text-xs mb-6 font-semibold line-clamp-3"><%= conv.descripcion || 'Sin descripción disponible.' %></p>
+
+                  <div class="flex flex-col gap-2 pt-4 border-t border-slate-50 text-slate-650 text-xs mt-auto font-medium">
+                    <div class="flex items-center gap-2">
+                      <i class="fa-regular fa-calendar text-slate-400 w-4"></i>
+                      <span><%= new Date(conv.fechaInicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <i class="fa-regular fa-clock text-slate-400 w-4"></i>
+                      <span><%= conv.horaInicio %> - <%= conv.horaFin %></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <i class="fa-solid fa-location-dot text-slate-400 w-4"></i>
+                      <span><%= conv.ciudad || 'Online' %>, <%= conv.provincia || 'Online' %></span>
+                    </div>
+                  </div>
+                </div>
+              </a>
+            <% }); %>
+          <% } else { %>
+            <div class="col-span-full text-center py-12 bg-white border border-slate-100 rounded-3xl text-slate-400 flex flex-col items-center justify-center">
+              <i class="<%= section.emptyIcon %> text-3xl mb-2 text-slate-350"></i>
+              <span class="text-xs font-bold"><%= section.emptyText %></span>
+            </div>
+          <% } %>
+        </div>
+      </section>
+    <% }); %>
+  </main>
+
+  <!-- Floating Button (Bottom Right) -->
+  <button onclick="openValidatorModal()" class="fixed bottom-6 right-6 bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-full shadow-[0_10px_25px_rgba(2,82,164,0.35)] transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2.5 z-40 cursor-pointer border border-[#0252A4]/15 group">
+    <i class="fa-solid fa-shield-halved text-sm group-hover:rotate-12 transition-transform duration-300"></i>
+    <span class="text-xs uppercase tracking-wider">Validar Certificado</span>
+  </button>
+
+  <!-- Modal Container -->
+  <div id="cert-validator-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 transition-all duration-300 opacity-0">
+    <!-- Modal Card -->
+    <div class="bg-white border border-slate-100 rounded-[32px] w-full max-w-4xl p-6 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.15)] relative transform scale-95 transition-all duration-300 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-2">
+        <div class="flex items-center gap-2">
+          <span class="bg-[#0252A4]/10 text-[#0252A4] text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-wider border border-[#0252A4]/10">
+            <i class="fa-solid fa-shield-halved mr-1"></i> Seguridad y Autenticidad
+          </span>
+        </div>
+        <!-- Close Button (clean relative positioning inside the header row) -->
+        <button onclick="closeValidatorModal()" class="text-slate-400 hover:text-slate-650 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer border border-slate-150">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        <div class="lg:col-span-6 flex flex-col gap-3 text-left">
+          <h2 class="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tight">Verificación de Certificaciones</h2>
+          <p class="text-slate-500 text-xs font-semibold leading-relaxed font-sans">
+            Valide la legitimidad de las acreditaciones emitidas por Profesionales Ecuador. Ingrese el código de registro único (ej: CERT-L7SHYY6U-11) o use la cámara de su dispositivo para escanear el código QR.
+          </p>
+        </div>
+
+        <div class="lg:col-span-6 flex flex-col gap-4">
+          <!-- Input & Search Actions -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <div class="relative flex-grow">
+              <i class="fa-solid fa-key absolute left-4 top-3.5 text-slate-400 text-sm"></i>
+              <input type="text" id="cert-code-input" placeholder="Ej: CERT-L7SHYY6U-11" class="w-full bg-slate-50 border border-slate-150 rounded-2xl py-3.5 pl-11 pr-4 text-xs font-bold outline-none focus:bg-white focus:border-[#0252A4] transition tracking-wider uppercase">
+            </div>
+            <button onclick="validateCertificate()" class="bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer flex-shrink-0">
+              <span id="val-btn-text">Verificar</span>
+              <i class="fa-solid fa-magnifying-glass" id="val-btn-icon"></i>
+            </button>
+          </div>
+
+          <div class="flex justify-center sm:justify-start">
+            <button id="btn-toggle-scan" onclick="toggleQrScanner()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-2.5 px-4 rounded-xl text-[10px] transition flex items-center justify-center gap-2 border border-slate-150 cursor-pointer w-full sm:w-auto uppercase tracking-wider">
+              <i class="fa-solid fa-camera"></i> Escanear Código QR con Cámara
+            </button>
+          </div>
+
+          <!-- Camera Scanner container -->
+          <div id="qr-scanner-container" class="hidden w-full border border-slate-150 rounded-2xl overflow-hidden bg-slate-50 relative flex flex-col p-4 shadow-inner">
+            <div id="qr-reader" class="w-full rounded-xl overflow-hidden bg-black" style="min-height: 250px;"></div>
+            <p class="text-[10px] text-slate-450 font-bold text-center mt-2 uppercase tracking-wide">Coloque el código QR frente a la cámara</p>
+          </div>
+
+          <!-- Result Card container -->
+          <div id="cert-result-container" class="hidden w-full border border-emerald-100 rounded-3xl p-5 bg-emerald-50/40 shadow-sm flex flex-col gap-4 text-left relative overflow-hidden transition-all duration-300">
+            <div class="absolute -right-4 -bottom-4 text-emerald-100/30 text-7xl"><i class="fa-solid fa-award"></i></div>
+            
+            <div class="flex items-center gap-2 border-b border-emerald-100 pb-3">
+              <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-circle-check"></i></div>
+              <div>
+                <h4 class="text-xs font-black text-slate-900 uppercase">Certificado Válido y Registrado</h4>
+                <span id="result-code" class="text-[9px] font-black text-slate-450 tracking-wider uppercase">CÓDIGO: CERT-XXXX</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-[9px] font-black text-slate-400 uppercase">Participante Acreditado</span>
+                <span id="result-name" class="font-extrabold text-slate-900 uppercase">Juan Pérez</span>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <span class="text-[9px] font-black text-slate-400 uppercase">Carga Horaria</span>
+                <span id="result-hours" class="font-extrabold text-slate-800">40 Horas Académicas</span>
+              </div>
+              <div class="flex flex-col gap-0.5 col-span-full border-t border-slate-100/50 pt-2">
+                <span class="text-[9px] font-black text-slate-400 uppercase">Conversatorio / Evento</span>
+                <span id="result-event" class="font-extrabold text-[#0252A4] uppercase leading-tight">1er Conversatorio de Especialidad</span>
+              </div>
+              <div class="flex flex-col gap-0.5 border-t border-slate-100/50 pt-2">
+                <span class="text-[9px] font-black text-slate-400 uppercase">Fecha de Emisión</span>
+                <span id="result-date" class="font-bold text-slate-650">03 de junio de 2026</span>
+              </div>
+              <div class="flex flex-col gap-0.5 border-t border-slate-100/50 pt-2">
+                <span class="text-[9px] font-black text-slate-400 uppercase">Estado Registro</span>
+                <span class="bg-emerald-100 border border-emerald-200 text-emerald-800 text-[8px] font-black px-2 py-0.5 rounded uppercase self-start">APROBADO</span>
+              </div>
+            </div>
+            
+            <a href="#" id="result-link" target="_blank" class="bg-[#0252A4] hover:bg-[#023E7D] text-white text-center font-extrabold py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider transition w-full mt-1"><i class="fa-solid fa-print mr-1"></i> Ver Certificado Original</a>
+          </div>
+
+          <!-- Invalid Card container -->
+          <div id="cert-invalid-container" class="hidden w-full border border-rose-100 rounded-3xl p-5 bg-rose-50/40 shadow-sm flex items-center gap-3 text-left relative overflow-hidden transition-all duration-300">
+            <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-circle-xmark"></i></div>
+            <div class="flex flex-col gap-0.5">
+              <h4 class="text-xs font-black text-slate-900 uppercase">Certificación no Válida</h4>
+              <p id="invalid-text" class="text-[10px] text-slate-500 font-semibold leading-normal">El código de certificado ingresado no existe o no ha sido aprobado en nuestra plataforma.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+  <script>
+    let html5QrcodeScanner = null;
+
+    function openValidatorModal() {
+      const modal = document.getElementById('cert-validator-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      // Force repaint to trigger animation
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        modal.querySelector('.bg-white').classList.remove('scale-95');
+      }, 10);
+    }
+
+    function closeValidatorModal() {
+      const modal = document.getElementById('cert-validator-modal');
+      // Stop scanner if it was running
+      stopScanner();
+      const toggleBtn = document.getElementById('btn-toggle-scan');
+      toggleBtn.innerHTML = `<i class="fa-solid fa-camera"></i> Escanear Código QR con Cámara`;
+      document.getElementById('qr-scanner-container').classList.add('hidden');
+      
+      modal.classList.add('opacity-0');
+      modal.querySelector('.bg-white').classList.add('scale-95');
+      
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }, 300);
+    }
+
+    // Close modal when clicking outside the card
+    document.addEventListener('click', (e) => {
+      const modal = document.getElementById('cert-validator-modal');
+      if (e.target === modal) {
+        closeValidatorModal();
+      }
+    });
+
+    async function validateCertificate() {
+      const codeInput = document.getElementById('cert-code-input');
+      const code = codeInput.value.trim().toUpperCase();
+      const btnText = document.getElementById('val-btn-text');
+      const btnIcon = document.getElementById('val-btn-icon');
+      
+      const resultCard = document.getElementById('cert-result-container');
+      const invalidCard = document.getElementById('cert-invalid-container');
+
+      if (!code) {
+        alert("Por favor, ingrese un código de certificado.");
+        return;
+      }
+
+      resultCard.classList.add('hidden');
+      invalidCard.classList.add('hidden');
+      btnText.innerText = "Verificando...";
+      btnIcon.className = "fa-solid fa-spinner animate-spin";
+
+      try {
+        const response = await fetch(`/api/certificados/validar/${encodeURIComponent(code)}`);
+        const result = await response.json();
+
+        if (result.success) {
+          const cert = result.certificate;
+          document.getElementById('result-code').innerText = `CÓDIGO: ${cert.codigo}`;
+          document.getElementById('result-name').innerText = cert.nombreUsuario;
+          document.getElementById('result-hours').innerText = `${cert.horas} Horas Académicas`;
+          document.getElementById('result-event').innerText = cert.nombreEvento;
+          
+          const dateStr = new Date(cert.fechaEmision).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+          document.getElementById('result-date').innerText = dateStr;
+          
+          const link = document.getElementById('result-link');
+          link.href = `/certificados/${cert.codigo}`;
+          
+          resultCard.classList.remove('hidden');
+        } else {
+          document.getElementById('invalid-text').innerText = result.error || "Código de certificado no válido o no registrado en nuestro sistema.";
+          invalidCard.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('invalid-text').innerText = "Error de conexión al verificar el certificado.";
+        invalidCard.classList.remove('hidden');
+      } finally {
+        btnText.innerText = "Verificar";
+        btnIcon.className = "fa-solid fa-magnifying-glass";
+      }
+    }
+
+    function toggleQrScanner() {
+      const container = document.getElementById('qr-scanner-container');
+      const btn = document.getElementById('btn-toggle-scan');
+      
+      if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        btn.innerHTML = `<i class="fa-solid fa-video-slash"></i> Apagar Cámara`;
+        startScanner();
+      } else {
+        container.classList.add('hidden');
+        btn.innerHTML = `<i class="fa-solid fa-camera"></i> Escanear Código QR con Cámara`;
+        stopScanner();
+      }
+    }
+
+    function startScanner() {
+      if (typeof Html5Qrcode === 'undefined') {
+        const script = document.createElement('script');
+        script.src = "https://unpkg.com/html5-qrcode";
+        script.onload = () => {
+          initScanner();
+        };
+        document.head.appendChild(script);
+      } else {
+        initScanner();
+      }
+    }
+
+    function initScanner() {
+      html5QrcodeScanner = new Html5Qrcode("qr-reader");
+      const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+          toggleQrScanner();
+          let parsedCode = decodedText.trim();
+          
+          // Enhanced QR content parsing
+          if (parsedCode.includes('codigo=')) {
+            parsedCode = parsedCode.split('codigo=')[1].split('&')[0];
+          } else if (parsedCode.includes('code=')) {
+            parsedCode = parsedCode.split('code=')[1].split('&')[0];
+          } else if (parsedCode.includes('/certificados/')) {
+            const parts = parsedCode.split('/certificados/');
+            if (parts.length > 1) {
+              parsedCode = parts[1].split('?')[0].split('#')[0];
+            }
+          }
+          
+          document.getElementById('cert-code-input').value = parsedCode;
+          validateCertificate();
+        },
+        (errorMessage) => {}
+      ).catch(err => {
+        console.error("No se pudo iniciar el escáner QR:", err);
+        alert("No se pudo acceder a la cámara. Verifique los permisos.");
+        toggleQrScanner();
+      });
+    }
+
+    function stopScanner() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          html5QrcodeScanner = null;
+        }).catch(err => console.error("Error deteniendo el escáner:", err));
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('codigo') || urlParams.get('code');
+      if (code) {
+        document.getElementById('cert-code-input').value = code;
+        openValidatorModal();
+        validateCertificate();
+      }
+      
+      // Close modal on escape key
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeValidatorModal();
+        }
+      });
+    });
+  </script>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

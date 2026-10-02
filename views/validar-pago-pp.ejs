@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-slate-50 flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  <%- include('partials/header') %>
+
+  <%
+    // Configuración visual según el estado del pago
+    let iconClass = 'fa-solid fa-circle-exclamation text-amber-500';
+    let iconBg = 'bg-amber-50 border-amber-100';
+    let titleColor = 'text-amber-600';
+    let cardBorder = 'border-amber-200';
+
+    if (status === 'success') {
+      iconClass = 'fa-solid fa-circle-check text-emerald-500';
+      iconBg = 'bg-emerald-50 border-emerald-100';
+      titleColor = 'text-emerald-600';
+      cardBorder = 'border-emerald-200';
+    } else if (status === 'cancelled') {
+      iconClass = 'fa-solid fa-circle-xmark text-rose-500';
+      iconBg = 'bg-rose-50 border-rose-100';
+      titleColor = 'text-rose-600';
+      cardBorder = 'border-rose-200';
+    }
+
+    // Formatear monto en dólares
+    const amountFormatted = (typeof amountUSD === 'number' && !isNaN(amountUSD))
+      ? '$' + amountUSD.toFixed(2)
+      : '—';
+
+    // Fecha legible
+    let fechaLegible = '—';
+    if (transaction && transaction.createdAt) {
+      try {
+        const f = new Date(transaction.createdAt);
+        fechaLegible = f.toLocaleString('es-EC', {
+          timeZone: 'America/Guayaquil',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', hour12: false
+        });
+      } catch (e) { fechaLegible = '—'; }
+    }
+
+    // Estado legible
+    let statusLegible = 'Pendiente';
+    if (transaction && transaction.status === 'APPROVED') statusLegible = 'Aprobado';
+    else if (transaction && transaction.status === 'CANCELLED') statusLegible = 'Cancelado';
+    else if (transaction && transaction.status === 'PENDING') statusLegible = 'Pendiente';
+
+    // ¿Hay usuario logueado? Para el botón de retorno contextual.
+    // El middleware global siempre setea res.locals.user (o null), así que
+    // la variable `user` está disponible en el scope de la vista.
+  %>
+
+  <main class="flex-grow flex flex-col items-center justify-center py-16 px-6 max-w-3xl mx-auto w-full">
+    <!-- Tarjeta de resultado -->
+    <div class="w-full bg-white border-2 <%= cardBorder %> rounded-3xl shadow-xl overflow-hidden">
+      <!-- Encabezado con ícono -->
+      <div class="flex flex-col items-center text-center pt-12 pb-8 px-6">
+        <div class="w-20 h-20 rounded-full flex items-center justify-center text-4xl border-2 <%= iconBg %> mb-5">
+          <i class="<%= iconClass %>"></i>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-black <%= titleColor %> tracking-tight mb-3">
+          <% if (status === 'success') { %>¡Pago Aprobado!<% } else if (status === 'cancelled') { %>Pago Cancelado<% } else { %>Validación de Pago<% } %>
+        </h1>
+        <p class="text-slate-500 font-semibold text-sm max-w-md leading-relaxed">
+          <%= message %>
+        </p>
+      </div>
+
+      <% if (status === 'success' && serviceMessage) { %>
+        <!-- Mensaje de servicio activado -->
+        <div class="mx-6 mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex items-start gap-3">
+          <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-bolt text-sm"></i>
+          </div>
+          <div class="flex-1">
+            <span class="text-[10px] font-black text-emerald-700 uppercase tracking-widest block mb-1">Servicio Activado</span>
+            <p class="text-xs font-bold text-emerald-800 leading-relaxed"><%= serviceMessage %></p>
+          </div>
+        </div>
+      <% } %>
+
+      <% if (transaction) { %>
+        <!-- Detalles de la transacción -->
+        <div class="mx-6 mb-8 border-t border-slate-100 pt-6">
+          <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 text-center">
+            Detalles de la Transacción
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Monto -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Monto</span>
+              <span class="text-lg font-black text-slate-800"><%= amountFormatted %> <span class="text-[10px] font-bold text-slate-400">USD</span></span>
+            </div>
+            <!-- Estado -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Estado</span>
+              <span class="text-sm font-extrabold <%= status === 'success' ? 'text-emerald-600' : (status === 'cancelled' ? 'text-rose-600' : 'text-amber-600') %>">
+                <i class="fa-solid <%= status === 'success' ? 'fa-circle-check' : (status === 'cancelled' ? 'fa-circle-xmark' : 'fa-circle-exclamation') %> text-[10px] mr-1"></i>
+                <%= statusLegible %>
+              </span>
+            </div>
+            <!-- Tipo de servicio -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Servicio</span>
+              <span class="text-sm font-extrabold text-slate-800">
+                <% if (itemTypeLabel) { %>
+                  <i class="fa-solid fa-tag text-[10px] text-slate-400 mr-1"></i> <%= itemTypeLabel %>
+                <% } else { %>
+                  —
+                <% } %>
+              </span>
+            </div>
+            <!-- Fecha -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Fecha</span>
+              <span class="text-sm font-extrabold text-slate-800"><%= fechaLegible %></span>
+            </div>
+          </div>
+
+          <% if (transaction.reference) { %>
+            <!-- Referencia (full width) -->
+            <div class="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Referencia</span>
+              <p class="text-xs font-bold text-slate-700 break-words leading-relaxed"><%= transaction.reference %></p>
+            </div>
+          <% } %>
+
+          <% if (transaction.clientTransactionId) { %>
+            <!-- ID de transacción (código) -->
+            <div class="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Código de Transacción</span>
+              <p class="text-[11px] font-mono font-bold text-slate-600 break-all leading-relaxed"><%= transaction.clientTransactionId %></p>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+
+      <!-- Botones de acción -->
+      <div class="px-6 pb-10 flex flex-col sm:flex-row gap-3 justify-center">
+        <% if (typeof user !== 'undefined' && user && user.role) { %>
+          <% if (user.role.name === 'ADMIN') { %>
+            <a href="/admin" class="bg-[#0A3C84] hover:bg-[#082f6b] text-white font-extrabold py-3.5 px-8 rounded-2xl text-center text-xs tracking-wide transition shadow-md flex items-center justify-center gap-2">
+              <i class="fa-solid fa-gauge-high"></i> Ir al Panel
+            </a>
+          <% } else if (user.role.name === 'PROFESSIONAL') { %>
+            <a href="/dashboard-profesional" class="bg-[#0A3C84] hover:bg-[#082f6b] text-white font-extrabold py-3.5 px-8 rounded-2xl text-center text-xs tracking-wide transition shadow-md flex items-center justify-center gap-2">
+              <i class="fa-solid fa-gauge-high"></i> Mi Panel
+            </a>
+          <% } else if (user.role.name === 'CLIENT') { %>
+            <a href="/dashboard-cliente" class="bg-[#0A3C84] hover:bg-[#082f6b] text-white font-extrabold py-3.5 px-8 rounded-2xl text-center text-xs tracking-wide transition shadow-md flex items-center justify-center gap-2">
+              <i class="fa-solid fa-gauge-high"></i> Mi Panel
+            </a>
+          <% } else { %>
+            <a href="/" class="bg-[#0A3C84] hover:bg-[#082f6b] text-white font-extrabold py-3.5 px-8 rounded-2xl text-center text-xs tracking-wide transition shadow-md flex items-center justify-center gap-2">
+              <i class="fa-solid fa-house"></i> Ir al Inicio
+            </a>
+          <% } %>
+        <% } else { %>
+          <a href="/login" class="bg-[#0A3C84] hover:bg-[#082f6b] text-white font-extrabold py-3.5 px-8 rounded-2xl text-center text-xs tracking-wide transition shadow-md flex items-center justify-center gap-2">
+            <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión
+          </a>
+        <% } %>
+        <a href="/" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-3.5 px-8 rounded-2xl text-center text-xs tracking-wide transition border border-slate-200 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-house"></i> Página Principal
+        </a>
+      </div>
+    </div>
+
+    <!-- Nota de soporte -->
+    <p class="mt-8 text-center text-[11px] text-slate-400 font-semibold max-w-md leading-relaxed">
+      ¿Tienes algún problema con tu pago? Contáctanos por WhatsApp o correo y te ayudaremos a resolverlo.
+    </p>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<header class="bg-black text-white py-4 px-6 md:px-12 flex items-center justify-between sticky top-0 z-[1100] shadow-md">
+  <!-- Logo -->
+  <a href="/" class="flex items-center gap-1">
+    <% if (typeof systemConfig !== 'undefined' && systemConfig.systemLogo) { %>
+      <img src="<%= systemConfig.systemLogo %>" alt="<%= systemConfig.systemName %>" class="h-12 max-w-[200px] object-contain">
+    <% } else { %>
+      <span class="text-3xl font-extrabold tracking-tight text-white">P<span class="text-sky-500">.</span>ec</span>
+    <% } %>
+  </a>
+
+  <!-- Navigation Menu -->
+  <nav class="hidden md:flex items-center gap-8 text-sm font-medium">
+    <a href="/" class="relative inline-flex items-center h-10 pb-2 border-b-2 border-transparent leading-none whitespace-nowrap hover:text-gray-300 transition <%= typeof activePage !== 'undefined' && activePage === 'inicio' ? 'text-white border-brand-blue' : 'text-gray-400' %>">
+      Inicio
+    </a>
+    <a href="/directorio" class="relative inline-flex items-center h-10 pb-2 border-b-2 border-transparent leading-none whitespace-nowrap hover:text-gray-300 transition <%= typeof activePage !== 'undefined' && activePage === 'profesionales' ? 'text-white border-brand-blue' : 'text-gray-400' %>">
+      Profesionales
+    </a>
+    <a href="/cursos" class="relative inline-flex items-center h-10 pb-2 border-b-2 border-transparent leading-none whitespace-nowrap hover:text-gray-300 transition <%= typeof activePage !== 'undefined' && activePage === 'cursos' ? 'text-white border-brand-blue' : 'text-gray-400' %>">
+      Cursos
+    </a>
+    <a href="/eventos" class="relative inline-flex items-center h-10 pb-2 border-b-2 border-transparent leading-none whitespace-nowrap hover:text-gray-300 transition <%= typeof activePage !== 'undefined' && activePage === 'educacion' ? 'text-white border-brand-blue' : 'text-gray-400' %>">
+      Educación
+    </a>
+    <a href="/estudiantes" class="relative inline-flex items-center h-10 pb-2 border-b-2 border-transparent leading-none whitespace-nowrap hover:text-gray-300 transition <%= typeof activePage !== 'undefined' && activePage === 'estudiantes' ? 'text-white border-brand-blue' : 'text-gray-400' %>">
+      Estudiantes
+    </a>
+    <a href="/beneficios" class="relative inline-flex items-center h-10 pb-2 border-b-2 border-transparent leading-none whitespace-nowrap hover:text-gray-300 transition <%= typeof activePage !== 'undefined' && activePage === 'beneficios' ? 'text-white border-brand-blue' : 'text-gray-400' %>">
+      Beneficios
+    </a>
+    <a href="/contacto" class="relative inline-flex items-center h-10 pb-2 border-b-2 border-transparent leading-none whitespace-nowrap hover:text-gray-300 transition <%= typeof activePage !== 'undefined' && activePage === 'contacto' ? 'text-white border-brand-blue' : 'text-gray-400' %>">
+      Contacto
+    </a>
+  </nav>
+
+  <!-- User Sessions -->
+  <div class="flex items-center gap-4 text-sm font-medium">
+    <div class="hidden md:flex items-center gap-4">
+    <% if (typeof user !== 'undefined' && user) { %>
+      <!-- User Dropdown Menu -->
+      <div class="relative inline-block text-left" id="user-dropdown-container">
+        <button type="button" class="flex items-center gap-2 text-gray-300 hover:text-white transition focus:outline-none py-2 cursor-pointer select-none text-xs" id="user-dropdown-btn">
+          <span class="w-2 h-2 rounded-full bg-brand-blue"></span>
+          <span>Hola, <%= user.name %></span>
+          <i class="fa-solid fa-chevron-down text-[9px] text-slate-500"></i>
+        </button>
+        <!-- Dropdown Card -->
+        <div class="hidden absolute right-0 mt-2 w-48 rounded-2xl bg-white border border-slate-100 shadow-xl py-2 z-50 text-slate-800" id="user-dropdown-menu">
+          <% if (user.role && user.role.name === 'ADMIN') { %>
+            <a href="/dashboard/admin" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition text-slate-900">
+              <i class="fa-solid fa-user-shield text-slate-400 w-4"></i>
+              Panel Admin
+            </a>
+          <% } else if (user.role && user.role.name === 'PROFESSIONAL') { %>
+            <a href="/dashboard/profesional" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition text-slate-900">
+              <i class="fa-solid fa-user-md text-slate-400 w-4"></i>
+              Mi Panel
+            </a>
+          <% } else if (user.role && user.role.name === 'STUDENT') { %>
+            <a href="/student" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition text-slate-900">
+              <i class="fa-solid fa-graduation-cap text-blue-600 w-4"></i>
+              Mi Perfil
+            </a>
+          <% } else if (user.role && user.role.name === 'REFERIDO') { %>
+            <a href="/dashboard/referido" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition text-slate-900">
+              <i class="fa-solid fa-chart-pie text-blue-500 w-4"></i>
+              Mis Ventas / Mi Dashboard
+            </a>
+          <% } else { %>
+            <a href="/dashboard/cliente" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition text-slate-900">
+              <i class="fa-solid fa-calendar-check text-slate-400 w-4"></i>
+              Mis Citas
+            </a>
+          <% } %>
+          <hr class="border-slate-100 my-1">
+          <a href="/logout" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition">
+            <i class="fa-solid fa-arrow-right-from-bracket text-rose-400 w-4"></i>
+            Cerrar Sesión
+          </a>
+        </div>
+      </div>
+    <% } else { %>
+      <% const isStudentContext = typeof activePage !== 'undefined' && (activePage === 'estudiantes' || activePage === 'registro-estudiante'); %>
+      <a href="/login" class="flex items-center gap-2 text-gray-300 hover:text-white transition text-xs whitespace-nowrap">
+        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+        <span>Iniciar Sesión</span>
+      </a>
+      <a href="<%= isStudentContext ? '/registro-estudiante' : '/preinscripcion' %>" class="inline-flex w-fit items-center justify-center bg-white hover:bg-slate-200 text-slate-900 font-bold px-4 py-2.5 rounded-full transition duration-300 text-xs shadow-sm whitespace-nowrap">
+        <%= isStudentContext ? 'Crear Perfil Estudiantil' : 'Crear Perfil Profesional' %>
+      </a>
+    <% } %>
+    </div>
+
+    <!-- Mobile Menu Button -->
+    <button class="md:hidden text-white focus:outline-none ml-2" id="mobile-menu-btn">
+      <i class="fa-solid fa-bars text-xl"></i>
+    </button>
+  </div>
+</header>
+
+<!-- Mobile Navigation Drawer -->
+<div class="hidden md:hidden fixed top-20 left-0 right-0 z-[1090] bg-slate-950 border-t border-slate-800 text-white px-6 py-4 flex-col gap-4 text-sm font-medium shadow-xl" id="mobile-menu">
+  <a href="/" class="py-2 border-b border-slate-900 hover:text-brand-blue transition <%= typeof activePage !== 'undefined' && activePage === 'inicio' ? 'text-brand-blue' : 'text-gray-400' %>">Inicio</a>
+  <a href="/directorio" class="py-2 border-b border-slate-900 hover:text-brand-blue transition <%= typeof activePage !== 'undefined' && activePage === 'profesionales' ? 'text-brand-blue' : 'text-gray-400' %>">Profesionales</a>
+  <a href="/cursos" class="py-2 border-b border-slate-900 hover:text-brand-blue transition <%= typeof activePage !== 'undefined' && activePage === 'cursos' ? 'text-brand-blue' : 'text-gray-400' %>">Cursos</a>
+  <a href="/eventos" class="py-2 border-b border-slate-900 hover:text-brand-blue transition <%= typeof activePage !== 'undefined' && activePage === 'educacion' ? 'text-brand-blue' : 'text-gray-400' %>">Educación</a>
+  <a href="/estudiantes" class="py-2 border-b border-slate-900 hover:text-brand-blue transition <%= typeof activePage !== 'undefined' && activePage === 'estudiantes' ? 'text-brand-blue' : 'text-gray-400' %>">Estudiantes</a>
+  <a href="/beneficios" class="py-2 border-b border-slate-900 hover:text-brand-blue transition <%= typeof activePage !== 'undefined' && activePage === 'beneficios' ? 'text-brand-blue' : 'text-gray-400' %>">Beneficios & Convenios</a>
+  <a href="/contacto" class="py-2 border-b border-slate-900 hover:text-brand-blue transition <%= typeof activePage !== 'undefined' && activePage === 'contacto' ? 'text-brand-blue' : 'text-gray-400' %>">Contacto</a>
+  <% if (typeof user !== 'undefined' && user) { %>
+    <% if (user.role && user.role.name === 'ADMIN') { %>
+      <a href="/dashboard/admin" class="py-2 border-b border-slate-900 text-brand-blue">Panel Admin</a>
+    <% } else if (user.role && user.role.name === 'PROFESSIONAL') { %>
+      <a href="/dashboard/profesional" class="py-2 border-b border-slate-900 text-sky-400">Mi Panel</a>
+    <% } else if (user.role && user.role.name === 'STUDENT') { %>
+      <a href="/student" class="py-2 border-b border-slate-900 text-blue-400 font-bold">Mi Perfil</a>
+    <% } else if (user.role && user.role.name === 'REFERIDO') { %>
+      <a href="/dashboard/referido" class="py-2 border-b border-slate-900 text-blue-400">Mis Ventas / Mi Dashboard</a>
+    <% } else { %>
+      <a href="/dashboard/cliente" class="py-2 border-b border-slate-900 text-gray-300">Mis Citas</a>
+    <% } %>
+  <% } else { %>
+    <% const isStudentContextMobile = typeof activePage !== 'undefined' && (activePage === 'estudiantes' || activePage === 'registro-estudiante'); %>
+    <a href="/login" class="py-2 border-b border-slate-900 text-gray-400">Iniciar Sesión</a>
+    <a href="<%= isStudentContextMobile ? '/registro-estudiante' : '/preinscripcion' %>" class="py-2 text-brand-blue font-semibold">
+      <%= isStudentContextMobile ? 'Crear Perfil Estudiantil' : 'Crear Perfil Profesional' %>
+    </a>
+  <% } %>
+</div>
+
+<script>
+  // Mobile menu toggle
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+  if (mobileMenuBtn && mobileMenu) {
+    mobileMenuBtn.addEventListener('click', () => {
+      mobileMenu.classList.toggle('hidden');
+      mobileMenu.classList.toggle('flex');
+    });
+  }
+
+  // User dropdown toggle
+  const userDropdownBtn = document.getElementById('user-dropdown-btn');
+  const userDropdownMenu = document.getElementById('user-dropdown-menu');
+  if (userDropdownBtn && userDropdownMenu) {
+    userDropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      userDropdownMenu.classList.toggle('hidden');
+    });
+    document.addEventListener('click', () => {
+      userDropdownMenu.classList.add('hidden');
+    });
+  }
+</script>
+
+<% if (typeof user !== 'undefined' && user) { %>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof io !== 'undefined') {
+        window.appSocket = io();
+
+        // Toast Container Generator
+        function showRealtimeToast(title, message, iconClass, bgClass) {
+          let container = document.getElementById('globalToastContainer');
+          if (!container) {
+            container = document.createElement('div');
+            container.id = 'globalToastContainer';
+            container.className = 'fixed bottom-5 right-5 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4';
+            document.body.appendChild(container);
+          }
+
+          const toast = document.createElement('div');
+          toast.className = `p-4 rounded-2xl bg-white border border-slate-100 shadow-2xl flex items-start gap-3 pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 text-slate-800 ${bgClass || ''}`;
+          toast.innerHTML = `
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-sm ${iconClass.includes('bg-') ? iconClass : 'bg-[#0A3C84]'}">
+              <i class="${iconClass}"></i>
+            </div>
+            <div class="flex-grow text-xs">
+              <p class="font-extrabold text-slate-900 leading-snug">${title}</p>
+              <p class="text-slate-600 mt-0.5 leading-relaxed">${message}</p>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600 text-xs cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          `;
+
+          container.appendChild(toast);
+          setTimeout(() => {
+            toast.classList.remove('translate-y-4', 'opacity-0');
+          }, 50);
+
+          setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-2');
+            setTimeout(() => toast.remove(), 300);
+          }, 6000);
+        }
+
+        // Targeted Event Listeners
+        window.appSocket.on('referral:sale_approved', function(data) {
+          showRealtimeToast('¡Venta Aprobada!', `Tu venta de "${data.productName}" fue aprobada. Se acreditó $${Number(data.comision).toFixed(2)} a tu billetera.`, 'fa-solid fa-circle-check bg-emerald-500');
+          if (typeof window.updateReferralDashboardRealtime === 'function') {
+            window.updateReferralDashboardRealtime(data);
+          }
+        });
+
+        window.appSocket.on('referral:withdrawal_updated', function(data) {
+          const isPaid = data.estado === 'PAGADO';
+          showRealtimeToast(
+            isPaid ? '¡Retiro Procesado!' : 'Solicitud de Retiro Actualizada',
+            isPaid ? `Tu transferencia bancaria de $${Number(data.monto).toFixed(2)} ha sido completada.` : `Estado de la solicitud de retiro: ${data.estado}`,
+            isPaid ? 'fa-solid fa-money-bill-check bg-emerald-500' : 'fa-solid fa-bell bg-blue-500'
+          );
+          if (typeof window.updateReferralDashboardRealtime === 'function') {
+            window.updateReferralDashboardRealtime(data);
+          }
+        });
+
+        window.appSocket.on('admin:new_sale', function(data) {
+          showRealtimeToast('Nueva Venta de Referido', `${data.referralEmail} registró una venta de "${data.productName}" por $${Number(data.valorPagado).toFixed(2)}.`, 'fa-solid fa-shopping-bag bg-blue-600');
+          if (typeof window.updateAdminDashboardRealtime === 'function') {
+            window.updateAdminDashboardRealtime(data);
+          }
+        });
+
+        window.appSocket.on('admin:new_withdrawal', function(data) {
+          showRealtimeToast('Nueva Solicitud de Retiro', `${data.referralEmail} solicitó un retiro bancario de $${Number(data.monto).toFixed(2)}.`, 'fa-solid fa-hand-holding-dollar bg-amber-500');
+          if (typeof window.updateAdminDashboardRealtime === 'function') {
+            window.updateAdminDashboardRealtime(data);
+          }
+        });
+      }
+    });
+  </script>
+<% } %>
+
+

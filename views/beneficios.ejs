@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+  <title>Beneficios & Convenios Comerciales — Profesionales Ecuador</title>
+  <meta name="description" content="Conoce los beneficios y convenios comerciales exclusivos para miembros de Profesionales Ecuador.">
+</head>
+<body class="bg-[#F8FAFC] text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+  <%- include('partials/header') %>
+
+  <!-- Hero Section Simplificado -->
+  <section class="bg-[#0A3C84] text-white py-16 px-6 text-center" data-reveal="fade-down">
+    <div class="max-w-3xl mx-auto flex flex-col items-center gap-3">
+      <h1 class="text-3xl md:text-5xl font-black tracking-tight leading-tight">
+        Beneficios & Convenios Comerciales
+      </h1>
+      <p class="text-slate-200 text-sm md:text-base max-w-2xl font-normal leading-relaxed">
+        Accede a alianzas estratégicas, descuentos comerciales exclusivos y herramientas digitales para potenciar tu presencia profesional.
+      </p>
+    </div>
+  </section>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto w-full px-6 py-12 flex flex-col gap-16">
+    
+    <!-- Convenios Comerciales Activos -->
+    <section class="flex flex-col gap-8" data-reveal="fade-up">
+      <div class="text-center max-w-xl mx-auto">
+        <h2 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Convenios Comerciales Activos</h2>
+        <p class="text-sm text-slate-500 font-medium mt-1.5">Presenta tu Tarjeta Digital de Profesionales Ecuador para acceder a estos beneficios.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <% if (typeof convenios !== 'undefined' && convenios && convenios.length > 0) { %>
+          <% convenios.forEach(function(c) { %>
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col justify-between hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+              <div>
+                <!-- Top Header: Logo / Categoría -->
+                <div class="flex items-center gap-3 mb-4">
+                  <% if (c.logo) { %>
+                    <div class="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <img src="<%= c.logo %>" alt="<%= c.titulo || c.empresa %>" class="w-full h-full object-contain p-1">
+                    </div>
+                  <% } else { %>
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#0A3C84] flex items-center justify-center text-lg font-bold flex-shrink-0">
+                      <i class="fa-solid fa-handshake"></i>
+                    </div>
+                  <% } %>
+                  <div class="min-w-0">
+                    <h3 class="text-base font-extrabold text-slate-900 leading-snug truncate"><%= c.empresa || c.titulo %></h3>
+                    <p class="text-xs text-slate-400 font-medium truncate"><%= c.categoria || 'Convenio Comercial' %></p>
+                  </div>
+                </div>
+
+                <!-- Descuento / Beneficio destacado -->
+                <% if (c.beneficio) { %>
+                  <div class="text-xs font-black text-[#0A3C84] bg-blue-50/70 border border-blue-100/80 rounded-xl px-3 py-2 mb-3">
+                    <i class="fa-solid fa-tag text-[10px] mr-1"></i> <%= c.beneficio %>
+                  </div>
+                <% } else if (c.descuento) { %>
+                  <div class="text-xs font-black text-[#0A3C84] bg-blue-50/70 border border-blue-100/80 rounded-xl px-3 py-2 mb-3">
+                    <i class="fa-solid fa-percent text-[10px] mr-1"></i> <%= c.tipoDescuento === 'PORCENTAJE' ? c.descuento + '% de Descuento' : '$' + c.descuento + ' USD OFF' %>
+                  </div>
+                <% } %>
+
+                <!-- Descripción -->
+                <p class="text-xs text-slate-600 font-normal leading-relaxed mb-4">
+                  <%= c.descripcion || c.beneficios || 'Beneficio exclusivo disponible para la comunidad de Profesionales Ecuador.' %>
+                </p>
+
+                <!-- Condiciones -->
+                <% if (c.condiciones) { %>
+                  <p class="text-[11px] text-slate-500 font-medium bg-slate-50 rounded-xl p-3 mb-4 leading-normal">
+                    <strong class="text-slate-700 font-bold block mb-0.5">Condiciones:</strong>
+                    <%= c.condiciones %>
+                  </p>
+                <% } %>
+              </div>
+
+              <!-- Footer / Link -->
+              <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="text-[11px] font-medium text-slate-400">
+                  Aplica para: <strong class="text-slate-600 font-semibold"><%= c.usuariosElegibles || 'Todos los usuarios' %></strong>
+                </span>
+                <% if (c.link) { %>
+                  <a href="<%= c.link %>" target="_blank" rel="noopener noreferrer" class="text-[#0A3C84] hover:text-blue-800 font-bold inline-flex items-center gap-1">
+                    Ver aliado <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                  </a>
+                <% } %>
+              </div>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-200/80 p-8 text-slate-400 font-medium text-sm">
+            No hay convenios comerciales activos registrados en este momento.
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- Beneficios del Ecosistema -->
+    <section class="flex flex-col gap-8 border-t border-slate-200/60 pt-12" data-reveal="fade-up">
+      <div class="text-center max-w-xl mx-auto">
+        <h2 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Beneficios de la Plataforma</h2>
+        <p class="text-sm text-slate-500 font-medium mt-1.5">Herramientas integradas diseñadas para profesionales y estudiantes.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <% if (typeof benefits !== 'undefined' && benefits && benefits.length > 0) { %>
+          <% benefits.forEach(function(b) { %>
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col justify-between gap-4 hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+              <div class="flex flex-col gap-3.5">
+                <div class="flex items-center justify-between gap-3">
+                  <% if (b.imagen) { %>
+                    <div class="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
+                      <img src="<%= b.imagen %>" alt="<%= b.titulo %>" class="w-full h-full object-contain">
+                    </div>
+                  <% } else { %>
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#0A3C84] flex items-center justify-center text-xl font-bold flex-shrink-0">
+                      <i class="<%= b.icono || 'fa-solid fa-star' %>"></i>
+                    </div>
+                  <% } %>
+
+                  <% if (b.requierePlan === 'PREMIUM') { %>
+                    <span class="text-[9px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      Premium
+                    </span>
+                  <% } else { %>
+                    <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      Incluido
+                    </span>
+                  <% } %>
+                </div>
+
+                <div>
+                  <h3 class="text-base font-extrabold text-slate-900 leading-snug"><%= b.titulo %></h3>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mt-0.5"><%= b.categoria %></span>
+                </div>
+
+                <p class="text-xs text-slate-600 font-normal leading-relaxed">
+                  <%= b.descripcion %>
+                </p>
+              </div>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <!-- Tarjeta 1: Directorio y Presencia -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col gap-3.5 hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#0A3C84] flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-address-book"></i>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900">Directorio Profesional Verificado</h3>
+            <p class="text-xs text-slate-600 font-normal leading-relaxed">
+              Presencia pública indexable con localización, especialidad, experiencia y contacto directo sin intermediarios.
+            </p>
+          </div>
+
+          <!-- Tarjeta 2: Tarjeta Digital & QR -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col gap-3.5 hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-qrcode"></i>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900">Tarjeta Digital Interactiva & VCard</h3>
+            <p class="text-xs text-slate-600 font-normal leading-relaxed">
+              Comparte tu perfil profesional mediante código QR con descarga instantánea de contacto directo a la agenda móvil.
+            </p>
+          </div>
+
+          <!-- Tarjeta 3: Facturación Electrónica SRI -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col gap-3.5 hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-file-invoice-dollar"></i>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900">Facturación Electrónica SRI</h3>
+            <p class="text-xs text-slate-600 font-normal leading-relaxed">
+              Emisión de comprobantes autorizados por el SRI, reporte contable mensual y gestión de clientes desde tu panel.
+            </p>
+          </div>
+
+          <!-- Tarjeta 4: Eventos y Conversatorios -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col gap-3.5 hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-chalkboard-user"></i>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900">Educación Continua & Certificaciones</h3>
+            <p class="text-xs text-slate-600 font-normal leading-relaxed">
+              Acceso a conferencias, conversatorios con ponentes de alto nivel y certificados verificables con código QR.
+            </p>
+          </div>
+
+          <!-- Tarjeta 5: Tarjeta Digital Estudiantil -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col gap-3.5 hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900">Impulso Estudiantil</h3>
+            <p class="text-xs text-slate-600 font-normal leading-relaxed">
+              Perfil académico, carnet digital de estudiante y tarifas preferenciales en todos los eventos de formación continua.
+            </p>
+          </div>
+
+          <!-- Tarjeta 6: Networking y Alianzas -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 p-6 flex flex-col gap-3.5 hover:border-[#0A3C84]/30 hover:shadow-md transition-all duration-200" data-reveal="fade-up">
+            <div class="w-12 h-12 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-network-wired"></i>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900">Comunidad & Networking</h3>
+            <p class="text-xs text-slate-600 font-normal leading-relaxed">
+              Conexión con colegas multidisciplinarios de todo el país para proyectos, consultorías y referencias laborales.
+            </p>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="h-full font-sans text-slate-800 bg-slate-50 flex flex-col min-h-screen">
+
+  <%- include('partials/header') %>
+
+  <main class="flex-grow flex flex-col items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+    <!-- Breadcrumbs / Migas de Pan (Nielsen H1 & H3) -->
+    <div class="max-w-md w-full mb-6">
+      <nav class="flex items-center justify-between flex-wrap gap-2 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm text-sm" aria-label="Migas de pan">
+        <ol class="flex items-center flex-wrap gap-2 text-slate-600 font-medium list-none p-0 m-0">
+          <li class="inline-flex items-center">
+            <a href="/" class="text-slate-700 hover:text-[#0A3C84] font-semibold transition">Inicio</a>
+          </li>
+          <li class="text-slate-300">/</li>
+          <li class="inline-flex items-center" id="bc-auth-parent" style="display:none;">
+            <button type="button" onclick="openAccountTypeModal()" class="text-slate-700 hover:text-[#0A3C84] font-semibold transition cursor-pointer bg-transparent border-0 p-0">Crear Cuenta</button>
+          </li>
+          <li class="text-slate-300" id="bc-auth-separator" style="display:none;">/</li>
+          <li class="inline-flex items-center font-bold text-[#0A3C84]" aria-current="page">
+            <span id="bc-auth-text">Iniciar Sesión</span>
+          </li>
+        </ol>
+        <a href="/" class="text-slate-500 hover:text-[#0A3C84] text-xs font-semibold transition">
+          Inicio
+        </a>
+      </nav>
+    </div>
+
+    <div class="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-lg p-8 sm:p-10 space-y-6">
+      
+      <div class="text-center space-y-3">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight" id="login-heading">Iniciar Sesión</h1>
+        <p class="text-slate-600 text-sm sm:text-base max-w-sm mx-auto" id="subtitle-text">
+          Accede a tu cuenta en Profesionales Ecuador
+        </p>
+      </div>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium flex items-center gap-3">
+          <i class="fa-solid fa-circle-exclamation text-rose-500 text-base"></i>
+          <span><%= error %></span>
+        </div>
+      <% } %>
+
+      <!-- Login Form -->
+      <form id="login-form" action="/login" method="POST" class="flex flex-col gap-4 text-sm text-slate-700">
+        <div>
+          <label for="login-email" class="block text-slate-800 font-semibold mb-1.5 text-sm">Correo Electrónico</label>
+          <input type="email" id="login-email" name="email" required placeholder="correo@ejemplo.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+        </div>
+
+        <div>
+          <label for="login-password" class="block text-slate-800 font-semibold mb-1.5 text-sm">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="login-password" name="password" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 pl-4 pr-11 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <button type="button" onclick="togglePasswordVisibility('login-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none cursor-pointer bg-transparent border-none p-1 leading-none">
+              <i class="fa-solid fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-[#0A3C84] hover:bg-[#082C62] text-white font-bold py-3.5 px-6 rounded-xl transition text-sm sm:text-base shadow-md mt-2 cursor-pointer">
+          Ingresar
+        </button>
+
+        <div class="text-center pt-1">
+          <a href="/forgot-password" class="text-sm text-[#0A3C84] hover:underline font-semibold">¿Olvidaste tu contraseña?</a>
+        </div>
+
+        <div class="text-center text-sm text-slate-600 pt-2 border-t border-slate-100">
+          ¿No tienes una cuenta? <button type="button" onclick="openAccountTypeModal()" class="text-[#0A3C84] hover:underline font-bold cursor-pointer bg-transparent border-0 p-0">Crear una cuenta</button>
+        </div>
+      </form>
+
+      <!-- Client Registration Form (Hidden by default) -->
+      <form id="register-form" action="/register" method="POST" class="flex flex-col gap-4 text-sm text-slate-700 hidden">
+        <input type="hidden" name="role" value="CLIENT">
+
+        <div>
+          <label for="reg-name" class="block text-slate-800 font-semibold mb-1.5 text-sm">Nombre Completo</label>
+          <input type="text" id="reg-name" name="name" required placeholder="Ej: Juan Pérez" value="<%= typeof formData !== 'undefined' && formData ? formData.name || '' : '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+        </div>
+
+        <div>
+          <label for="reg-email" class="block text-slate-800 font-semibold mb-1.5 text-sm">Correo Electrónico</label>
+          <input type="email" id="reg-email" name="email" required placeholder="correo@ejemplo.com" value="<%= typeof formData !== 'undefined' && formData ? formData.email || '' : '' %>" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 px-4 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+        </div>
+
+        <div>
+          <label for="reg-password" class="block text-slate-800 font-semibold mb-1.5 text-sm">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="reg-password" name="password" required placeholder="Crea tu contraseña (mínimo 6 caracteres)" class="w-full bg-slate-50 border border-slate-300 rounded-xl py-3.5 pl-4 pr-11 text-sm sm:text-base font-normal text-slate-800 outline-none focus:bg-white focus:border-[#0A3C84] transition">
+            <button type="button" onclick="togglePasswordVisibility('reg-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 focus:outline-none cursor-pointer bg-transparent border-none p-1 leading-none">
+              <i class="fa-solid fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition text-sm sm:text-base shadow-md mt-2 cursor-pointer">
+          Crear Cuenta de Cliente
+        </button>
+
+        <div class="text-center text-sm text-slate-600 pt-2 border-t border-slate-100">
+          ¿Ya tienes una cuenta? <button type="button" onclick="toggleForm('login')" class="text-[#0A3C84] hover:underline font-bold cursor-pointer bg-transparent border-0 p-0">Inicia Sesión</button>
+        </div>
+      </form>
+
+    </div>
+  </main>
+
+    </div>
+  </main>
+
+  <%- include('partials/modal-account-type') %>
+
+  <%- include('partials/footer') %>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isRegisterMode = urlParams.get('mode') === 'register' || '<%= typeof mode !== "undefined" ? mode : "" %>' === 'register';
+      if (isRegisterMode) {
+        toggleForm('register');
+      }
+    });
+
+    function toggleForm(mode) {
+      const loginForm = document.getElementById('login-form');
+      const registerForm = document.getElementById('register-form');
+      const subtitleText = document.getElementById('subtitle-text');
+      const loginHeading = document.getElementById('login-heading');
+      const bcAuthParent = document.getElementById('bc-auth-parent');
+      const bcAuthSep = document.getElementById('bc-auth-separator');
+      const bcAuthText = document.getElementById('bc-auth-text');
+      const bcAuthIcon = document.getElementById('bc-auth-icon');
+      
+      if (mode === 'register') {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        if (loginHeading) loginHeading.innerText = 'Registro de Cliente';
+        subtitleText.innerText = 'Regístrate de forma gratuita para participar en conversatorios y cursos';
+        if (bcAuthParent) bcAuthParent.style.display = 'inline-flex';
+        if (bcAuthSep) bcAuthSep.style.display = 'inline-flex';
+        if (bcAuthText) bcAuthText.textContent = 'Registro de Cliente';
+        if (bcAuthIcon) bcAuthIcon.className = 'fa-solid fa-user-plus text-[10px] text-emerald-600';
+      } else {
+        registerForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        if (loginHeading) loginHeading.innerText = 'Iniciar Sesión';
+        subtitleText.innerText = 'Accede a tu panel administrativo o perfil profesional';
+        if (bcAuthParent) bcAuthParent.style.display = 'none';
+        if (bcAuthSep) bcAuthSep.style.display = 'none';
+        if (bcAuthText) bcAuthText.textContent = 'Iniciar Sesión';
+        if (bcAuthIcon) bcAuthIcon.className = 'fa-solid fa-right-to-bracket text-[10px] text-[#0A3C84]';
+      }
+    }
+
+    function togglePasswordVisibility(id, btn) {
+      const input = document.getElementById(id);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+  </script>
+
+</body>
+</html>

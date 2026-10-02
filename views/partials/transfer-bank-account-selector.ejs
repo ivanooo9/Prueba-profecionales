@@ -1,0 +1,23 @@
+<%
+  const transferAccounts = Array.isArray(activeBankAccounts) ? activeBankAccounts : [];
+  const selectedBankAccountId = typeof selectedId !== 'undefined' ? String(selectedId || '') : '';
+  const legacyAccountsText = typeof legacyBankAccounts !== 'undefined' ? legacyBankAccounts : '';
+%>
+
+<% if (transferAccounts.length > 0) { %>
+  <div class="flex flex-col gap-2">
+    <label for="<%= selectId %>" class="text-[10px] font-black text-slate-450 uppercase tracking-widest">Cuenta de destino</label>
+    <select id="<%= selectId %>" name="<%= inputName %>" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-3.5 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition cursor-pointer">
+      <option value="">Seleccione una cuenta autorizada</option>
+      <% transferAccounts.forEach(function(account) { %>
+        <option value="<%= account.id %>" <%= selectedBankAccountId === String(account.id) ? 'selected' : '' %>><%= account.institution %> <%= String(account.type || '').toUpperCase() === 'QR' ? '(QR)' : ('- ' + (account.accountType || '') + ' ' + (account.accountNumber || '')) %></option>
+      <% }) %>
+    </select>
+    <div id="<%= cardId %>" class="hidden rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-xs text-slate-700"></div>
+  </div>
+<% } else { %>
+  <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 text-[11px] text-blue-900 leading-relaxed font-bold flex flex-col gap-1 shadow-inner">
+    <span class="text-[9px] font-black uppercase text-[#0252A4] tracking-widest leading-none mb-1">Cuentas Bancarias Autorizadas:</span>
+    <div class="whitespace-pre-line text-slate-700 font-medium font-mono text-[10px] mt-1"><%= legacyAccountsText %></div>
+  </div>
+<% } %>

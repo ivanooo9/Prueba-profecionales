@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bgLight flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  
+  <!-- Header / Navbar -->
+  <%- include('partials/header') %>
+
+  <!-- Main Directory Search -->
+  <main class="flex-grow max-w-7xl mx-auto w-full px-6 md:px-12 py-16 flex flex-col gap-10">
+    
+    <!-- Title Section -->
+    <div class="flex flex-col items-center text-center gap-2 mb-4" data-reveal="fade-up">
+      <h1 class="text-4xl md:text-5xl font-black tracking-tight text-slate-900 leading-none">
+        Todos los <span class="text-brand-blue">Estudiantes</span>
+      </h1>
+      <p class="text-brand-grayText text-sm max-w-xl leading-relaxed">
+        Explora nuestra red completa de estudiantes y egresados universitarios. Filtra y encuentra el talento que necesitas.
+      </p>
+    </div>
+
+    <!-- Filters Panel Form -->
+    <form action="/estudiantes" method="GET" id="filter-form" class="bg-white p-5 md:p-6 rounded-3xl border border-slate-100 shadow-sm" data-reveal="fade-up" data-reveal-delay="100">
+      <div class="flex flex-col gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_auto] gap-3 items-end">
+          <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input
+              type="text"
+              name="search"
+              value="<%= query.search || '' %>"
+              placeholder="Buscar por nombre, carrera o proyectos..."
+              class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3.5 pl-11 pr-4 text-sm outline-none focus:bg-white focus:border-brand-blue transition"
+            >
+          </div>
+
+          <button type="submit" class="inline-flex items-center justify-center gap-2 bg-[#053E8C] hover:bg-[#032A60] text-white font-bold px-5 py-3 rounded-2xl transition text-sm whitespace-nowrap">
+            <i class="fa-solid fa-magnifying-glass"></i> Buscar
+          </button>
+
+          <a href="/estudiantes" class="inline-flex items-center justify-center gap-2 border border-[#0A3C84] hover:bg-slate-50 text-[#0A3C84] hover:text-[#082C62] font-bold px-5 py-3 rounded-2xl transition text-sm whitespace-nowrap">
+            <i class="fa-solid fa-trash-can"></i> Limpiar
+          </a>
+        </div>
+
+        <details class="group rounded-2xl border border-slate-100 bg-slate-50/70">
+          <summary class="list-none cursor-pointer px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-black text-slate-900">Filtros y orden</p>
+              <p class="text-[11px] font-semibold text-slate-500">Universidad, carrera, ubicación y prioridad</p>
+            </div>
+            <span class="h-9 w-9 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-500 transition group-open:rotate-180">
+              <i class="fa-solid fa-chevron-down text-xs"></i>
+            </span>
+          </summary>
+
+          <div class="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Universidad</span>
+              <select name="universityId" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:border-brand-blue transition font-semibold text-slate-700">
+                <option value="">Todas</option>
+                <% if (typeof universities !== 'undefined' && universities && universities.length > 0) { %>
+                  <% universities.forEach(function(u) { %>
+                    <option value="<%= u.id %>" <%= query.universityId && String(query.universityId) === String(u.id) ? 'selected' : '' %>><%= u.nombre %><%= u.siglas ? ' (' + u.siglas + ')' : '' %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Carrera / Profesión</span>
+              <select name="profession" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:border-brand-blue transition font-semibold text-slate-700">
+                <option value="">Todas</option>
+                <% if (typeof professions !== 'undefined' && professions && professions.length > 0) { %>
+                  <% professions.forEach(function(p) { %>
+                    <option value="<%= p.nombre %>" <%= query.profession === p.nombre ? 'selected' : '' %>><%= p.nombre %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Provincia</span>
+              <select name="provincia" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:border-brand-blue transition font-semibold text-slate-700">
+                <option value="">Todas</option>
+                <% if (typeof provinces !== 'undefined' && provinces && provinces.length > 0) { %>
+                  <% provinces.forEach(function(p) { %>
+                    <option value="<%= p %>" <%= query.provincia === p ? 'selected' : '' %>><%= p %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ciudad</span>
+              <select name="ciudad" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:border-brand-blue transition font-semibold text-slate-700">
+                <option value="">Todas</option>
+                <% if (typeof cities !== 'undefined' && cities && cities.length > 0) { %>
+                  <% cities.forEach(function(c) { %>
+                    <option value="<%= c %>" <%= query.ciudad === c ? 'selected' : '' %>><%= c %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ordenar</span>
+              <select name="sort" class="w-full bg-white border border-slate-100 rounded-2xl py-3 px-4 text-sm outline-none focus:border-brand-blue transition text-slate-700 font-medium">
+                <option value="destacados" <%= query.sort === 'destacados' ? 'selected' : '' %>>Destacados primero</option>
+                <option value="nombre_asc" <%= query.sort === 'nombre_asc' ? 'selected' : '' %>>Nombre: A - Z</option>
+                <option value="recientes" <%= query.sort === 'recientes' ? 'selected' : '' %>>Más recientes</option>
+              </select>
+            </div>
+          </div>
+        </details>
+      </div>
+    </form>
+
+    <!-- Results Header -->
+    <div class="text-xs font-bold text-slate-400">
+      <% if (students && students.length > 0) { %>
+        <%= students.length %> <%= students.length === 1 ? 'estudiante encontrado' : 'estudiantes encontrados' %>
+      <% } else { %>
+        0 estudiantes encontrados
+      <% } %>
+    </div>
+
+    <!-- Students Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" data-reveal-stagger="true" data-stagger-step="80">
+      <% if (students && students.length > 0) { %>
+        <% students.forEach(function(st) { %>
+          <% const profile = st.studentProfile || {}; %>
+          <a href="/estudiantes/<%= profile.slug || st.id %>" class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm flex flex-col relative group cursor-pointer block premium-card-hover" data-reveal="fade-up">
+            
+            <!-- Image & Badge -->
+            <div class="relative h-80 overflow-hidden bg-slate-100">
+              <img src="<%= profile.foto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300' %>" alt="<%= st.name %>" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+              
+              <!-- Badge pill bookmark -->
+              <div class="absolute top-4 right-4 bg-white text-slate-800 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-slate-100/50">
+                <i class="fa-solid fa-graduation-cap text-brand-blue text-xs"></i>
+                <span class="text-[10px] font-extrabold tracking-wide uppercase">
+                  <%= profile.estadoCarrera === 'EGRESADO' ? 'Egresado' : 'Estudiante' %>
+                </span>
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-5 flex flex-col flex-grow">
+              <h3 class="font-extrabold text-base text-slate-900 group-hover:text-brand-blue transition mb-0.5 leading-snug">
+                <%= st.name %>
+              </h3>
+              
+              <!-- Carrera & Institution subtext -->
+              <span class="text-xs font-bold text-brand-blue mb-1 block">
+                <%= profile.carrera || 'Carrera no especificada' %>
+              </span>
+
+              <span class="text-[11px] font-medium text-slate-500 mb-3 block truncate">
+                <i class="fa-solid fa-building-columns text-slate-400 mr-1"></i><%= profile.university ? profile.university.nombre : (profile.institucionEducativa || 'Universidad no especificada') %>
+              </span>
+              
+              <!-- Location details row -->
+              <div class="border-t border-b border-slate-50 py-2.5 flex items-center justify-between mb-4">
+                <div class="flex items-center gap-1.5 text-slate-400 text-xs font-medium">
+                  <i class="fa-solid fa-location-dot text-slate-400"></i>
+                  <span><%= (profile.ciudad || st.ciudad || '') + (profile.provincia ? ', ' + profile.provincia : '') || 'Ecuador' %></span>
+                </div>
+              </div>
+
+              <!-- Card Footer -->
+              <div class="flex items-center justify-between mt-auto">
+                <div class="flex flex-col">
+                  <span class="text-[#053E8C] font-black text-sm leading-none">
+                    <%= profile._count ? profile._count.projects : (profile.projects ? profile.projects.length : 0) %> Proyectos
+                  </span>
+                  <span class="text-slate-400 text-[10px] font-bold mt-1">académicos</span>
+                </div>
+                <div class="bg-[#053E8C] group-hover:bg-[#032A60] text-white font-bold py-2.5 px-4 rounded-xl transition text-xs flex items-center gap-1">
+                  Ver Perfil <i class="fa-solid fa-chevron-right text-[10px] ml-1"></i>
+                </div>
+              </div>
+
+            </div>
+          </a>
+        <% }); %>
+      <% } else { %>
+        <div class="col-span-full bg-white rounded-3xl border border-slate-100 p-12 text-center space-y-4 max-w-xl mx-auto shadow-sm my-8">
+          <div class="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mx-auto">
+            <i class="fa-solid fa-user-graduate"></i>
+          </div>
+          <h3 class="text-lg font-extrabold text-slate-900">No se encontraron estudiantes</h3>
+          <p class="text-xs text-slate-500 font-medium">
+            No hay estudiantes que coincidan con los criterios seleccionados. Intenta limpiar los filtros para explorar la lista completa.
+          </p>
+          <a href="/estudiantes" class="inline-flex items-center justify-center gap-2 border border-[#0A3C84] hover:bg-slate-50 text-[#0A3C84] hover:text-[#082C62] font-bold px-5 py-2.5 rounded-xl transition text-xs">
+            <i class="fa-solid fa-trash-can"></i> Limpiar filtros
+          </a>
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <%- include('partials/footer') %>
+
+  <script>
+    (function () {
+      var form = document.getElementById('filter-form');
+      var overlay = document.getElementById('directory-loading');
+
+      if (!form || !overlay) return;
+
+      function showLoading() {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+      }
+
+      function hideLoading() {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      }
+
+      form.addEventListener('submit', showLoading);
+      window.addEventListener('pageshow', hideLoading);
+    })();
+  </script>
+</body>
+</html>

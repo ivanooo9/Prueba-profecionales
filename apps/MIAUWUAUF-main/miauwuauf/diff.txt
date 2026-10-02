@@ -1,0 +1,415 @@
+diff --git a/miauwuauf/app/admin/page.tsx b/miauwuauf/app/admin/page.tsx
+index 437c5de..b971e1b 100644
+--- a/miauwuauf/app/admin/page.tsx
++++ b/miauwuauf/app/admin/page.tsx
+@@ -83,6 +83,7 @@ import {
+   PlanFormData,
+   SectionContent,
+   TechFeature,
++  CategoryStore,
+ } from "@/lib/admin-service";
+ 
+ type TabType =
+@@ -218,6 +219,14 @@ export default function AdminPage() {
+   });
+ 
+   const [productos, setProductos] = useState<TiendaProducto[]>([]);
++  const [categories, setCategories] = useState<CategoryStore[]>([]);
++  const [isTiendaExpanded, setIsTiendaExpanded] = useState(false);
++  const [tiendaSubTab, setTiendaSubTab] = useState<"productos" | "categorias">("productos");
++  const [showCategoryForm, setShowCategoryForm] = useState(false);
++  const [categoryForm, setCategoryForm] = useState({
++    nombre: "",
++    icon: "Package",
++  });
+   const [showProductoForm, setShowProductoForm] = useState(false);
+   const [editingProductoId, setEditingProductoId] = useState<string | null>(
+     null,
+@@ -406,14 +415,16 @@ export default function AdminPage() {
+       const prods = await AdminService.getProducts();
+       setProductos(prods);
+ 
+-      const [plans, content, techData] = await Promise.all([
++      const [plans, content, techData, catsData] = await Promise.all([
+         AdminService.getPlans(),
+         AdminService.getSectionContent("products-plans"),
+         AdminService.getTechFeatures(),
++        AdminService.getCategories(),
+       ]);
+       setPlanes(plans);
+       if (content) setSectionContent(content);
+       setTechFeatures(techData);
++      setCategories(catsData);
+ 
+       if (resVets.ok) {
+         const vetsDataRaw = await resVets.json();
+@@ -1140,6 +1151,40 @@ export default function AdminPage() {
+     });
+   };
+ 
++  const handleCreateCategory = async (e: React.FormEvent) => {
++    e.preventDefault();
++    try {
++      const newCat = await AdminService.saveCategory(categoryForm);
++      if (newCat) {
++        toast.success("Categoría creada");
++        setCategories([...categories, newCat]);
++        setCategoryForm({ nombre: "", icon: "Package" });
++        setShowCategoryForm(false);
++      }
++    } catch {
++      toast.error("Error al crear categoría");
++    }
++  };
++
++  const handleDeleteCategory = async (id: string) => {
++    setModalConfirmacion({
++      isOpen: true,
++      title: "Eliminar Categoría",
++      description: "¿Estás seguro de eliminar esta categoría? Los productos asociados podrían quedar huérfanos.",
++      onConfirm: async () => {
++        try {
++          const success = await AdminService.deleteCategory(id);
++          if (success) {
++            toast.success("Categoría eliminada");
++            setCategories(categories.filter((c) => c.id !== id));
++          }
++        } catch {
++          toast.error("Error al eliminar");
++        }
++      },
++    });
++  };
++
+   const pendientes = solicitudesAdopcion.filter(
+     (s) => s.estado === "pendiente",
+   ).length;
+@@ -1255,33 +1300,106 @@ export default function AdminPage() {
+             <p className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-2 px-2">
+               Menu Principal
+             </p>
+-            {tabs.map((tab) => (
+-              <button
+-                key={tab.id}
+-                onClick={() => setActiveTab(tab.id)}
+-                className={`w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl font-heading font-bold transition-all duration-300 border-[3px] group ${
+-                  activeTab === tab.id
+-                    ? "bg-[#ffb067] text-[#2a2438] border-[#2a2438] shadow-[4px_4px_0px_0px_#2a2438] -translate-x-1 -translate-y-1"
+-                    : "bg-[#fdfaf5]/5 text-white/80 border-transparent hover:bg-[#fdfaf5]/10 hover:text-white"
+-                }`}
+-              >
+-                <div className="flex items-center gap-3">
+-                  <tab.icon
+-                    className={`h-5 w-5 shrink-0 ${activeTab === tab.id ? "text-[#2a2438]" : "group-hover:scale-110 transition-transform"}`}
+-                  />
+-                  <span className="truncate text-sm tracking-tight">
+-                    {tab.label}
+-                  </span>
+-                </div>
+-                {tab.count !== undefined && (
+-                  <Badge
+-                    className={`shrink-0 border-[2px] border-[#2a2438] text-[10px] h-6 min-w-[24px] flex items-center justify-center font-black ${activeTab === tab.id ? "bg-white text-[#2a2438]" : "bg-[#ffb067] text-[#2a2438]"} shadow-[1px_1px_0px_0px_rgba(42,36,56,0.3)]`}
+-                  >
+-                    {tab.count}
+-                  </Badge>
+-                )}
+-              </button>
+-            ))}
++            {tabs.map((tab) => {
++              if (tab.id === "tienda") {
++                return (
++                  <div key={tab.id} className="space-y-1">
++                    <button
++                      onClick={() => setIsTiendaExpanded(!isTiendaExpanded)}
++                      className={`w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl font-heading font-bold transition-all duration-300 border-[3px] group ${
++                        activeTab === tab.id
++                          ? "bg-[#ffb067] text-[#2a2438] border-[#2a2438] shadow-[4px_4px_0px_0px_#2a2438]"
++                          : "bg-[#fdfaf5]/5 text-white/80 border-transparent hover:bg-[#fdfaf5]/10 hover:text-white"
++                      }`}
++                    >
++                      <div className="flex items-center gap-3">
++                        <tab.icon
++                          className={`h-5 w-5 shrink-0 ${activeTab === tab.id ? "text-[#2a2438]" : "group-hover:scale-110 transition-transform"}`}
++                        />
++                        <span className="truncate text-sm tracking-tight">
++                          {tab.label}
++                        </span>
++                      </div>
++                      <div className="flex items-center gap-2">
++                        {tab.count !== undefined && (
++                          <Badge
++                            className={`shrink-0 border-[2px] border-[#2a2438] text-[10px] h-5 min-w-[20px] flex items-center justify-center font-black ${activeTab === tab.id ? "bg-white text-[#2a2438]" : "bg-[#ffb067] text-[#2a2438]"} shadow-sm`}
++                          >
++                            {tab.count}
++                          </Badge>
++                        )}
++                        <ChevronRight
++                          className={`h-4 w-4 transition-transform duration-300 ${isTiendaExpanded ? "rotate-90" : ""}`}
++                        />
++                      </div>
++                    </button>
++
++                    {isTiendaExpanded && (
++                      <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-300">
++                        <button
++                          onClick={() => {
++                            setActiveTab("tienda");
++                            setTiendaSubTab("productos");
++                          }}
++                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
++                            activeTab === "tienda" &&
++                            tiendaSubTab === "productos"
++                              ? "bg-white/20 text-white translate-x-1"
++                              : "text-white/60 hover:text-white hover:bg-white/5"
++                          }`}
++                        >
++                          <Package className="h-3 w-3" />
++                          Gestionar Productos
++                        </button>
++                        <button
++                          onClick={() => {
++                            setActiveTab("tienda");
++                            setTiendaSubTab("categorias");
++                          }}
++                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
++                            activeTab === "tienda" &&
++                            tiendaSubTab === "categorias"
++                              ? "bg-white/20 text-white translate-x-1"
++                              : "text-white/60 hover:text-white hover:bg-white/5"
++                          }`}
++                        >
++                          <LayoutGrid className="h-3 w-3" />
++                          Gestionar Categorías
++                        </button>
++                      </div>
++                    )}
++                  </div>
++                );
++              }
++
++              return (
++                <button
++                  key={tab.id}
++                  onClick={() => setActiveTab(tab.id)}
++                  className={`w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl font-heading font-bold transition-all duration-300 border-[3px] group ${
++                    activeTab === tab.id
++                      ? "bg-[#ffb067] text-[#2a2438] border-[#2a2438] shadow-[4px_4px_0px_0px_#2a2438] -translate-x-1 -translate-y-1"
++                      : "bg-[#fdfaf5]/5 text-white/80 border-transparent hover:bg-[#fdfaf5]/10 hover:text-white"
++                  }`}
++                >
++                  <div className="flex items-center gap-3">
++                    <tab.icon
++                      className={`h-5 w-5 shrink-0 ${activeTab === tab.id ? "text-[#2a2438]" : "group-hover:scale-110 transition-transform"}`}
++                    />
++                    <span className="truncate text-sm tracking-tight">
++                      {tab.label}
++                    </span>
++                  </div>
++                  {tab.count !== undefined && (
++                    <Badge
++                      className={`shrink-0 border-[2px] border-[#2a2438] text-[10px] h-6 min-w-[24px] flex items-center justify-center font-black ${activeTab === tab.id ? "bg-white text-[#2a2438]" : "bg-[#ffb067] text-[#2a2438]"} shadow-[1px_1px_0px_0px_rgba(42,36,56,0.3)]`}
++                    >
++                      {tab.count}
++                    </Badge>
++                  )}
++                </button>
++              );
++            })}
+           </div>
+ 
+           <div className="mt-10 p-6 border-t-[3px] border-[#2a2438]/20">
+@@ -2885,9 +3003,10 @@ export default function AdminPage() {
+             />
+           )}
+ 
+-          {activeTab === "tienda" && (
++          {activeTab === "tienda" && tiendaSubTab === "productos" && (
+             <ProductsTab
+               productos={productos}
++              categories={categories}
+               showProductoForm={showProductoForm}
+               setShowProductoForm={setShowProductoForm}
+               productoForm={productoForm}
+@@ -2902,6 +3021,18 @@ export default function AdminPage() {
+             />
+           )}
+ 
++          {activeTab === "tienda" && tiendaSubTab === "categorias" && (
++            <CategoriesTab
++              categories={categories}
++              showCategoryForm={showCategoryForm}
++              setShowCategoryForm={setShowCategoryForm}
++              categoryForm={categoryForm}
++              setCategoryForm={setCategoryForm}
++              handleCreateCategory={handleCreateCategory}
++              handleDeleteCategory={handleDeleteCategory}
++            />
++          )}
++
+           {activeTab === "sistema" && (
+             <SystemTab
+               veterinarios={veterinarios}
+@@ -3583,6 +3714,7 @@ function StatItemMini({
+ 
+ interface ProductsTabProps {
+   productos: TiendaProducto[];
++  categories: CategoryStore[];
+   showProductoForm: boolean;
+   setShowProductoForm: (v: boolean) => void;
+   productoForm: ProductoFormData;
+@@ -3598,6 +3730,7 @@ interface ProductsTabProps {
+ 
+ function ProductsTab({
+   productos,
++  categories,
+   showProductoForm,
+   setShowProductoForm,
+   productoForm,
+@@ -3838,15 +3971,16 @@ function ProductsTab({
+                       onChange={(e) =>
+                         setProductoForm({
+                           ...productoForm,
+-                          categoria: e.target
+-                            .value as TiendaProducto["categoria"],
++                          categoria: e.target.value,
+                         })
+                       }
+                     >
+-                      <option value="perros">🐶 Perros</option>
+-                      <option value="gatos">🐱 Gatos</option>
+-                      <option value="accesorios">✨ Accesorios</option>
+-                      <option value="alimentos">🦴 Alimentos</option>
++                      <option value="" disabled>Seleccione una categoría</option>
++                      {categories.map((cat) => (
++                        <option key={cat.id} value={cat.nombre}>
++                          {cat.nombre}
++                        </option>
++                      ))}
+                     </select>
+                   </div>
+                   <div className="space-y-2">
+@@ -4937,3 +5071,124 @@ function BeneficiosTab({
+     </div>
+   );
+ }
++
++function CategoriesTab({
++  categories,
++  showCategoryForm,
++  setShowCategoryForm,
++  categoryForm,
++  setCategoryForm,
++  handleCreateCategory,
++  handleDeleteCategory,
++}: {
++  categories: CategoryStore[];
++  showCategoryForm: boolean;
++  setShowCategoryForm: (v: boolean) => void;
++  categoryForm: { nombre: string; icon: string };
++  setCategoryForm: (v: { nombre: string; icon: string }) => void;
++  handleCreateCategory: (e: React.FormEvent) => void;
++  handleDeleteCategory: (id: string) => void;
++}) {
++  return (
++    <div className="space-y-6 animate-fade-in pb-20">
++      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
++        <div>
++          <h2 className="text-3xl font-black font-heading tracking-tight text-white">
++            Gestión de Categorías
++          </h2>
++          <p className="font-semibold opacity-70 text-white/80">
++            Organiza tus productos por tipos
++          </p>
++        </div>
++        <Button
++          onClick={() => setShowCategoryForm(true)}
++          className="bg-[#ffb067] hover:bg-[#ff9933] text-[#2a2438] border-[3px] border-[#2a2438] shadow-[4px_4px_0px_0px_#2a2438] font-black rounded-2xl h-14 px-8 transition-all active:translate-y-1 active:shadow-none"
++        >
++          <Plus className="h-5 w-5 mr-2" /> Nueva Categoría
++        </Button>
++      </div>
++
++      {showCategoryForm && (
++        <Card className="border-[3px] border-[#2a2438] bg-[#fdfaf5] shadow-[8px_8px_0px_0px_#2a2438] rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300 max-w-2xl">
++          <CardHeader className="bg-[#ffb067]/10 border-b-[3px] border-[#2a2438]">
++            <CardTitle className="font-black flex items-center gap-3">
++              <LayoutGrid className="h-5 w-5" /> Crear Categoría
++            </CardTitle>
++          </CardHeader>
++          <CardContent className="p-8">
++            <form onSubmit={handleCreateCategory} className="space-y-6">
++              <div className="space-y-2">
++                <Label className="font-bold flex items-center gap-2 px-1">
++                  Nombre de la Categoría
++                </Label>
++                <Input
++                  placeholder="Ej. Juguetes, Snacks..."
++                  value={categoryForm.nombre}
++                  onChange={(e) =>
++                    setCategoryForm({ ...categoryForm, nombre: e.target.value })
++                  }
++                  required
++                  className="border-[2px] border-foreground/20 rounded-xl bg-white h-12"
++                />
++              </div>
++              <div className="flex gap-3">
++                <Button
++                  type="submit"
++                  className="flex-1 bg-[#ffb067] hover:bg-[#ff9933] text-[#2a2438] border-[2px] border-[#2a2438] shadow-[4px_4px_0px_0px_#2a2438] font-black rounded-xl h-12"
++                >
++                  Guardar Categoría
++                </Button>
++                <Button
++                  type="button"
++                  onClick={() => setShowCategoryForm(false)}
++                  variant="ghost"
++                  className="border-[2px] border-transparent font-bold h-12 rounded-xl"
++                >
++                  Cancelar
++                </Button>
++              </div>
++            </form>
++          </CardContent>
++        </Card>
++      )}
++
++      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
++        {categories.map((cat) => (
++          <Card
++            key={cat.id}
++            className="border-[3px] border-[#2a2438] bg-white text-[#2a2438] shadow-[6px_6px_0px_0px_#2a2438] rounded-2xl p-6 transition-all hover:shadow-[10px_10px_0px_0px_#2a2438] group"
++          >
++            <div className="flex justify-between items-center">
++              <div className="flex items-center gap-4">
++                <div className="bg-[#ffb067]/20 p-3 rounded-xl border-[2px] border-[#2a2438]">
++                  <LayoutGrid className="h-6 w-6 text-[#2a2438]" />
++                </div>
++                <div>
++                  <h3 className="text-xl font-black">{cat.nombre}</h3>
++                  <p className="text-xs font-bold opacity-50 uppercase tracking-widest">
++                    Categoría de Tienda
++                  </p>
++                </div>
++              </div>
++              <Button
++                size="icon"
++                variant="ghost"
++                onClick={() => handleDeleteCategory(cat.id)}
++                className="h-10 w-10 text-[#ffadad] hover:text-[#ff7b7b] border-[2px] border-transparent hover:border-[#ffadad] rounded-xl"
++              >
++                <Trash2 className="h-5 w-5" />
++              </Button>
++            </div>
++          </Card>
++        ))}
++        {categories.length === 0 && (
++          <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-40">
++            <LayoutGrid className="h-16 w-16 mb-4 text-white" />
++            <p className="font-black text-xl text-white">Sin categorías definidas</p>
++            <p className="font-bold text-white/70">Crea tu primera categoría para organizar la tienda</p>
++          </div>
++        )}
++      </div>
++    </div>
++  );
++}

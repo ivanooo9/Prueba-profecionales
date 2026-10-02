@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es" class="<%= profId.theme === 'dark' ? 'dark' : '' %>">
+<head>
+  <%- include('partials/head') %>
+  <title><%= title %></title>
+  <meta name="description" content="<%= metaDescription %>">
+  
+  <!-- OpenGraph Metadata -->
+  <meta property="og:title" content="<%= user.name %> — Profesionales ID">
+  <meta property="og:description" content="<%= metaDescription %>">
+  <meta property="og:image" content="<%= profile.photo || '/img/default-avatar.png' %>">
+  <meta property="og:type" content="profile">
+
+  <style>
+    /* Estilos dinámicos según la configuración del profesional */
+    <% if (profId.theme === 'auto') { %>
+      @media (prefers-color-scheme: dark) {
+        body { background-color: #0F172A !important; color: #F8FAFC !important; }
+      }
+    <% } %>
+
+    .id-btn-shape-rectangle { border-radius: 0.5rem !important; }
+    .id-btn-shape-rounded { border-radius: 1.25rem !important; }
+    .id-btn-shape-pill { border-radius: 9999px !important; }
+
+    .id-align-center { text-align: center; justify-content: center; }
+    .id-align-left { text-align: left; justify-content: flex-start; }
+  </style>
+</head>
+<body class="bg-[#F4F7FC] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-brand-blue selection:text-white">
+
+  <!-- Floating Utility Header (Share & QR Code) -->
+  <div class="fixed top-4 right-4 z-40 flex items-center gap-2">
+    <button onclick="openQrModal()" class="w-10 h-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer" title="Ver Código QR">
+      <i class="fa-solid fa-qrcode text-sm"></i>
+    </button>
+    <button onclick="shareIdLink()" class="w-10 h-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer" title="Compartir enlace">
+      <i class="fa-solid fa-share-nodes text-sm"></i>
+    </button>
+  </div>
+
+  <!-- Central Card Container (Mobile First Design) -->
+  <main class="w-full max-w-md mx-auto min-h-screen px-4 py-8 flex flex-col justify-between">
+    
+    <div class="flex flex-col gap-6">
+
+      <!-- BLOQUE 1 — IDENTIDAD -->
+      <div class="flex flex-col items-center text-center pt-4">
+        <!-- Photo with status indicator -->
+        <div class="relative w-24 h-24 mb-4">
+          <div class="w-full h-full rounded-full overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl bg-slate-100 flex items-center justify-center">
+            <% if (profile.photo) { %>
+              <img src="<%= profile.photo %>" alt="<%= user.name %>" class="w-full h-full object-cover">
+            <% } else { %>
+              <i class="fa-solid fa-user-doctor text-4xl text-slate-400"></i>
+            <% } %>
+          </div>
+          <% if (profile.verified && new Date(profile.subscriptionEnds) > new Date()) { %>
+            <div class="absolute bottom-0 right-0 bg-white text-slate-800 rounded-full h-7 px-2.5 flex items-center gap-1 shadow-md border border-slate-100 dark:border-slate-800" title="Profesional Destacado">
+              <i class="fa-solid fa-medal text-amber-500 text-[11px]"></i>
+              <span class="text-[9px] font-black uppercase tracking-wider">Destacado</span>
+            </div>
+          <% } %>
+        </div>
+
+        <!-- Name & Username -->
+        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5 justify-center">
+          <%= user.name %>
+        </h1>
+
+        <!-- Primary Specialty / Profession -->
+        <% 
+          let professionTitle = "Profesional Verificado";
+          if (profile.specialties && profile.specialties.length > 0) {
+            professionTitle = profile.specialties.map(s => s.specialty.nombre).join(" • ");
+          }
+        %>
+        <span class="text-xs font-bold text-[#0A3C84] dark:text-sky-400 mt-0.5 uppercase tracking-wider">
+          <%= professionTitle %>
+        </span>
+
+        <!-- Handle Badge -->
+        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800/60 px-3 py-0.5 rounded-full mt-2 font-mono">
+          @<%= profId.slug %>
+        </span>
+
+        <!-- Short Description -->
+        <% if (profId.shortDescription) { %>
+          <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mt-3 max-w-xs leading-relaxed">
+            <%= profId.shortDescription %>
+          </p>
+        <% } %>
+      </div>
+
+      <!-- BLOQUE 2 — BOTÓN PRINCIPAL DESTACADO -->
+      <% if (profId.primaryActionType && profId.primaryActionValue) { %>
+        <% 
+          let primaryHref = "#";
+          let primaryIcon = "fa-solid fa-bolt";
+          let primaryBg = "bg-[#0A3C84] hover:bg-[#082C62] text-white shadow-lg shadow-[#0A3C84]/20";
+
+          if (profId.primaryActionType === "WHATSAPP") {
+            const rawPhone = (profId.primaryActionValue || profile.whatsapp || profile.telefono || '').replace(/[^0-9]/g, '');
+            let phoneNum = rawPhone;
+            if (phoneNum && !phoneNum.startsWith('593')) {
+              phoneNum = phoneNum.startsWith('0') ? '593' + phoneNum.substring(1) : '593' + phoneNum;
+            }
+            const msg = encodeURIComponent(`Hola ${user.name}, vi tu Profesionales ID y deseo solicitar información.`);
+            primaryHref = profId.primaryActionValue && profId.primaryActionValue.includes('wa.me') ? profId.primaryActionValue : `https://wa.me/${phoneNum}?text=${msg}`;
+            primaryIcon = "fa-brands fa-whatsapp text-lg";
+            primaryBg = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25";
+          } else if (profId.primaryActionType === "AGENDA") {
+            primaryHref = `/directorio/${profile.slug}#agendamiento`;
+            primaryIcon = "fa-solid fa-calendar-check";
+          } else if (profId.primaryActionType === "SERVICES") {
+            primaryHref = `/directorio/${profile.slug}#servicios`;
+            primaryIcon = "fa-solid fa-stethoscope";
+          } else if (profId.primaryActionType === "WEBSITE") {
+            primaryHref = profId.primaryActionValue.startsWith('http') ? profId.primaryActionValue : `https://${profId.primaryActionValue}`;
+            primaryIcon = "fa-solid fa-globe";
+          } else if (profId.primaryActionType === "CUSTOM") {
+            primaryHref = profId.primaryActionValue;
+          }
+
+          const btnShapeClass = profId.buttonStyle === 'pill' ? 'id-btn-shape-pill' : (profId.buttonStyle === 'rectangle' ? 'id-btn-shape-rectangle' : 'id-btn-shape-rounded');
+        %>
+        <div class="w-full">
+          <a href="<%= primaryHref %>" target="_blank" onclick="trackEvent('PRIMARY_ACTION')" class="w-full py-4 px-6 font-extrabold text-sm transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] <%= primaryBg %> <%= btnShapeClass %>">
+            <i class="<%= primaryIcon %>"></i>
+            <span><%= profId.primaryActionTitle || "Escríbeme por WhatsApp" %></span>
+          </a>
+        </div>
+      <% } %>
+
+      <!-- BLOQUE 3 — LISTA DE BOTONES Y ACCIONES -->
+      <% if (links && links.length > 0) { %>
+        <div class="flex flex-col gap-3">
+          <% links.forEach(link => { %>
+            <% 
+              let targetUrl = link.url || '#';
+              if (link.type === 'PROFILE') targetUrl = `/directorio/${profile.slug}`;
+              if (link.type === 'WHATSAPP') {
+                if (link.url && link.url.includes('wa.me')) {
+                  targetUrl = link.url;
+                } else {
+                  const rawPhone = (link.url || profile.whatsapp || profile.telefono || '').replace(/[^0-9]/g, '');
+                  let phoneNum = rawPhone;
+                  if (phoneNum && !phoneNum.startsWith('593')) {
+                    phoneNum = phoneNum.startsWith('0') ? '593' + phoneNum.substring(1) : '593' + phoneNum;
+                  }
+                  const msg = encodeURIComponent(`Hola ${user.name}, vi tu Profesionales ID y deseo solicitar información.`);
+                  targetUrl = `https://wa.me/${phoneNum}?text=${msg}`;
+                }
+              }
+              if (link.type === 'PHONE') targetUrl = `tel:${(link.url || profile.telefono || profile.whatsapp || '').replace(/[^0-9+]/g, '')}`;
+              if (link.type === 'EMAIL') targetUrl = `mailto:${link.url || user.email}`;
+              if (link.type === 'SERVICES') targetUrl = `/directorio/${profile.slug}#servicios`;
+              if (link.type === 'AGENDA') targetUrl = `/directorio/${profile.slug}#agendamiento`;
+              if (link.type === 'DOCUMENT' || link.type === 'CV' || (targetUrl && (targetUrl.includes('raw/upload') || targetUrl.includes('documents')))) {
+                if (targetUrl.startsWith('http')) {
+                  const downloadName = (link.title || 'Documento').replace(/[^a-zA-Z0-9]/g, '_');
+                  targetUrl = `/download/file?url=${encodeURIComponent(targetUrl)}&name=${encodeURIComponent(downloadName)}`;
+                }
+              }
+
+              const alignClass = profId.alignment === 'left' ? 'id-align-left' : 'id-align-center';
+              const btnShapeClass = profId.buttonStyle === 'pill' ? 'id-btn-shape-pill' : (profId.buttonStyle === 'rectangle' ? 'id-btn-shape-rectangle' : 'id-btn-shape-rounded');
+            %>
+            <a href="<%= targetUrl %>" 
+               <%= targetUrl.includes('/download/file') ? 'download' : (targetUrl.startsWith('http') ? 'target="_blank"' : '') %>
+               onclick="trackEvent('LINK_CLICK', '<%= link.id %>')" 
+               class="w-full py-3.5 px-5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-slate-700/80 font-bold text-xs shadow-sm transition-all duration-200 flex items-center gap-3 cursor-pointer hover:scale-[1.01] active:scale-[0.99] <%= alignClass %> <%= btnShapeClass %>">
+              <% if (link.icon && (link.icon.startsWith('data:') || link.icon.startsWith('http') || link.icon.startsWith('/'))) { %>
+                <img src="<%= link.icon %>" alt="Icon" class="w-5 h-5 object-contain shrink-0">
+              <% } else if (link.icon) { %>
+                <i class="<%= link.icon %> text-base text-brand-blue dark:text-sky-400"></i>
+              <% } %>
+              <span class="truncate"><%= link.title %></span>
+            </a>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <!-- BLOQUE 4 — CONTENIDO DESTACADO / PROMOCIONES -->
+      <% if (blocks && blocks.length > 0) { %>
+        <div class="flex flex-col gap-4 mt-2">
+          <% blocks.forEach(b => { %>
+            <div class="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/30 p-5 rounded-2xl flex flex-col gap-3 relative overflow-hidden">
+              <span class="bg-amber-500 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider self-start shadow-sm">
+                Promoción / Destacado
+              </span>
+              <% if (b.image) { %>
+                <div class="w-full h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/50">
+                  <img src="<%= b.image %>" alt="<%= b.title %>" class="w-full h-full object-cover">
+                </div>
+              <% } %>
+              <h3 class="font-extrabold text-slate-900 dark:text-white text-sm leading-snug"><%= b.title %></h3>
+              <% if (b.description) { %>
+                <p class="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed"><%= b.description %></p>
+              <% } %>
+              <% if (b.url) { %>
+                <a href="<%= b.url %>" target="_blank" onclick="trackEvent('PROMO_CLICK')" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl text-center shadow-md transition">
+                  <%= b.buttonText || "Aprovechar Promoción" %>
+                </a>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <!-- BLOQUE 5 — REDES SOCIALES -->
+      <div class="flex items-center justify-center flex-wrap gap-3 py-2">
+        <% if (profile.instagram) { %>
+          <a href="<%= profile.instagram.startsWith('http') ? profile.instagram : 'https://instagram.com/' + profile.instagram %>" target="_blank" class="w-10 h-10 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center text-lg hover:bg-rose-500 hover:text-white transition shadow-sm">
+            <i class="fa-brands fa-instagram"></i>
+          </a>
+        <% } %>
+        <% if (profile.facebook) { %>
+          <a href="<%= profile.facebook.startsWith('http') ? profile.facebook : 'https://facebook.com/' + profile.facebook %>" target="_blank" class="w-10 h-10 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center text-lg hover:bg-blue-600 hover:text-white transition shadow-sm">
+            <i class="fa-brands fa-facebook"></i>
+          </a>
+        <% } %>
+        <% if (profile.linkedin) { %>
+          <a href="<%= profile.linkedin.startsWith('http') ? profile.linkedin : 'https://linkedin.com/in/' + profile.linkedin %>" target="_blank" class="w-10 h-10 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center text-lg hover:bg-sky-600 hover:text-white transition shadow-sm">
+            <i class="fa-brands fa-linkedin"></i>
+          </a>
+        <% } %>
+        <% if (profile.tiktok) { %>
+          <a href="<%= profile.tiktok.startsWith('http') ? profile.tiktok : 'https://tiktok.com/@' + profile.tiktok %>" target="_blank" class="w-10 h-10 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center text-lg hover:bg-slate-900 hover:text-white transition shadow-sm">
+            <i class="fa-brands fa-tiktok"></i>
+          </a>
+        <% } %>
+        <% if (profile.youtube) { %>
+          <a href="<%= profile.youtube.startsWith('http') ? profile.youtube : 'https://youtube.com/' + profile.youtube %>" target="_blank" class="w-10 h-10 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center text-lg hover:bg-red-600 hover:text-white transition shadow-sm">
+            <i class="fa-brands fa-youtube"></i>
+          </a>
+        <% } %>
+        <% if (profile.website) { %>
+          <a href="<%= profile.website.startsWith('http') ? profile.website : 'https://' + profile.website %>" target="_blank" class="w-10 h-10 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center text-lg hover:bg-brand-blue hover:text-white transition shadow-sm">
+            <i class="fa-solid fa-globe"></i>
+          </a>
+        <% } %>
+      </div>
+
+      <!-- BLOQUE 6 — ENLACE OBLIGATORIO AL PERFIL COMPLETO -->
+      <div class="border-t border-slate-200 dark:border-slate-800 pt-5 mt-2">
+        <a href="/directorio/<%= profile.slug %>" onclick="trackEvent('PROFILE_CLICK')" class="w-full py-3 px-5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:opacity-90 transition shadow-md cursor-pointer">
+          <i class="fa-solid fa-user-doctor"></i>
+          <span>Ver mi Perfil Profesional Completo</span>
+          <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
+        </a>
+      </div>
+
+    </div>
+
+    <!-- BRANDING FOOTER -->
+    <div class="text-center pt-8 pb-4">
+      <a href="/" class="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-slate-400 dark:text-slate-500 hover:text-brand-blue transition">
+        <span>Potenciado por</span>
+        <span class="text-slate-800 dark:text-slate-200 font-black">Profesionales.ec</span>
+      </a>
+    </div>
+
+  </main>
+
+  <!-- Modal Código QR -->
+  <div id="qr-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col items-center text-center gap-4 relative animate-in fade-in zoom-in duration-200">
+      <button onclick="closeQrModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-sm cursor-pointer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="font-extrabold text-slate-900 dark:text-white text-base">Código QR Profesional</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Escanea con la cámara de tu celular para acceder a mi Profesionales ID.</p>
+
+      <div class="p-4 bg-white rounded-2xl shadow-inner border border-slate-100 flex items-center justify-center">
+        <img id="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=<%= encodeURIComponent('https://profesionales.ec/@' + profId.slug) %>" alt="QR Code" class="w-48 h-48">
+      </div>
+
+      <div class="flex items-center gap-2 w-full mt-1">
+        <a id="qr-download-btn" href="#" download="<%= profId.slug %>-qr.png" onclick="downloadQrImage(event)" class="flex-1 py-2.5 bg-[#0A3C84] hover:bg-[#082C62] text-white rounded-xl font-bold text-xs transition text-center shadow">
+          <i class="fa-solid fa-download mr-1"></i> Descargar QR
+        </a>
+        <button onclick="copyCurrentUrl()" class="py-2.5 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs hover:bg-slate-200 transition cursor-pointer">
+          <i class="fa-solid fa-copy"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PROF_SLUG = "<%= profId.slug %>";
+
+    function trackEvent(eventType, linkId) {
+      try {
+        fetch("/api/id/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: PROF_SLUG, eventType, linkId })
+        }).catch(() => {});
+      } catch(e) {}
+    }
+
+    function shareIdLink() {
+      const shareUrl = window.location.href;
+      if (navigator.share) {
+        navigator.share({
+          title: "<%= user.name %> — Profesionales ID",
+          url: shareUrl
+        }).catch(() => {});
+      } else {
+        copyCurrentUrl();
+      }
+    }
+
+    function copyCurrentUrl() {
+      navigator.clipboard.writeText(window.location.href);
+      alert("¡Enlace copiado al portapapeles!");
+    }
+
+    function openQrModal() {
+      document.getElementById('qr-modal').classList.remove('hidden');
+    }
+
+    function closeQrModal() {
+      document.getElementById('qr-modal').classList.add('hidden');
+    }
+
+    function downloadQrImage(e) {
+      e.preventDefault();
+      const qrUrl = document.getElementById('qr-img').src;
+      fetch(qrUrl)
+        .then(res => res.blob())
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${PROF_SLUG}-qr.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        });
+    }
+  </script>
+</body>
+</html>

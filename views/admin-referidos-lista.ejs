@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administración de Referidos | Profesionales Ecuador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Outfit', sans-serif; }
+  </style>
+</head>
+<body class="h-full flex flex-col bg-slate-50 text-slate-800">
+
+  <!-- Top Admin Bar -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/dashboard/admin" class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">ADMIN</div>
+          <span class="font-extrabold text-base tracking-tight text-white hidden sm:inline">Profesionales<span class="text-sky-400">Ecuador</span></span>
+        </a>
+        <span class="bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border border-amber-500/30">Módulo Referidos</span>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-1">
+        <a href="/dashboard/admin/referidos" class="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-slate-800 border border-slate-700 flex items-center gap-2">
+          <i class="fa-solid fa-users-gear text-blue-400"></i> Cuentas Referidos
+        </a>
+        <a href="/dashboard/admin/referidos/ventas" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-file-circle-check text-emerald-400"></i> Revisar Ventas
+        </a>
+        <a href="/dashboard/admin/referidos/comisiones" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-percent text-sky-400"></i> Reglas Comisiones
+        </a>
+        <a href="/dashboard/admin/referidos/retiros" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-money-bill-transfer text-amber-400"></i> Retiros
+        </a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a href="/dashboard/admin" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-arrow-left"></i> Volver a Admin
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-150 shadow-sm">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-users-gear text-blue-600"></i> Gestión de Cuentas de Referidos
+        </h1>
+        <p class="text-xs text-slate-500 mt-1">Crea nuevas cuentas comerciales ingresando únicamente el correo electrónico. El sistema enviará credenciales y activará la cuenta tras la configuración del referido.</p>
+      </div>
+
+      <button onclick="openCreateModal()" class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2">
+        <i class="fa-solid fa-user-plus text-base"></i> Crear Nuevo Referido
+      </button>
+    </div>
+
+    <!-- Feedback Alerts -->
+    <% if (success === 'referral_created') { %>
+      <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-semibold flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-lg text-emerald-600"></i>
+        <span>¡Cuenta de referido creada exitosamente! Se han generado las credenciales temporales y enviado el correo automático de bienvenida.</span>
+      </div>
+    <% } %>
+    <% if (error) { %>
+      <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 text-xs font-semibold flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-lg text-rose-600"></i>
+        <span>
+          <% if (error === 'email_already_exists') { %>El correo ingresado ya pertenece a un usuario en el sistema.<% } else { %>Ocurrió un problema al procesar la solicitud.<% } %>
+        </span>
+      </div>
+    <% } %>
+
+    <!-- Table Container -->
+    <div class="bg-white rounded-3xl border border-slate-150 shadow-sm overflow-hidden">
+      <% if (referrers.length === 0) { %>
+        <div class="text-center py-16 px-4">
+          <i class="fa-solid fa-users text-4xl text-slate-300 mb-3"></i>
+          <h3 class="text-base font-bold text-slate-800">No hay cuentas de referidos creadas</h3>
+          <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">Usa el botón superior para crear la primera cuenta ingresando únicamente el correo electrónico.</p>
+        </div>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs divide-y divide-slate-100">
+            <thead class="bg-slate-50 text-slate-400 uppercase text-[10px] tracking-wider font-bold">
+              <tr>
+                <th class="p-4">Referido / Correo</th>
+                <th class="p-4">Contacto & Ubicación</th>
+                <th class="p-4">Banco Registrado</th>
+                <th class="p-4">Ventas Registradas</th>
+                <th class="p-4">Saldo Billetera</th>
+                <th class="p-4 text-center">Estado Cuenta</th>
+                <th class="p-4 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <% referrers.forEach(function(ref) { %>
+                <tr class="hover:bg-slate-50/60 transition">
+                  <td class="p-4">
+                    <p class="font-extrabold text-slate-900"><%= ref.nombres ? (ref.nombres + ' ' + (ref.apellidos || '')) : ref.user.name %></p>
+                    <p class="text-[10px] font-semibold text-blue-600"><%= ref.user.email %></p>
+                  </td>
+                  <td class="p-4">
+                    <p class="font-bold text-slate-700"><%= ref.whatsapp || ref.user.telefono || 'Sin teléfono' %></p>
+                    <p class="text-[10px] text-slate-400"><%= ref.ciudad ? (ref.ciudad + ', ' + (ref.provincia || '')) : 'Sin ubicación' %></p>
+                  </td>
+                  <td class="p-4">
+                    <p class="font-bold text-slate-800"><%= ref.banco || 'Pendiente config' %></p>
+                    <p class="text-[10px] text-slate-400"><%= ref.numeroCuenta ? (ref.tipoCuenta + ': ' + ref.numeroCuenta) : '' %></p>
+                  </td>
+                  <td class="p-4 font-black text-slate-900 text-sm">
+                    <%= ref._count.sales %> <span class="text-[10px] text-slate-400 font-bold">ventas</span>
+                  </td>
+                  <td class="p-4">
+                    <p class="font-black text-emerald-600 text-sm">$<%= (ref.wallet?.saldoDisponible || 0).toFixed(2) %></p>
+                    <p class="text-[9px] text-slate-400">En proceso: $<%= (ref.wallet?.saldoPendiente || 0).toFixed(2) %></p>
+                  </td>
+                  <td class="p-4 text-center">
+                    <% if (ref.status === 'ACTIVE') { %>
+                      <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full">Activo</span>
+                    <% } else if (ref.status === 'PENDING_CONFIG') { %>
+                      <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-3 py-1 rounded-full">Pendiente Configuración</span>
+                    <% } else { %>
+                      <span class="bg-rose-100 text-rose-800 text-[10px] font-black px-3 py-1 rounded-full">Suspendido</span>
+                    <% } %>
+                  </td>
+                  <td class="p-4 text-center">
+                    <form action="/dashboard/admin/referidos/<%= ref.id %>/estado" method="POST" class="inline" onsubmit="event.preventDefault(); confirmToggleReferralStatus(this, <%= ref.status === 'SUSPENDED' %>, '<%= ref.user.email %>');">
+                      <% if (ref.status === 'SUSPENDED') { %>
+                        <input type="hidden" name="nuevoEstado" value="ACTIVE">
+                        <button type="submit" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[10px] font-bold transition">Reactivar</button>
+                      <% } else { %>
+                        <input type="hidden" name="nuevoEstado" value="SUSPENDED">
+                        <button type="submit" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-[10px] font-bold transition">Suspender</button>
+                      <% } %>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+
+  <!-- Modal Crear Cuenta (ULTRA SIMPLIFICADA SOLO EMAIL) -->
+  <div id="modalCrear" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-blue-600"></i> Crear Cuenta de Referido
+        </h3>
+        <button onclick="closeCreateModal()" class="text-slate-400 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form action="/dashboard/admin/referidos/crear" method="POST" class="space-y-4 text-xs">
+        <div class="bg-blue-50/70 p-4 rounded-2xl border border-blue-100 text-blue-900">
+          <p class="font-extrabold text-xs mb-1"><i class="fa-solid fa-circle-info text-blue-600"></i> Creación Ultra Simplificada</p>
+          <p class="text-[11px] leading-relaxed text-blue-800">Solo debes ingresar el <strong>correo electrónico</strong> del comercial. El sistema generará la contraseña temporal y le enviará automáticamente el correo con el enlace para completar sus datos personales y bancarios.</p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Correo Electrónico del Nuevo Referido *</label>
+          <input type="email" name="email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-900 focus:outline-none focus:border-blue-500" placeholder="comercial@profesionales.ec">
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeCreateModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold">Cancelar</button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold shadow-md">Crear y Enviar Credenciales</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmación Elegante del Sistema -->
+  <div id="modalConfirmacionSistema" class="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 relative shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 border border-slate-100">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i id="sysConfirmIcon" class="fa-solid fa-circle-question text-blue-600 text-lg"></i>
+          <span id="sysConfirmTitle">Confirmación de Acción</span>
+        </h3>
+        <button type="button" onclick="closeSysConfirmModal()" class="text-slate-400 text-lg hover:text-slate-600 cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p id="sysConfirmMessage" class="text-xs text-slate-600 leading-relaxed font-semibold"></p>
+
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeSysConfirmModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition">
+          Cancelar
+        </button>
+        <button type="button" id="sysConfirmSubmitBtn" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5">
+          <i class="fa-solid fa-check"></i> <span id="sysConfirmBtnText">Confirmar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeConfirmForm = null;
+
+    function abrirConfirmacionModal(options) {
+      document.getElementById('sysConfirmTitle').innerText = options.title || 'Confirmar Acción';
+      document.getElementById('sysConfirmMessage').innerText = options.message || '¿Deseas proceder con esta acción?';
+      document.getElementById('sysConfirmIcon').className = options.icon || 'fa-solid fa-circle-question text-blue-600 text-lg';
+      document.getElementById('sysConfirmBtnText').innerText = options.btnText || 'Confirmar';
+      
+      const submitBtn = document.getElementById('sysConfirmSubmitBtn');
+      submitBtn.className = options.btnClass || 'px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5';
+      
+      activeConfirmForm = options.form || null;
+
+      const modal = document.getElementById('modalConfirmacionSistema');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeSysConfirmModal() {
+      const modal = document.getElementById('modalConfirmacionSistema');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      activeConfirmForm = null;
+    }
+
+    function confirmToggleReferralStatus(form, isSuspended, email) {
+      abrirConfirmacionModal({
+        title: isSuspended ? 'Reactivar Cuenta de Referido' : 'Suspender Cuenta de Referido',
+        message: '¿Estás seguro de ' + (isSuspended ? 'reactivar' : 'suspender') + ' la cuenta del referido ' + email + '?',
+        icon: isSuspended ? 'fa-solid fa-user-check text-emerald-600 text-lg' : 'fa-solid fa-user-xmark text-rose-600 text-lg',
+        btnText: isSuspended ? 'Reactivar Cuenta' : 'Suspender Cuenta',
+        btnClass: isSuspended ? 'px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5' : 'px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5',
+        form: form
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('sysConfirmSubmitBtn')?.addEventListener('click', function() {
+        if (activeConfirmForm) {
+          const f = activeConfirmForm;
+          activeConfirmForm = null;
+          closeSysConfirmModal();
+          f.submit();
+        }
+      });
+    });
+
+    function openCreateModal() {
+      document.getElementById('modalCrear').classList.remove('hidden');
+      document.getElementById('modalCrear').classList.add('flex');
+    }
+    function closeCreateModal() {
+      document.getElementById('modalCrear').classList.add('hidden');
+      document.getElementById('modalCrear').classList.remove('flex');
+    }
+  </script>
+
+</body>
+</html>

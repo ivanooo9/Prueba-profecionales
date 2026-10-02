@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-[#FAFBFD] text-slate-800 antialiased font-sans flex flex-col h-screen overflow-hidden">
+  <%- include('partials/impersonation-banner') %>
+  <div class="flex flex-1 h-full overflow-hidden">
+
+  <!-- Mobile Drawer Backdrop -->
+  <div id="mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+
+  <!-- Left Sidebar Navigation -->
+  <aside id="sidebar-menu" class="w-64 h-full bg-white border-r border-slate-100 flex-shrink-0 flex flex-col justify-between py-6 px-5 fixed lg:static inset-y-0 left-0 -translate-x-full lg:translate-x-0 z-50 transition-all duration-300 ease-in-out shadow-sm lg:shadow-none">
+    
+    <div class="flex flex-col gap-8">
+      <!-- Profile Branding (Mockup Header) -->
+      <div class="flex items-center gap-3 px-1">
+        <div class="w-11 h-11 rounded-full overflow-hidden bg-slate-100 border border-slate-200/50 flex-shrink-0 shadow-inner flex items-center justify-center">
+          <i class="fa-solid fa-user-circle text-2xl text-slate-400"></i>
+        </div>
+        <div class="min-w-0">
+          <h3 class="font-extrabold text-sm text-slate-900 leading-tight truncate"><%= user.name %></h3>
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">Cliente / Paciente</span>
+        </div>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="flex flex-col gap-1" id="nav-tabs">
+        <button id="btn-tab-dashboard" onclick="switchTab('dashboard')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold bg-[#5A7AF3] text-white shadow-sm shadow-[#5A7AF3]/20 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-chart-line text-sm w-4 text-center"></i>
+          <span>Dashboard</span>
+        </button>
+        <button id="btn-tab-certificates" onclick="switchTab('certificates')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-award text-sm w-4 text-center"></i>
+          <span>Mis Certificados</span>
+        </button>
+        <button id="btn-tab-conversatorios" onclick="switchTab('conversatorios')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-calendar-days text-sm w-4 text-center"></i>
+          <span>Mis Conversatorios</span>
+        </button>
+        <button id="btn-tab-courses" onclick="switchTab('courses')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-graduation-cap text-sm w-4 text-center"></i>
+          <span>Mis Cursos</span>
+        </button>
+        <button id="btn-tab-config" onclick="switchTab('config')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200 w-full text-left cursor-pointer">
+          <i class="fa-solid fa-gear text-sm w-4 text-center"></i>
+          <span>Configuración</span>
+        </button>
+        <button onclick="openModalClientRoleTransition()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-extrabold text-[#5A7AF3] bg-indigo-50/70 hover:bg-indigo-100/70 transition duration-200 w-full text-left cursor-pointer border border-indigo-100/60 mt-1">
+          <i class="fa-solid fa-user-gear text-sm w-4 text-center"></i>
+          <span>Solicitar Cambio de Rol</span>
+        </button>
+        
+        <div class="h-px bg-slate-100 my-2"></div>
+        
+        <a href="/directorio" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+          <i class="fa-solid fa-user-md text-sm w-4 text-center"></i>
+          <span>Buscar Profesionales</span>
+        </a>
+        <a href="/eventos" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+          <i class="fa-solid fa-calendar-days text-sm w-4 text-center"></i>
+          <span>Conversatorios</span>
+        </a>
+        <a href="/cursos" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+          <i class="fa-solid fa-graduation-cap text-sm w-4 text-center"></i>
+          <span>Cursos Online</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Log Out Link at Bottom -->
+    <div class="flex flex-col gap-2">
+      <div class="border-t border-slate-100 pt-4 flex flex-col gap-1">
+        <a href="/" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition duration-200">
+          <i class="fa-solid fa-globe text-sm w-4 text-center text-sky-500 animate-pulse"></i>
+          <span>Volver a la Web</span>
+        </a>
+        <a href="/logout" class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50/50 transition duration-200">
+          <i class="fa-solid fa-right-from-bracket text-sm w-4 text-center"></i>
+          <span>Cerrar Sesión</span>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content View Area -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    
+    <!-- Top Utility Header Bar -->
+    <header class="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-6 md:px-10 flex-shrink-0">
+      
+      <!-- Left side: Hamburger button + Title -->
+      <div class="flex items-center gap-4">
+        <button id="mobile-menu-toggle" class="lg:hidden w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition border border-slate-100 cursor-pointer">
+          <i class="fa-solid fa-bars-staggered"></i>
+        </button>
+        <div>
+          <h1 id="header-page-title" class="text-xl md:text-2xl font-black text-slate-900 leading-none">Mi Dashboard</h1>
+          <span class="text-[10px] text-slate-400 font-extrabold mt-1.5 block uppercase tracking-wider"><%= new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }) %></span>
+        </div>
+      </div>
+
+      <!-- Right side: Actions -->
+      <div class="flex items-center gap-4">
+        <!-- Search input box (Mockup styling) -->
+        <div class="relative max-w-xs hidden md:block search-container-wrapper">
+          <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input type="text" id="dashboard-search-input" placeholder="Buscar..." class="w-48 xl:w-60 bg-slate-50 border border-slate-100 rounded-full py-2.5 pl-10 pr-4 text-xs font-semibold outline-none focus:bg-white focus:border-[#5A7AF3] transition duration-200">
+          <div id="search-autocomplete-dropdown" class="absolute left-0 mt-2 w-80 rounded-2xl bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 shadow-xl p-4 z-50 hidden max-h-96 overflow-y-auto"></div>
+        </div>
+
+        <!-- Mode controls / Notification badges -->
+        <div class="flex items-center gap-2">
+          <button id="theme-toggle-btn" class="w-10 h-10 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-500 text-xs transition border border-slate-50 cursor-pointer" title="Modo Claro">
+            <i id="theme-toggle-icon" class="fa-solid fa-sun text-amber-500"></i>
+          </button>
+          <div class="relative notification-container-wrapper">
+            <button id="notification-toggle-btn" class="w-10 h-10 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-500 text-xs transition border border-slate-50 cursor-pointer relative" title="Notificaciones">
+              <i class="fa-regular fa-bell"></i>
+              <span id="notification-unread-dot" class="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500"></span>
+            </button>
+            <div id="notifications-dropdown-menu" class="absolute right-0 mt-2 w-80 rounded-2xl bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 shadow-xl py-2 z-50 hidden max-h-96 overflow-y-auto">
+              <!-- Dynamic notifications list -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="h-6 w-px bg-slate-100 hidden sm:block"></div>
+
+        <!-- Quick Profile Link -->
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-100 flex items-center justify-center shadow-inner flex-shrink-0">
+            <i class="fa-solid fa-user text-slate-400 text-sm"></i>
+          </div>
+          <span class="text-xs font-black text-slate-800 hidden sm:inline"><%= user.name.split(' ')[0] %></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scrollable content area -->
+    <main class="flex-1 overflow-y-auto bg-[#FAFBFD] p-6 md:p-10 flex flex-col gap-8">
+      
+      <!-- Role Transition Banner -->
+      <% if (typeof pendingTransition !== 'undefined' && pendingTransition) { %>
+        <div class="bg-amber-50 border border-amber-200/80 text-amber-900 rounded-2xl p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div class="flex items-center gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold flex-shrink-0">
+              <i class="fa-solid fa-user-gear text-lg"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h4 class="font-extrabold text-xs text-amber-950">Solicitud de Cambio de Rol en Revisión</h4>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300/50">
+                  <%= pendingTransition.estado %>
+                </span>
+              </div>
+              <p class="text-[11px] text-amber-800 font-medium mt-0.5">
+                Has solicitado la activación del <strong>Perfil <%= pendingTransition.targetRole === 'STUDENT' ? 'Estudiante' : 'Profesional' %></strong>. El equipo de administración revisará tus datos pronto.
+              </p>
+            </div>
+          </div>
+          <span class="text-[10px] text-amber-700 font-bold hidden sm:inline-block flex-shrink-0"><%= new Date(pendingTransition.fechaSolicitud).toLocaleDateString('es-EC') %></span>
+        </div>
+      <% } else { %>
+        <!-- Banner Quick Card to request role transition if desired -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 shadow-sm border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center font-bold flex-shrink-0 text-xl">
+              <i class="fa-solid fa-user-gear"></i>
+            </div>
+            <div>
+              <h4 class="font-extrabold text-sm text-white flex items-center gap-2 flex-wrap">
+                ¿Eres Estudiante Universitario o Profesional?
+                <span class="text-[9px] font-black uppercase bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-2 py-0.5 rounded-full">Actualiza tu Perfil</span>
+              </h4>
+              <p class="text-xs text-slate-300 mt-0.5 font-medium">
+                Solicita la transición a <strong>Perfil Estudiante</strong> (para obtener descuentos) o <strong>Perfil Profesional</strong> (para ofrecer servicios).
+              </p>
+            </div>
+          </div>
+          <button onclick="openModalClientRoleTransition()" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-md transition duration-200 flex-shrink-0 flex items-center gap-2 cursor-pointer">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Solicitar Cambio</span>
+          </button>
+        </div>
+      <% } %>
+
+      <!-- Tab 1: Dashboard Content -->
+      <div id="tab-content-dashboard" class="flex flex-col gap-8">
+        <!-- KPI cards row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <!-- Card 1: Highlighted (indigo/blue bg) -->
+          <div class="bg-gradient-to-br from-[#5A7AF3] to-[#4562DB] text-white p-6 rounded-[24px] shadow-lg shadow-[#5A7AF3]/15 flex flex-col gap-4 relative overflow-hidden group">
+            <div class="absolute -right-4 -bottom-4 text-white/5 text-9xl font-black select-none pointer-events-none group-hover:scale-110 transition duration-300">
+              <i class="fa-solid fa-calendar-check"></i>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black uppercase tracking-widest text-blue-100">Total Solicitadas</span>
+              <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-calendar"></i>
+              </div>
+            </div>
+            <div>
+              <span class="text-3xl font-black block leading-none"><%= appointments.length %></span>
+              <span class="text-[11px] font-semibold text-blue-100 block mt-2">Historial completo de citas médicas y asesorías.</span>
+            </div>
+          </div>
+
+          <!-- Card 2: White -->
+          <div class="bg-white border border-slate-100 p-6 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)] flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Citas Confirmadas</span>
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 border border-emerald-100/50 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-check-circle"></i>
+              </div>
+            </div>
+            <div>
+              <% const confirmedCount = appointments.filter(a => a.estado === 'CONFIRMADA').length; %>
+              <span class="text-3xl font-black text-slate-900 block leading-none"><%= confirmedCount %></span>
+              <span class="text-[11px] font-semibold text-slate-400 block mt-2">Citas confirmadas por el profesional.</span>
+            </div>
+          </div>
+
+          <!-- Card 3: White -->
+          <div class="bg-white border border-slate-100 p-6 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)] flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">En Espera / Pendiente</span>
+              <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 border border-amber-100/50 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-spinner"></i>
+              </div>
+            </div>
+            <div>
+              <% const pendingCount = appointments.filter(a => a.estado === 'PENDIENTE').length; %>
+              <span class="text-3xl font-black text-slate-900 block leading-none"><%= pendingCount %></span>
+              <span class="text-[11px] font-semibold text-slate-400 block mt-2">Pendientes de confirmación del profesional.</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Main Panel grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          <!-- Left panel columns (span 8): Charts and Tables -->
+          <div class="lg:col-span-8 flex flex-col gap-8">
+            
+            <!-- Appointment Chart Card -->
+            <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)] flex flex-col gap-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-base font-extrabold text-slate-900 font-sans">Frecuencia de Citas</h3>
+                  <span class="text-[10px] text-slate-400 font-semibold block mt-0.5">Control de actividad de los últimos meses</span>
+                </div>
+                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5">Este Año</span>
+              </div>
+              
+              <div class="w-full h-64">
+                <canvas id="appointments-activity-chart"
+                  data-confirm="<%= appointments.filter(a => a.estado === 'CONFIRMADA').length %>"
+                  data-pend="<%= appointments.filter(a => a.estado === 'PENDIENTE').length %>"
+                  data-cancel="<%= appointments.filter(a => a.estado === 'CANCELADA').length %>"
+                  data-total="<%= appointments.length %>">
+                </canvas>
+              </div>
+            </div>
+
+            <!-- Appointments List (Transactions mockup style) -->
+            <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)] flex flex-col gap-6">
+              <div class="flex items-center justify-between border-b border-slate-50 pb-4">
+                <div>
+                  <h3 class="text-base font-extrabold text-slate-900 font-sans">Historial de Citas</h3>
+                  <span class="text-[10px] text-slate-400 font-semibold block mt-0.5">Controla las citas médicas, asesorías y reuniones agendadas</span>
+                </div>
+                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5">Todas</span>
+              </div>
+
+              <% if (appointments.length > 0) { %>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[9px] pb-4">
+                        <th class="pb-4 font-bold">Profesional</th>
+                        <th class="pb-4 font-bold">Fecha / Hora</th>
+                        <th class="pb-4 font-bold">Motivo</th>
+                        <th class="pb-4 font-bold">Estado</th>
+                        <th class="pb-4 text-right font-bold">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% appointments.forEach(function(appointment) { %>
+                        <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                          
+                          <!-- Name / Profile -->
+                          <td class="py-4">
+                            <div class="flex items-center gap-3">
+                              <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center">
+                                <% if (appointment.profile && appointment.profile.photo) { %>
+                                  <img src="<%= appointment.profile.photo %>" class="w-full h-full object-cover">
+                                <% } else { %>
+                                  <i class="fa-solid fa-user-md text-slate-400"></i>
+                                  <% } %>
+                              </div>
+                              <div class="min-w-0">
+                                <h4 class="font-extrabold text-slate-900 text-xs truncate leading-none mb-1">
+                                  <%= appointment.profile ? appointment.profile.user.name : 'Profesional' %>
+                                </h4>
+                                <span class="text-[9px] text-slate-400 block font-bold uppercase truncate">
+                                  <%= appointment.profile && appointment.profile.slogan ? appointment.profile.slogan : 'Especialista' %>
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <!-- Date -->
+                          <td class="py-4 font-medium text-slate-900">
+                            <div class="flex flex-col gap-0.5">
+                              <span class="font-bold flex items-center gap-1.5 text-slate-800 text-xs"><i class="fa-regular fa-calendar text-[10px] text-slate-400"></i> <%= appointment.fecha %></span>
+                              <span class="text-slate-500 font-semibold flex items-center gap-1.5 text-[10px]"><i class="fa-regular fa-clock text-[10px] text-slate-400"></i> <%= appointment.hora %></span>
+                            </div>
+                          </td>
+
+                          <!-- Motivo -->
+                          <td class="py-4 text-slate-500 font-medium max-w-[180px] truncate">
+                            <%= appointment.motivo || 'Consulta general' %>
+                          </td>
+
+                          <!-- Status badge -->
+                          <td class="py-4">
+                            <% 
+                              let badgeClass = "";
+                              if (appointment.estado === "PENDIENTE") badgeClass = "bg-amber-50 text-amber-600 border-amber-100/60 shadow-sm";
+                              else if (appointment.estado === "CONFIRMADA") badgeClass = "bg-emerald-50 text-emerald-600 border-emerald-100/60 shadow-sm";
+                              else if (appointment.estado === "REPROGRAMADA") badgeClass = "bg-sky-50 text-sky-600 border-sky-100/60 shadow-sm";
+                              else if (appointment.estado === "ATENDIDA") badgeClass = "bg-slate-100 text-slate-600 border-slate-200/60 shadow-sm";
+                              else if (appointment.estado === "CANCELADA") badgeClass = "bg-rose-50 text-rose-600 border-rose-100/60 shadow-sm";
+                            %>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border <%= badgeClass %>">
+                              <%= appointment.estado %>
+                            </span>
+                          </td>
+
+                          <!-- Action button -->
+                          <td class="py-4 text-right">
+                            <% if (appointment.estado === 'PENDIENTE') { %>
+                              <form action="/dashboard/cliente/citas/cancelar/<%= appointment.id %>" method="POST" onsubmit="return confirm('¿Está seguro de cancelar esta cita?');">
+                                <button type="submit" class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-rose-100 transition cursor-pointer">
+                                  Cancelar
+                                </button>
+                              </form>
+                            <% } else { %>
+                              <span class="text-slate-350 text-[10px] font-bold">-</span>
+                            <% } %>
+                          </td>
+
+                        </tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+              <% } else { %>
+                <div class="flex flex-col items-center justify-center py-16 text-center">
+                  <div class="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 mb-4 text-xl">
+                    <i class="fa-solid fa-calendar-xmark text-slate-350"></i>
+                  </div>
+                  <h4 class="text-sm font-bold text-slate-900 mb-1">No tienes citas agendadas</h4>
+                  <p class="text-slate-400 text-xs max-w-sm mb-6">Busca al profesional de tu preferencia en el directorio and solicita tu cita.</p>
+                  <a href="/directorio" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition">
+                    Ver Directorio de Profesionales
+                  </a>
+                </div>
+              <% } %>
+
+            </div>
+
+          </div>
+
+          <!-- Right panel columns (span 4): Sidebar Widgets -->
+          <div class="lg:col-span-4 flex flex-col gap-8">
+            
+            <!-- Upcoming Meeting Card (High visual mockup style) -->
+            <div class="bg-white border border-slate-100 p-6 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)] flex flex-col gap-5">
+              <span class="text-[9px] font-black uppercase tracking-widest text-[#5A7AF3] bg-[#5A7AF3]/10 px-3 py-1 rounded-full self-start">Siguiente Cita</span>
+              
+              <% 
+                // Get first upcoming confirmed appointment
+                const nextCita = appointments.find(a => a.estado === 'CONFIRMADA');
+              %>
+              <% if (nextCita) { %>
+                <div class="flex flex-col gap-4">
+                  <div>
+                    <h4 class="text-base font-extrabold text-slate-900 font-sans leading-snug"><%= nextCita.profile ? nextCita.profile.user.name : 'Profesional' %></h4>
+                    <p class="text-slate-500 text-xs font-semibold leading-relaxed mt-1"><%= nextCita.motivo || 'Consulta médica general programada.' %></p>
+                  </div>
+                  
+                  <div class="flex items-center gap-3 border-t border-b border-slate-50 py-3.5 text-xs text-slate-700 font-bold">
+                    <div class="flex items-center gap-1.5"><i class="fa-regular fa-calendar text-slate-400"></i> <%= nextCita.fecha %></div>
+                    <div class="w-px h-3 bg-slate-200"></div>
+                    <div class="flex items-center gap-1.5"><i class="fa-regular fa-clock text-slate-400"></i> <%= nextCita.hora %></div>
+                  </div>
+
+                  <a href="/directorio" class="bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-black py-3 px-4 rounded-xl transition text-center shadow-inner flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-map-location-dot"></i> Ver Consultorio
+                  </a>
+                </div>
+              <% } else { %>
+                <div class="flex flex-col items-center justify-center py-6 text-center text-slate-400">
+                  <i class="fa-regular fa-calendar-check text-2xl mb-2 text-slate-350"></i>
+                  <span class="text-xs font-bold">No tienes citas confirmadas próximas.</span>
+                </div>
+              <% } %>
+            </div>
+
+            <!-- Quick Directory Widget -->
+            <div class="bg-white border border-slate-100 p-6 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)] flex flex-col gap-4">
+              <h4 class="text-sm font-extrabold text-slate-950 font-sans">Profesionales Destacados</h4>
+              <p class="text-slate-500 text-xs font-semibold leading-relaxed">Encuentra especialistas médicos, psicólogos, abogados y arquitectos verificados en el directorio nacional.</p>
+              
+              <a href="/directorio" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white text-xs font-black py-3 px-4 rounded-xl transition text-center shadow-md flex items-center justify-center gap-2">
+                <i class="fa-solid fa-magnifying-glass"></i> Abrir Directorio
+              </a>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tab 2: Mis Certificados -->
+      <div id="tab-content-certificates" class="flex flex-col gap-8 hidden">
+        <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
+          <div class="flex flex-col gap-1 pb-4 border-b border-slate-50 mb-6">
+            <h3 class="text-base font-extrabold text-slate-900 font-sans">Mis Certificados Académicos</h3>
+            <span class="text-[10px] text-slate-400 font-semibold block">Descarga y verifica tus acreditaciones obtenidas en conversatorios y eventos académicos.</span>
+          </div>
+
+          <% if (certificates.length > 0) { %>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <% certificates.forEach(function(cert) { %>
+                <div class="bg-white border border-slate-100 rounded-3xl p-5 hover:shadow-md transition duration-200 flex flex-col justify-between gap-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-[#0252A4]/5 text-[#0252A4] flex items-center justify-center text-sm shadow-inner flex-shrink-0">
+                      <i class="fa-solid fa-award text-base"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none block">Acreditación Académica</span>
+                      <h4 class="font-extrabold text-slate-900 text-xs mt-1.5 leading-snug line-clamp-2 uppercase" title="<%= cert.nombreEvento %>">
+                        <%= cert.nombreEvento %>
+                      </h4>
+                      <p class="text-[9px] text-slate-400 font-bold uppercase mt-1 leading-none">A nombre de: <%= cert.nombreUsuario %></p>
+                    </div>
+                  </div>
+
+                  <div class="border-t border-slate-100/60 pt-3 flex flex-col gap-2">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                      <span class="flex items-center gap-1"><i class="fa-regular fa-clock text-slate-450"></i> <%= cert.horas %> Horas</span>
+                      <span class="flex items-center gap-1 font-mono uppercase text-slate-400"><i class="fa-solid fa-barcode text-[9px]"></i> <%= cert.codigo %></span>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-2 gap-2">
+                      <% if (cert.estado === 'PENDIENTE') { %>
+                        <span class="bg-amber-50 text-amber-600 border border-amber-100/50 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
+                          <i class="fa-solid fa-spinner animate-spin text-[8px]"></i>
+                          En Validación
+                        </span>
+                        <span class="text-[9px] font-bold text-slate-400 italic">Pago en revisión</span>
+                      <% } else if (cert.estado === 'RECHAZADO') { %>
+                        <span class="bg-rose-50 text-rose-600 border border-rose-100/50 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                          <i class="fa-solid fa-circle-xmark"></i>
+                          Rechazado
+                        </span>
+                      <% } else { %>
+                        <span class="bg-emerald-50 text-emerald-600 border border-emerald-100/50 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                          <i class="fa-solid fa-circle-check"></i>
+                          Aprobado
+                        </span>
+                        <a href="/certificados/<%= cert.codigo %>" target="_blank" class="bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold px-3.5 py-1.5 rounded-xl text-[9px] transition flex items-center gap-1 shadow-sm">
+                          <i class="fa-solid fa-print"></i>
+                          Ver Certificado
+                        </a>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <div class="flex flex-col items-center justify-center py-16 text-center">
+              <div class="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 mb-4 text-xl">
+                <i class="fa-solid fa-award text-slate-350"></i>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900 mb-1">No tienes certificados adquiridos</h4>
+              <p class="text-slate-400 text-xs max-w-sm mb-6">Participa en nuestros conversatorios y eventos académicos para obtener tus acreditaciones firmadas digitalmente.</p>
+              <a href="/eventos" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition">
+                Explorar Conversatorios
+              </a>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Tab: Mis Conversatorios -->
+      <div id="tab-content-conversatorios" class="flex flex-col gap-8 hidden">
+        <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
+          <div class="flex flex-col gap-1 pb-4 border-b border-slate-50 mb-6">
+            <h3 class="text-base font-extrabold text-slate-900 font-sans">Mis Conversatorios y Eventos</h3>
+            <span class="text-[10px] text-slate-400 font-semibold block">Explora los conversatorios en los que estás registrado, sigue tu progreso y obtén tus certificados.</span>
+          </div>
+
+          <% 
+            const convEnrollments = enrollments.filter(e => e.conversatorio);
+          %>
+          <% if (convEnrollments.length > 0) { %>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <% convEnrollments.forEach(function(enroll) { %>
+                <% 
+                  const conv = enroll.conversatorio;
+                  const totalSpeakersConv = (conv.speakers && conv.speakers.length) ? conv.speakers.length : 1;
+                  
+                  const viewedSpeakerIds = new Set(
+                    (typeof userAccessLogs !== 'undefined' && userAccessLogs ? userAccessLogs : [])
+                      .filter(l => l.conversatorioId === conv.id)
+                      .map(l => l.speakerId)
+                      .filter(Boolean)
+                  );
+                  const completedSpeakersCount = viewedSpeakerIds.size;
+                  let calcPct = Math.round((completedSpeakersCount / totalSpeakersConv) * 100);
+
+                  const cert = certificates.find(c => c.conversatorioId === conv.id);
+                  let isCertApproved = cert && cert.estado === 'APROBADO';
+                  if (isCertApproved || conv.certificadoInmediato) {
+                    calcPct = Math.max(calcPct, 100);
+                  }
+
+                  let statusBadgeClass = "bg-slate-100 text-slate-600";
+                  if (conv.estado === "ACTIVO") statusBadgeClass = "bg-emerald-50 text-emerald-600 border-emerald-100";
+                  else if (conv.estado === "PROGRAMADO") statusBadgeClass = "bg-sky-50 text-sky-600 border-sky-100";
+                  else if (conv.estado === "FINALIZADO") statusBadgeClass = "bg-amber-50 text-amber-600 border-amber-100";
+                %>
+                <div class="bg-white border border-slate-100 rounded-3xl overflow-hidden hover:shadow-md transition duration-200 flex flex-col justify-between">
+                  <!-- Cover Banner -->
+                  <div class="h-32 bg-slate-900 overflow-hidden relative flex-shrink-0">
+                    <img src="<%= conv.banner || conv.revistaPortada || 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?q=80&w=400' %>" alt="<%= conv.titulo %>" class="w-full h-full object-cover opacity-85">
+                    <span class="absolute top-2.5 left-2.5 border text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm <%= statusBadgeClass %>">
+                      <%= conv.estado %>
+                    </span>
+                    <% if (conv.gratuito) { %>
+                      <span class="absolute top-2.5 right-2.5 bg-emerald-500/90 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase">Gratuito</span>
+                    <% } %>
+                  </div>
+
+                  <!-- Card Body -->
+                  <div class="p-5 flex-grow flex flex-col justify-between gap-4">
+                    <div>
+                      <h4 class="font-extrabold text-slate-900 text-xs uppercase leading-snug line-clamp-2" title="<%= conv.titulo %>">
+                        <%= conv.titulo %>
+                      </h4>
+                      <p class="text-[10px] text-[#5A7AF3] font-bold mt-1 block truncate"><%= conv.slogan || conv.areaProfesional || 'Evento Académico' %></p>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="flex flex-col gap-1.5 pt-2 border-t border-slate-50">
+                      <div class="flex items-center justify-between text-[10px] font-bold">
+                        <span class="text-slate-400">Progreso:</span>
+                        <span class="text-[#5A7AF3] font-mono"><%= calcPct %>%</span>
+                      </div>
+                      <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div class="bg-gradient-to-r from-[#5A7AF3] to-emerald-400 h-full rounded-full transition-all duration-500" style="width: <%= calcPct %>%;"></div>
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2 border-t border-slate-50 mt-auto">
+                      <a href="/conversatorios/<%= conv.slug || conv.id %>" class="w-full bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-2.5 rounded-xl text-[10px] text-center transition flex items-center justify-center gap-1.5 shadow-sm shadow-[#5A7AF3]/10">
+                        <i class="fa-solid fa-circle-play"></i> <%= conv.estado === 'PROGRAMADO' ? 'Ver Detalles del Evento' : 'Ingresar al Conversatorio' %>
+                      </a>
+
+                      <% if (isCertApproved && cert) { %>
+                        <a href="/certificados/<%= cert.codigo %>" target="_blank" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold py-2 rounded-xl text-[10px] text-center transition flex items-center justify-center gap-1.5 border border-emerald-200">
+                          <i class="fa-solid fa-award text-emerald-600"></i> Ver Certificado Aprobado
+                        </a>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <div class="flex flex-col items-center justify-center py-16 text-center">
+              <div class="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 mb-4 text-xl">
+                <i class="fa-solid fa-calendar-days text-slate-350"></i>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900 mb-1">No estás registrado en ningún conversatorio</h4>
+              <p class="text-slate-400 text-xs max-w-sm mb-6">Explora nuestra agenda de conversatorios académicos interactivos y amplía tus conocimientos.</p>
+              <a href="/eventos" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition">
+                Explorar Conversatorios
+              </a>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Tab: Mis Cursos -->
+      <div id="tab-content-courses" class="flex flex-col gap-8 hidden">
+        <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
+          <div class="flex flex-col gap-1 pb-4 border-b border-slate-50 mb-6">
+            <h3 class="text-base font-extrabold text-slate-900 font-sans">Mis Cursos Online</h3>
+            <span class="text-[10px] text-slate-400 font-semibold block">Accede a las aulas virtuales de tus cursos y diplomados matriculados.</span>
+          </div>
+
+          <% 
+            const courseEnrollments = enrollments.filter(e => e.curso);
+          %>
+          <% if (courseEnrollments.length > 0) { %>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <% courseEnrollments.forEach(function(enroll) { %>
+                <% 
+                  const cur = enroll.curso;
+                  // Verify access similar to server logic (check if free, or if paid has approved certificate)
+                  let isApproved = false;
+                  let isPending = false;
+                  
+                  if (cur.gratuito) {
+                    isApproved = true;
+                  } else {
+                    const cert = certificates.find(c => c.cursoId === cur.id);
+                    if (cert) {
+                      if (cert.estado === "APROBADO") {
+                        isApproved = true;
+                      } else if (cert.estado === "PENDIENTE") {
+                        isPending = true;
+                      }
+                    }
+                  }
+                %>
+                <div class="bg-white border border-slate-100 rounded-3xl overflow-hidden hover:shadow-md transition duration-200 flex flex-col justify-between">
+                  <!-- Banner Image -->
+                  <div class="h-28 bg-slate-100 overflow-hidden relative flex-shrink-0">
+                    <img src="<%= cur.banner || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=400' %>" alt="<%= cur.titulo %>" class="w-full h-full object-cover">
+                    <span class="absolute top-2 left-2 bg-[#0252A4]/90 text-white font-black text-[8px] px-2.5 py-1 rounded-md uppercase tracking-wider"><%= cur.gratuito ? 'Gratuito' : 'Certificado' %></span>
+                  </div>
+
+                  <!-- Content Body -->
+                  <div class="p-5 flex-grow flex flex-col justify-between gap-4">
+                    <div>
+                      <h4 class="font-extrabold text-slate-900 text-xs uppercase leading-snug line-clamp-2" title="<%= cur.titulo %>">
+                        <%= cur.titulo %>
+                      </h4>
+                      <p class="text-[10px] text-brand-blue font-bold mt-1 block truncate"><%= cur.slogan || 'Programa de Capacitación' %></p>
+                    </div>
+
+                    <div class="border-t border-slate-50 pt-3 flex flex-col gap-3 mt-auto">
+                      <div class="flex items-center justify-between text-[9px] font-bold text-slate-400">
+                        <span class="flex items-center gap-1"><i class="fa-regular fa-calendar"></i> Inició: <%= new Date(cur.fechaInicio).toLocaleDateString() %></span>
+                        <% if (isApproved) { %>
+                          <span class="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-full font-black text-[8px]">ACTIVO</span>
+                        <% } else if (isPending) { %>
+                          <span class="bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-full font-black text-[8px] animate-pulse">PENDIENTE</span>
+                        <% } else { %>
+                          <span class="bg-rose-50 text-rose-600 border border-rose-100 px-2 py-0.5 rounded-full font-black text-[8px]">FALTA PAGO</span>
+                        <% } %>
+                      </div>
+
+                      <% if (isApproved) { %>
+                        <a href="/cursos/<%= cur.id %>/aula" class="w-full bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-2.5 rounded-xl text-[10px] text-center transition flex items-center justify-center gap-1.5 shadow-sm shadow-[#5A7AF3]/10">
+                          <i class="fa-solid fa-graduation-cap"></i> Ingresar al Aula
+                        </a>
+                      <% } else if (isPending) { %>
+                        <div class="bg-amber-50 text-amber-800 border border-amber-100 rounded-xl py-2 px-3 text-[10px] font-bold text-center">
+                          Validando transferencia...
+                        </div>
+                      <% } else { %>
+                        <a href="/cursos/<%= cur.slug || cur.id %>" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold py-2.5 rounded-xl text-[10px] text-center transition flex items-center justify-center gap-1.5 border border-slate-200">
+                          <i class="fa-solid fa-cart-shopping"></i> Completar Pago
+                        </a>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <div class="flex flex-col items-center justify-center py-16 text-center">
+              <div class="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 mb-4 text-xl">
+                <i class="fa-solid fa-graduation-cap text-slate-350"></i>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900 mb-1">No estás matriculado en ningún curso</h4>
+              <p class="text-slate-400 text-xs max-w-sm mb-6">Explora nuestra oferta de cursos académicos de educación continua para iniciar tu formación.</p>
+              <a href="/cursos" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition">
+                Explorar Cursos Online
+              </a>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Tab 3: Configuración -->
+      <div id="tab-content-config" class="flex flex-col gap-8 hidden">
+        <div class="bg-white border border-slate-100 p-6 md:p-8 rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.02)] max-w-2xl">
+          <div class="flex flex-col gap-1 pb-4 border-b border-slate-50 mb-6">
+            <h3 class="text-base font-extrabold text-slate-900 font-sans">Configuración del Nombre para Certificados</h3>
+            <span class="text-[10px] text-slate-400 font-semibold block">Define cómo deseas que se imprima tu nombre en futuras acreditaciones oficiales.</span>
+          </div>
+
+          <!-- Alert boxes -->
+          <div class="flex flex-col gap-3.5 mb-6">
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 flex gap-3 text-xs font-semibold leading-relaxed">
+              <i class="fa-solid fa-circle-exclamation text-base mt-0.5 flex-shrink-0 text-amber-600"></i>
+              <div>
+                <strong class="font-bold block text-amber-900">¿Cómo funciona?</strong>
+                Este nombre se guardará exclusivamente para **futuros certificados** que adquieras o reclames. No afectará bajo ninguna circunstancia a los certificados que ya te han sido emitidos previamente.
+              </div>
+            </div>
+            
+            <div class="bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl p-4 flex gap-3 text-xs font-semibold leading-relaxed">
+              <i class="fa-solid fa-clock text-base mt-0.5 flex-shrink-0 text-slate-500"></i>
+              <div>
+                <strong class="font-bold block text-slate-900">Restricción de Seguridad y Validez Académica</strong>
+                Para asegurar la seriedad y autenticidad del registro de firmas del validador de la plataforma, **solo se permite actualizar este nombre una vez cada 60 días**.
+              </div>
+            </div>
+          </div>
+
+          <!-- Configuration Form -->
+          <% 
+            let daysLeft = 0;
+            if (user.lastCertNameUpdate) {
+              const lastUpdate = new Date(user.lastCertNameUpdate);
+              const diffTime = Math.abs(new Date().getTime() - lastUpdate.getTime());
+              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+              if (diffDays < 60) {
+                daysLeft = 60 - diffDays;
+              }
+            }
+          %>
+
+          <div class="flex flex-col gap-5">
+            <div class="flex flex-col gap-2">
+              <label class="text-[11px] font-black text-slate-500 uppercase tracking-wide">Nombre Completo para Certificados</label>
+              <input type="text" id="config-cert-name" placeholder="Ej: Dr. Juan Pérez" 
+                value="<%= user.nombreCertificado || user.name %>" 
+                <%= daysLeft > 0 ? 'disabled' : '' %>
+                class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3.5 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#5A7AF3] transition uppercase <%= daysLeft > 0 ? 'opacity-65 cursor-not-allowed' : '' %>">
+              
+              <% if (daysLeft > 0) { %>
+                <span class="text-[10px] text-rose-600 font-bold mt-1 flex items-center gap-1.5">
+                  <i class="fa-solid fa-lock"></i>
+                  Cambio bloqueado. Has modificado tu nombre recientemente. Podrás realizar un nuevo cambio en <strong class="underline"><%= daysLeft %> días</strong>.
+                </span>
+              <% } else { %>
+                <span class="text-[10px] text-slate-400 font-medium mt-1">Recomendamos incluir títulos académicos (como Dr., Ing., Lcdo., etc.) si desea que aparezcan impresos.</span>
+              <% } %>
+            </div>
+
+            <!-- Success Alert Container -->
+            <div id="config-success-alert" class="hidden p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-[11px] font-bold flex items-center gap-2">
+              <i class="fa-solid fa-circle-check text-emerald-600"></i>
+              <span id="config-success-text"></span>
+            </div>
+
+            <!-- Error Alert Container -->
+            <div id="config-error-alert" class="hidden p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[11px] font-bold flex items-center gap-2">
+              <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+              <span id="config-error-text"></span>
+            </div>
+
+            <button onclick="saveCertNameConfig()" id="btn-save-config" 
+              <%= daysLeft > 0 ? 'disabled' : '' %>
+              class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold py-3.5 px-6 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md self-start <%= daysLeft > 0 ? 'opacity-65 cursor-not-allowed bg-slate-400 hover:bg-slate-400' : 'cursor-pointer' %>">
+              <span>Guardar Configuración</span>
+              <i class="fa-solid fa-floppy-disk"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Sidebar responsive javascript functionality -->
+  <script>
+    let activeTab = 'dashboard';
+
+    function switchTab(tabId) {
+      activeTab = tabId;
+      
+      // Hide all tabs
+      document.getElementById('tab-content-dashboard').classList.add('hidden');
+      document.getElementById('tab-content-certificates').classList.add('hidden');
+      const convTabContent = document.getElementById('tab-content-conversatorios');
+      if (convTabContent) convTabContent.classList.add('hidden');
+      document.getElementById('tab-content-courses').classList.add('hidden');
+      document.getElementById('tab-content-config').classList.add('hidden');
+      
+      // Show selected tab
+      const selectedTab = document.getElementById('tab-content-' + tabId);
+      if (selectedTab) selectedTab.classList.remove('hidden');
+      
+      // Reset button styles
+      const btnDashboard = document.getElementById('btn-tab-dashboard');
+      const btnCertificates = document.getElementById('btn-tab-certificates');
+      const btnConversatorios = document.getElementById('btn-tab-conversatorios');
+      const btnCourses = document.getElementById('btn-tab-courses');
+      const btnConfig = document.getElementById('btn-tab-config');
+      
+      const activeClasses = ['bg-[#5A7AF3]', 'text-white', 'shadow-sm', 'shadow-[#5A7AF3]/20'];
+      const inactiveClasses = ['text-slate-500', 'hover:bg-slate-50', 'hover:text-slate-900'];
+      
+      // Clean classes
+      [btnDashboard, btnCertificates, btnConversatorios, btnCourses, btnConfig].forEach(btn => {
+        if (btn) {
+          activeClasses.forEach(c => btn.classList.remove(c));
+          inactiveClasses.forEach(c => btn.classList.add(c));
+        }
+      });
+      
+      // Apply active classes
+      const activeBtn = document.getElementById('btn-tab-' + tabId);
+      if (activeBtn) {
+        inactiveClasses.forEach(c => activeBtn.classList.remove(c));
+        activeClasses.forEach(c => activeBtn.classList.add(c));
+      }
+      
+      // Update page header title
+      const headerTitle = document.getElementById('header-page-title');
+      if (headerTitle) {
+        if (tabId === 'dashboard') {
+          headerTitle.innerText = 'Mi Dashboard';
+        } else if (tabId === 'conversatorios') {
+          headerTitle.innerText = 'Mis Conversatorios y Eventos';
+        } else if (tabId === 'courses') {
+          headerTitle.innerText = 'Mis Cursos Online';
+        } else if (tabId === 'certificates') {
+          headerTitle.innerText = 'Mis Certificados';
+        } else if (tabId === 'config') {
+          headerTitle.innerText = 'Configuración de Cuenta';
+        }
+      }
+    }
+
+    function toTitleCase(str) {
+      if (!str) return "";
+      return str
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    }
+
+    function showCustomConfirm(name, callback) {
+      const modal = document.getElementById('custom-confirm-modal');
+      const container = modal.querySelector('.transform');
+      const nameEl = document.getElementById('custom-confirm-name');
+      const btnAccept = document.getElementById('custom-confirm-btn-accept');
+      const btnCancel = document.getElementById('custom-confirm-btn-cancel');
+      const btnCloseX = document.getElementById('custom-confirm-close-x');
+
+      nameEl.innerText = `"${name}"`;
+      
+      // Open modal with smooth animation
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      setTimeout(() => {
+        container.classList.remove('scale-95', 'opacity-0');
+      }, 50);
+
+      // Clone buttons to clear previous event listeners
+      const newAccept = btnAccept.cloneNode(true);
+      const newCancel = btnCancel.cloneNode(true);
+      const newCloseX = btnCloseX.cloneNode(true);
+      
+      btnAccept.parentNode.replaceChild(newAccept, btnAccept);
+      btnCancel.parentNode.replaceChild(newCancel, btnCancel);
+      btnCloseX.parentNode.replaceChild(newCloseX, btnCloseX);
+
+      newAccept.focus();
+
+      const closeModal = (confirmed) => {
+        container.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          document.body.classList.remove('overflow-hidden');
+          callback(confirmed);
+        }, 200);
+      };
+
+      newAccept.addEventListener('click', () => {
+        closeModal(true);
+      });
+
+      newCancel.addEventListener('click', () => {
+        closeModal(false);
+      });
+
+      newCloseX.addEventListener('click', () => {
+        closeModal(false);
+      });
+
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', handleEscape);
+          closeModal(false);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    async function saveCertNameConfig() {
+      const rawName = document.getElementById('config-cert-name').value.trim();
+      const name = toTitleCase(rawName);
+      const successAlert = document.getElementById('config-success-alert');
+      const successText = document.getElementById('config-success-text');
+      const errorAlert = document.getElementById('config-error-alert');
+      const errorText = document.getElementById('config-error-text');
+      const btnSave = document.getElementById('btn-save-config');
+
+      if (!name) {
+        errorText.innerText = "Por favor, ingrese un nombre válido.";
+        errorAlert.classList.remove('hidden');
+        successAlert.classList.add('hidden');
+        return;
+      }
+
+      showCustomConfirm(name, async (confirmed) => {
+        if (!confirmed) return;
+
+        errorAlert.classList.add('hidden');
+        successAlert.classList.add('hidden');
+        
+        btnSave.disabled = true;
+        btnSave.innerHTML = `<span>Guardando...</span><i class="fa-solid fa-spinner animate-spin"></i>`;
+
+        try {
+          const response = await fetch('/dashboard/cliente/configurar-nombre', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ nombreCertificado: name })
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            successText.innerText = result.message || "Guardado exitosamente.";
+            successAlert.classList.remove('hidden');
+            // Reload page to reflect updated cooldown state
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          } else {
+            errorText.innerText = result.error || "Ocurrió un error al guardar.";
+            errorAlert.classList.remove('hidden');
+            btnSave.disabled = false;
+            btnSave.innerHTML = `<span>Guardar Configuración</span><i class="fa-solid fa-floppy-disk"></i>`;
+          }
+        } catch (err) {
+          console.error(err);
+          errorText.innerText = "Error al conectar con el servidor.";
+          errorAlert.classList.remove('hidden');
+          btnSave.disabled = false;
+          btnSave.innerHTML = `<span>Guardar Configuración</span><i class="fa-solid fa-floppy-disk"></i>`;
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggleBtn = document.getElementById('mobile-menu-toggle');
+      const sidebar = document.getElementById('sidebar-menu');
+      const backdrop = document.getElementById('mobile-sidebar-backdrop');
+
+      function openMenu() {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+      }
+
+      function closeMenu() {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+
+      toggleBtn.addEventListener('click', openMenu);
+      backdrop.addEventListener('click', closeMenu);
+      
+      // Draw Chart.js appointments activity
+      const chartCanvas = document.getElementById('appointments-activity-chart');
+      if (chartCanvas) {
+        const confirmCount = parseInt(chartCanvas.dataset.confirm || '0', 10);
+        const pendCount = parseInt(chartCanvas.dataset.pend || '0', 10);
+        const cancelCount = parseInt(chartCanvas.dataset.cancel || '0', 10);
+        const totalCount = parseInt(chartCanvas.dataset.total || '0', 10);
+
+        const ctx = chartCanvas.getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['Confirmadas', 'Pendientes', 'Canceladas', 'Total'],
+            datasets: [{
+              label: 'Citas',
+              data: [confirmCount, pendCount, cancelCount, totalCount],
+              backgroundColor: [
+                '#10B981',
+                '#F59E0B',
+                '#EF4444',
+                '#5A7AF3'
+              ],
+              borderRadius: 8,
+              borderSkipped: false
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1,
+                  font: {
+                    size: 10,
+                    weight: '600'
+                  }
+                },
+                grid: {
+                  color: '#f1f5f9'
+                }
+              },
+              x: {
+                ticks: {
+                  font: {
+                    size: 10,
+                    weight: '600'
+                  }
+                },
+                grid: {
+                  display: false
+                }
+              }
+            }
+          }
+        });
+      }
+    });
+
+    function openModalClientRoleTransition() {
+      const modal = document.getElementById('modal-client-role-transition');
+      if (modal) modal.classList.remove('hidden');
+    }
+    function closeModalClientRoleTransition() {
+      const modal = document.getElementById('modal-client-role-transition');
+      if (modal) modal.classList.add('hidden');
+    }
+    function handleRoleDocUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('client-role-doc-base64').value = e.target.result;
+        const placeholder = document.getElementById('role-doc-preview-placeholder');
+        if (placeholder) placeholder.classList.add('hidden');
+        const container = document.getElementById('role-doc-preview-container');
+        const filenameEl = document.getElementById('role-doc-filename');
+        if (filenameEl) filenameEl.innerText = file.name;
+        if (container) container.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function toggleClientDocRequirement() {
+      const selectedRole = document.querySelector('input[name="targetRole"]:checked')?.value;
+      const badge = document.getElementById('client-role-doc-badge');
+      if (badge) {
+        if (selectedRole === 'PROFESSIONAL') {
+          badge.innerText = '* Obligatorio (Título / Acta de Grado)';
+          badge.className = 'text-rose-500 text-[11px] font-bold';
+        } else {
+          badge.innerText = '* Obligatorio (Carnet / Matrícula Estudiantil)';
+          badge.className = 'text-rose-500 text-[11px] font-bold';
+        }
+      }
+    }
+
+    function validateClientRoleTransitionForm(form) {
+      const selectedRole = form.querySelector('input[name="targetRole"]:checked')?.value;
+      const docBase64 = document.getElementById('client-role-doc-base64').value;
+      if (!docBase64) {
+        if (selectedRole === 'PROFESSIONAL') {
+          alert('Es obligatorio adjuntar una foto o PDF de tu título profesional o acta de grado para solicitar la transición a Perfil Profesional.');
+        } else {
+          alert('Es obligatorio adjuntar una foto o PDF de tu carnet estudiantil o certificado de matrícula para solicitar la transición a Perfil Estudiante.');
+        }
+        return false;
+      }
+      return true;
+    }
+  </script>
+
+  <!-- Custom Confirm Dialog Modal (Clean Light-Mode Platform Style) -->
+  <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[9999] hidden flex items-center justify-center p-4 transition-all duration-300">
+    <div class="bg-white rounded-[28px] max-w-md w-full shadow-2xl overflow-hidden border border-slate-100/80 transform transition-all duration-300 scale-95 opacity-0 active-modal-animation flex flex-col">
+      <!-- Modal Header -->
+      <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-[#5A7AF3] flex items-center justify-center text-xs">
+            <i class="fa-solid fa-circle-info"></i>
+          </div>
+          <h3 class="font-extrabold text-xs text-[#0A3C84] uppercase tracking-wider">Confirmar Nombre</h3>
+        </div>
+        <button id="custom-confirm-close-x" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 flex flex-col gap-4">
+        <p class="text-xs text-slate-500 font-semibold leading-relaxed">
+          Por favor, verifique si desea este nombre exacto para sus futuros certificados:
+        </p>
+        
+        <!-- Name Display Card -->
+        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center text-center py-5 shadow-inner">
+          <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Nombre en el Certificado</span>
+          <h4 class="text-sm font-black text-slate-900 font-sans tracking-wide uppercase" id="custom-confirm-name">
+            "Juan Cliente"
+          </h4>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-100/50 text-amber-800 rounded-2xl p-4 flex gap-3 text-[11px] font-semibold leading-relaxed">
+          <i class="fa-solid fa-circle-exclamation text-base mt-0.5 flex-shrink-0 text-amber-600"></i>
+          <div>
+            <strong class="font-bold block text-amber-900 mb-0.5">Restricción de 60 Días</strong>
+            Recuerde que no podrá cambiarlo de nuevo durante los próximos 60 días una vez guardado.
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer / Action Buttons -->
+      <div class="px-6 py-5 border-t border-slate-50 bg-slate-50/30 flex items-center justify-end gap-3">
+        <button id="custom-confirm-btn-cancel" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs px-5 py-3 rounded-xl transition cursor-pointer flex items-center gap-1.5">
+          Cancelar
+        </button>
+        <button id="custom-confirm-btn-accept" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-md shadow-[#5A7AF3]/10 hover:shadow-lg transition cursor-pointer flex items-center gap-1.5">
+          <span>Aceptar y Guardar</span>
+          <i class="fa-solid fa-circle-check"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Solicitar Cambio de Rol (CLIENT -> STUDENT or PROFESSIONAL) -->
+  <div id="modal-client-role-transition" class="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[9999] hidden flex items-center justify-center p-4 transition-all duration-300">
+    <div class="bg-white rounded-[28px] max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100/80 transform transition-all duration-300 flex flex-col">
+      <!-- Modal Header -->
+      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-indigo-50 text-[#5A7AF3] flex items-center justify-center text-sm">
+            <i class="fa-solid fa-user-gear"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-slate-900 leading-tight">Solicitar Cambio de Rol</h3>
+            <span class="text-[10px] text-slate-400 font-bold block">Conviértete en Estudiante o Profesional</span>
+          </div>
+        </div>
+        <button onclick="closeModalClientRoleTransition()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body Form -->
+      <form action="/dashboard/cliente/request-transition" method="POST" onsubmit="return validateClientRoleTransitionForm(this)" class="p-6 flex flex-col gap-5 text-xs font-semibold text-slate-700">
+        
+        <!-- Target Role Selection Cards -->
+        <div>
+          <label class="block mb-2 text-[11px] font-black text-slate-500 uppercase tracking-wide">Selecciona el Perfil Deseado *</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Student Role Card Option -->
+            <label class="relative flex flex-col p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl cursor-pointer hover:border-[#5A7AF3] transition group has-[:checked]:border-[#5A7AF3] has-[:checked]:bg-indigo-50/30">
+              <input type="radio" name="targetRole" value="STUDENT" required onchange="toggleClientDocRequirement()" class="peer sr-only">
+              <div class="flex items-center justify-between mb-2">
+                <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                  <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div class="w-4 h-4 rounded-full border-2 border-slate-300 peer-checked:border-[#5A7AF3] peer-checked:bg-[#5A7AF3] flex items-center justify-center">
+                  <div class="w-1.5 h-1.5 rounded-full bg-white opacity-0 peer-checked:opacity-100"></div>
+                </div>
+              </div>
+              <strong class="text-xs font-extrabold text-slate-900 group-hover:text-[#5A7AF3]">Perfil Estudiante</strong>
+              <span class="text-[10px] text-slate-500 font-medium leading-relaxed mt-1">Accede a precios con descuento en conversatorios y crea tu portafolio académico.</span>
+            </label>
+
+            <!-- Professional Role Card Option -->
+            <label class="relative flex flex-col p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl cursor-pointer hover:border-[#5A7AF3] transition group has-[:checked]:border-[#5A7AF3] has-[:checked]:bg-indigo-50/30">
+              <input type="radio" name="targetRole" value="PROFESSIONAL" required checked onchange="toggleClientDocRequirement()" class="peer sr-only">
+              <div class="flex items-center justify-between mb-2">
+                <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">
+                  <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <div class="w-4 h-4 rounded-full border-2 border-slate-300 peer-checked:border-[#5A7AF3] peer-checked:bg-[#5A7AF3] flex items-center justify-center">
+                  <div class="w-1.5 h-1.5 rounded-full bg-white opacity-0 peer-checked:opacity-100"></div>
+                </div>
+              </div>
+              <strong class="text-xs font-extrabold text-slate-900 group-hover:text-[#5A7AF3]">Perfil Profesional</strong>
+              <span class="text-[10px] text-slate-500 font-medium leading-relaxed mt-1">Publica tu perfil verificado en el directorio, ofrece servicios y gestiona tus citas.</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Motivo / Descripción -->
+        <div>
+          <label class="block mb-1.5 text-[11px] font-black text-slate-500 uppercase tracking-wide">Motivo / Detalles de la Solicitud *</label>
+          <textarea name="motivoSolicitud" rows="3" required placeholder="Ej: Soy estudiante activo de Medicina / Soy Ingeniero egresado y deseo publicar mi perfil profesional..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 outline-none focus:bg-white focus:border-[#5A7AF3] text-xs font-semibold leading-relaxed transition"></textarea>
+        </div>
+
+        <!-- Adjuntar Título o Carnet / Certificado -->
+        <div>
+          <label class="block mb-1.5 text-[11px] font-black text-slate-500 uppercase tracking-wide flex items-center justify-between">
+            <span>Adjuntar Título, Matrícula o Carnet</span>
+            <strong id="client-role-doc-badge" class="text-rose-500 text-[11px]">* Obligatorio para Profesional</strong>
+          </label>
+          <input type="hidden" name="tituloCertificadoBase64" id="client-role-doc-base64">
+          <div class="relative bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-4 text-center hover:bg-slate-100/70 transition cursor-pointer">
+            <input type="file" accept="image/*,.pdf" onchange="handleRoleDocUpload(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <div id="role-doc-preview-placeholder" class="flex flex-col items-center justify-center gap-1.5">
+              <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-xl"></i>
+              <span class="text-xs font-bold text-slate-600">Haz clic para subir foto o PDF del documento</span>
+              <span class="text-[10px] text-slate-400">Formatos permitidos: JPG, PNG, PDF (Máx. 5MB)</span>
+            </div>
+            <div id="role-doc-preview-container" class="hidden flex items-center justify-center gap-2 text-emerald-600 font-bold text-xs">
+              <i class="fa-solid fa-circle-check text-sm"></i>
+              <span id="role-doc-filename">Documento adjuntado correctamente</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button type="button" onclick="closeModalClientRoleTransition()" class="px-5 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 text-xs transition cursor-pointer">
+            Cancelar
+          </button>
+          <button type="submit" class="bg-[#5A7AF3] hover:bg-[#4562DB] text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-md shadow-[#5A7AF3]/15 transition cursor-pointer flex items-center gap-2">
+            <span>Enviar Solicitud</span>
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  </div>
+</body>
+</html>

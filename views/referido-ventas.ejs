@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis Ventas - Referidos | Profesionales Ecuador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Outfit', sans-serif; }
+  </style>
+</head>
+<body class="h-full flex flex-col bg-slate-50 text-slate-800">
+
+  <!-- Top Navbar -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">PE</div>
+          <span class="font-extrabold text-base tracking-tight text-white hidden sm:inline">Profesionales<span class="text-sky-400">Ecuador</span></span>
+        </a>
+        <span class="bg-blue-500/20 text-blue-300 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border border-blue-500/30">Módulo Referidos</span>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-1">
+        <a href="/dashboard/referido" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-chart-pie text-sky-400"></i> Dashboard
+        </a>
+        <a href="/dashboard/referido/ventas" class="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-slate-800 border border-slate-700 flex items-center gap-2">
+          <i class="fa-solid fa-cart-shopping text-emerald-400"></i> Mis Ventas
+        </a>
+        <a href="/dashboard/referido/billetera" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-wallet text-amber-400"></i> Billetera & Retiros
+        </a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a href="/logout" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 border border-slate-700">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hidden sm:inline">Salir</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 mb-16 md:mb-8 space-y-6">
+
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-150 shadow-sm">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-cart-shopping text-emerald-600"></i> Gestión de Mis Ventas
+        </h1>
+        <p class="text-xs text-slate-500 mt-1">Registra tus ventas realizadas a clientes y consulta el estado de aprobación por la administración.</p>
+      </div>
+
+      <button onclick="openRegisterModal()" class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2">
+        <i class="fa-solid fa-plus-circle text-base"></i> Registrar Nueva Venta
+      </button>
+    </div>
+
+    <!-- Feedback Alerts -->
+    <% if (success === 'sale_registered') { %>
+      <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-semibold flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-lg text-emerald-600"></i>
+        <span>Venta registrada exitosamente en estado <strong>PENDIENTE</strong>. La administración la revisará y notificará al cliente.</span>
+      </div>
+    <% } %>
+    <% if (error) { %>
+      <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 text-xs font-semibold flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-lg text-rose-600"></i>
+        <span>Por favor verifica los campos obligatorios del registro de venta.</span>
+      </div>
+    <% } %>
+
+    <!-- Sales Table Container -->
+    <div class="bg-white rounded-3xl border border-slate-150 shadow-sm overflow-hidden">
+      <% if (sales.length === 0) { %>
+        <div class="text-center py-16 px-4">
+          <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-4 text-2xl">
+            <i class="fa-solid fa-box-open"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-800">Aún no tienes ventas registradas</h3>
+          <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-6">Haz clic en el botón a continuación para registrar a tu primer cliente.</p>
+          <button onclick="openRegisterModal()" class="px-6 py-3 rounded-2xl bg-blue-600 text-white font-bold text-xs shadow-md">Registrar Venta Ahora</button>
+        </div>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-100 text-slate-400 uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="p-4 font-bold">Fecha / ID</th>
+                <th class="p-4 font-bold">Producto</th>
+                <th class="p-4 font-bold">Cliente</th>
+                <th class="p-4 font-bold">Valor Pagado</th>
+                <th class="p-4 font-bold">Comisión Estimada</th>
+                <th class="p-4 font-bold">Comprobante</th>
+                <th class="p-4 font-bold text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <% sales.forEach(function(sale) { %>
+                <tr class="hover:bg-slate-50/60 transition">
+                  <td class="p-4">
+                    <p class="font-extrabold text-slate-900">#<%= sale.id %></p>
+                    <p class="text-[10px] text-slate-400"><%= new Date(sale.createdAt).toLocaleDateString('es-EC') %></p>
+                  </td>
+                  <td class="p-4">
+                    <p class="font-bold text-slate-900"><%= sale.productName %></p>
+                    <span class="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded"><%= sale.productType %></span>
+                  </td>
+                  <td class="p-4">
+                    <p class="font-bold text-slate-800"><%= sale.clienteNombre %></p>
+                    <p class="text-[10px] text-slate-500"><%= sale.clienteEmail %> | <%= sale.clienteTelefono %></p>
+                    <p class="text-[10px] text-slate-400">CI: <%= sale.clienteCedula %></p>
+                  </td>
+                  <td class="p-4 font-black text-slate-900 text-sm">$<%= sale.valorPagado.toFixed(2) %></td>
+                  <td class="p-4 font-black text-emerald-600 text-sm">
+                    $<%= sale.comisionCalculada.toFixed(2) %>
+                    <span class="text-[10px] text-slate-400 font-bold block">(<%= sale.comisionPorcentaje %>%)</span>
+                  </td>
+                  <td class="p-4">
+                    <a href="<%= sale.comprobanteUrl %>" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
+                      <i class="fa-solid fa-file-invoice text-xs"></i> Ver Adjunto
+                    </a>
+                  </td>
+                  <td class="p-4 text-center">
+                    <% if (sale.estado === 'APROBADO') { %>
+                      <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full inline-flex items-center gap-1">
+                        <i class="fa-solid fa-circle-check"></i> Aprobado
+                      </span>
+                    <% } else if (sale.estado === 'PENDIENTE') { %>
+                      <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-3 py-1 rounded-full inline-flex items-center gap-1">
+                        <i class="fa-solid fa-clock"></i> Pendiente
+                      </span>
+                    <% } else { %>
+                      <span class="bg-rose-100 text-rose-800 text-[10px] font-black px-3 py-1 rounded-full inline-flex items-center gap-1">
+                        <i class="fa-solid fa-circle-xmark"></i> Rechazado
+                      </span>
+                    <% } %>
+                    <% if (sale.observacionesAdmin) { %>
+                      <p class="text-[9px] text-slate-500 italic mt-1 max-w-xs mx-auto"><%= sale.observacionesAdmin %></p>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+
+  <!-- Modal: Registrar Nueva Venta -->
+  <div id="modalVenta" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 relative shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+        <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-cart-plus text-emerald-600"></i> Registrar Venta de Cliente
+        </h3>
+        <button onclick="closeRegisterModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form action="/dashboard/referido/ventas" method="POST" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Nombre Completo del Cliente *</label>
+          <input type="text" name="clienteNombre" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="Ej. Carlos Alberto Mendoza">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Correo Electrónico *</label>
+            <input type="email" name="clienteEmail" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="cliente@correo.com">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Número de Cédula *</label>
+            <input type="text" name="clienteCedula" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="1723456789">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Teléfono / WhatsApp *</label>
+            <input type="text" name="clienteTelefono" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500" placeholder="0991234567">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 uppercase mb-1">Tipo de Producto *</label>
+            <select id="saleProductType" name="productType" required onchange="updateProductSelectorOptions()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-800 focus:outline-none">
+              <option value="CONVERSATORIO">Conversatorio</option>
+              <option value="CURSO">Curso Académico</option>
+              <option value="PLAN_AFILIACION">Plan de Afiliación</option>
+              <option value="PLAN_PROMOCION">Plan de Promoción</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Seleccionar Producto / Servicio Específico *</label>
+          
+          <!-- Filtro / Buscador Rápido en tiempo real -->
+          <div class="relative mb-1.5">
+            <input type="text" id="productSearchInput" oninput="filterProductOptions()" placeholder="🔍 Escribe para buscar (ej: Penal, Ludopatía, Plan...)" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+          </div>
+
+          <!-- Select de Productos Filtrados -->
+          <select id="saleProductIdSelect" onchange="handleProductSelected()" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:outline-none focus:border-blue-500 text-xs">
+            <!-- Populated dynamically via JavaScript -->
+          </select>
+
+          <!-- Inputs ocultos para enviar al backend -->
+          <input type="hidden" name="productId" id="hiddenProductId">
+          <input type="hidden" name="productName" id="hiddenProductName" required>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Valor Total Pagado ($ USD) *</label>
+          <input type="number" step="0.01" min="0.01" id="inputValorPagado" name="valorPagado" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-black text-emerald-600 text-sm focus:outline-none" placeholder="25.00">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Adjuntar Comprobante de Pago / Depósito (Imagen o PDF) *</label>
+          <div onclick="document.getElementById('fileComprobanteInput').click()" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/40 rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2">
+            <div id="fileUploadPrompt" class="flex flex-col items-center">
+              <i class="fa-solid fa-cloud-arrow-up text-2xl text-blue-600 mb-1"></i>
+              <p class="font-extrabold text-xs text-slate-800">Haz clic aquí para seleccionar el archivo del comprobante</p>
+              <p class="text-[10px] text-slate-400 font-semibold mt-0.5">Formatos aceptados: Imagen (JPG, PNG) o PDF (máximo 10MB)</p>
+            </div>
+            
+            <!-- Preview cuando se selecciona archivo -->
+            <div id="fileSelectedPreview" class="hidden flex items-center justify-between gap-3 w-full bg-white p-3 rounded-xl border border-emerald-200 shadow-sm">
+              <div class="flex items-center gap-3 overflow-hidden">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 font-bold text-lg">
+                  <i id="fileIcon" class="fa-solid fa-file-image"></i>
+                </div>
+                <div class="text-left truncate">
+                  <p id="fileNameText" class="font-extrabold text-xs text-slate-900 truncate">comprobante.png</p>
+                  <p id="fileSizeText" class="text-[10px] font-bold text-emerald-600">Archivo cargado correctamente</p>
+                </div>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); resetComprobanteFile();" class="text-rose-500 hover:text-rose-700 text-xs font-extrabold px-3 py-1.5 bg-rose-50 hover:bg-rose-100 rounded-xl transition">
+                Cambiar
+              </button>
+            </div>
+          </div>
+
+          <input type="file" id="fileComprobanteInput" accept="image/*,.pdf" onchange="handleComprobanteFileSelected(this)" class="hidden">
+          <input type="hidden" name="comprobanteUrl" id="hiddenComprobanteUrl" required>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button type="button" onclick="closeRegisterModal()" class="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold cursor-pointer">Cancelar</button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-md cursor-pointer">Registrar Venta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const systemConversatorios = <%- JSON.stringify(conversatorios.map(c => ({ id: c.id, titulo: c.titulo, precio: c.precio }))) %>;
+    const systemCursos = <%- JSON.stringify(cursos.map(c => ({ id: c.id, titulo: c.titulo, precio: c.precio }))) %>;
+    const systemMembershipPlans = <%- JSON.stringify(membershipPlans.map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio }))) %>;
+    const systemPromotionPlans = <%- JSON.stringify(promotionPlans.map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio }))) %>;
+
+    function updateProductSelectorOptions() {
+      const typeSelect = document.getElementById('saleProductType');
+      const productSelect = document.getElementById('saleProductIdSelect');
+      const searchInput = document.getElementById('productSearchInput');
+      if (!typeSelect || !productSelect) return;
+
+      const type = typeSelect.value;
+      const filterText = (searchInput?.value || '').trim().toLowerCase();
+      productSelect.innerHTML = '';
+
+      let items = [];
+      let labelPrefix = '';
+
+      if (type === 'CONVERSATORIO') {
+        items = systemConversatorios;
+        labelPrefix = 'Conversatorio';
+      } else if (type === 'CURSO') {
+        items = systemCursos;
+        labelPrefix = 'Curso';
+      } else if (type === 'PLAN_AFILIACION') {
+        items = systemMembershipPlans;
+        labelPrefix = 'Plan Afiliación';
+      } else if (type === 'PLAN_PROMOCION') {
+        items = systemPromotionPlans;
+        labelPrefix = 'Plan Promoción';
+      }
+
+      // Filter by search query if typed
+      if (filterText) {
+        items = items.filter(item => {
+          const title = (item.titulo || item.nombre || '').toLowerCase();
+          return title.includes(filterText);
+        });
+      }
+
+      if (items.length === 0) {
+        productSelect.innerHTML = '<option value="" disabled selected>-- No se encontraron coincidencias --</option>';
+        document.getElementById('hiddenProductId').value = '';
+        document.getElementById('hiddenProductName').value = '';
+        return;
+      }
+
+      productSelect.innerHTML = '<option value="" disabled selected>-- Selecciona un producto/servicio --</option>';
+
+      items.forEach(item => {
+        const title = item.titulo || item.nombre;
+        const price = Number(item.precio || 0).toFixed(2);
+        const fullName = `${labelPrefix}: ${title}`;
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.setAttribute('data-name', fullName);
+        option.setAttribute('data-price', price);
+        option.textContent = `${fullName} ($${price} USD)`;
+        productSelect.appendChild(option);
+      });
+    }
+
+    function filterProductOptions() {
+      updateProductSelectorOptions();
+    }
+
+    function handleProductSelected() {
+      const productSelect = document.getElementById('saleProductIdSelect');
+      const hiddenId = document.getElementById('hiddenProductId');
+      const hiddenName = document.getElementById('hiddenProductName');
+      const valorInput = document.getElementById('inputValorPagado');
+
+      const selectedOption = productSelect.options[productSelect.selectedIndex];
+      if (!selectedOption || !selectedOption.value) return;
+
+      const pId = selectedOption.value;
+      const pName = selectedOption.getAttribute('data-name') || '';
+      const pPrice = selectedOption.getAttribute('data-price') || '0.00';
+
+      hiddenId.value = pId;
+      hiddenName.value = pName;
+      valorInput.value = pPrice;
+    }
+
+    function openRegisterModal() {
+      document.getElementById('modalVenta').classList.remove('hidden');
+      document.getElementById('modalVenta').classList.add('flex');
+      updateProductSelectorOptions();
+    }
+    function closeRegisterModal() {
+      document.getElementById('modalVenta').classList.add('hidden');
+      document.getElementById('modalVenta').classList.remove('flex');
+    }
+
+    function handleComprobanteFileSelected(input) {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      if (file.size > 10 * 1024 * 1024) {
+        alert("El archivo excede el tamaño máximo permitido de 10MB.");
+        input.value = "";
+        return;
+      }
+
+      const prompt = document.getElementById('fileUploadPrompt');
+      const preview = document.getElementById('fileSelectedPreview');
+      const fileNameText = document.getElementById('fileNameText');
+      const fileSizeText = document.getElementById('fileSizeText');
+      const fileIcon = document.getElementById('fileIcon');
+      const hiddenInput = document.getElementById('hiddenComprobanteUrl');
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        hiddenInput.value = e.target.result;
+        
+        fileNameText.textContent = file.name;
+        fileSizeText.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB - Listo para enviar`;
+        
+        if (file.type.includes('pdf')) {
+          fileIcon.className = 'fa-solid fa-file-pdf text-rose-600';
+        } else {
+          fileIcon.className = 'fa-solid fa-file-image text-emerald-600';
+        }
+
+        prompt.classList.add('hidden');
+        preview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resetComprobanteFile() {
+      const input = document.getElementById('fileComprobanteInput');
+      const hiddenInput = document.getElementById('hiddenComprobanteUrl');
+      const prompt = document.getElementById('fileUploadPrompt');
+      const preview = document.getElementById('fileSelectedPreview');
+
+      if (input) input.value = '';
+      if (hiddenInput) hiddenInput.value = '';
+      
+      if (prompt) prompt.classList.remove('hidden');
+      if (preview) preview.classList.add('hidden');
+    }
+  </script>
+
+</body>
+</html>

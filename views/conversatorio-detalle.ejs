@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-slate-50 flex flex-col min-h-screen text-slate-800 antialiased font-sans">
+  <%- include('partials/header') %>
+
+  <!-- Main Content Wrapper -->
+  <main class="flex-grow max-w-7xl mx-auto w-full px-6 md:px-12 py-12 flex flex-col gap-10">
+    <% 
+      const isOnline = !conversatorio.ciudad || 
+                       conversatorio.ciudad.toLowerCase().trim() === 'online' ||
+                       conversatorio.ciudad.toLowerCase().includes('online') ||
+                       conversatorio.ciudad.toLowerCase().includes('virtual') ||
+                       (conversatorio.direccion && conversatorio.direccion.toLowerCase().includes('online')) ||
+                       (conversatorio.direccion && conversatorio.direccion.toLowerCase().includes('virtual')) ||
+                       (conversatorio.slogan && conversatorio.slogan.toLowerCase().includes('online')) ||
+                       (conversatorio.slogan && conversatorio.slogan.toLowerCase().includes('virtual'));
+    %>
+
+    <!-- Back Button -->
+    <div class="flex justify-start">
+      <a href="/eventos" class="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition text-xs font-extrabold font-sans">
+        <i class="fa-solid fa-arrow-left"></i> Volver a Conversatorios
+      </a>
+    </div>
+
+    <!-- Header Section -->
+    <div class="flex flex-col gap-2 max-w-4xl" data-reveal="fade-up">
+      <% if (conversatorio.estado === 'PROGRAMADO') { %>
+        <span class="self-start bg-amber-100 text-amber-800 text-[10px] font-extrabold px-3.5 py-1.5 rounded-full uppercase tracking-wider border border-amber-200">Evento Programado</span>
+      <% } else if (conversatorio.estado === 'ACTIVO') { %>
+        <span class="self-start bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-3.5 py-1.5 rounded-full uppercase tracking-wider border border-emerald-200">Evento Activo / En Curso</span>
+      <% } else { %>
+        <span class="self-start bg-slate-100 text-slate-600 text-[10px] font-extrabold px-3.5 py-1.5 rounded-full uppercase tracking-wider border border-slate-200">Evento Finalizado</span>
+      <% } %>
+      <h1 class="text-3xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight mt-2 uppercase"><%= conversatorio.titulo %></h1>
+      <p class="text-[#0252A4] text-xs md:text-sm font-bold mt-1 uppercase tracking-wide"><%= conversatorio.slogan || conversatorio.areaProfesional || 'Encuentro Académico de Profesionales' %></p>
+    </div>
+
+    <!-- Action / Enrollment / Certificate Purchase Banner -->
+    <div class="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 premium-card-hover" data-reveal="fade-up" data-reveal-delay="100">
+      <div class="flex flex-col gap-1.5">
+        <div class="flex items-center gap-2">
+          <% if (conversatorio.estado === 'PROGRAMADO') { %>
+            <span class="bg-amber-100 text-amber-800 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-amber-200">PROGRAMADO</span>
+          <% } else if (conversatorio.estado === 'ACTIVO') { %>
+            <span class="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-emerald-200">ACTIVO</span>
+          <% } else if (conversatorio.estado === 'FINALIZADO') { %>
+            <span class="bg-slate-100 text-slate-600 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-slate-200">FINALIZADO</span>
+          <% } %>
+          <span class="text-xs text-slate-500 font-bold">Certificación Académica Avalada</span>
+        </div>
+        <h3 class="text-base font-black text-slate-900 leading-tight mt-1">
+          <% if (conversatorio.estado === 'PROGRAMADO') { %>
+            Inscripción Abierta - Obtenga su Certificado de <%= conversatorio.certificateDesign ? conversatorio.certificateDesign.horas : 40 %> Horas
+          <% } else if (conversatorio.estado === 'ACTIVO') { %>
+            Evento en Curso - Certificado de <%= conversatorio.certificateDesign ? conversatorio.certificateDesign.horas : 40 %> Horas Disponible
+          <% } else { %>
+            Evento Finalizado - Adquiera su Certificado con Tarifa Extemporánea
+          <% } %>
+        </h3>
+        <p class="text-xs text-slate-500 font-medium">Asegure su acreditación curricular firmada digitalmente.</p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <% 
+          const design = conversatorio.certificateDesign;
+          const isStudentUser = (typeof isEstudiante !== 'undefined' && isEstudiante) || (typeof user !== 'undefined' && user && user.role && user.role.name === 'STUDENT');
+          const studentPriceVal = conversatorio.descuentoEstudianteUsd;
+          const hasStudentDiscount = !conversatorio.gratuito && isStudentUser && studentPriceVal !== null && studentPriceVal !== undefined && studentPriceVal > 0 && studentPriceVal < (conversatorio.precio || 0);
+          const price = conversatorio.gratuito ? 0 : (hasStudentDiscount ? Number(studentPriceVal) : (conversatorio.precio || 0));
+        %>
+        <%
+          const freeSpeakers = (conversatorio.speakers || []).filter(s => s.gratuita);
+          const firstFreeSpeaker = freeSpeakers.length > 0 ? freeSpeakers[0] : null;
+          const firstFreeSpeakerSlug = firstFreeSpeaker ? (firstFreeSpeaker.slug || firstFreeSpeaker.id) : null;
+        %>
+        <% if (typeof user === 'undefined' || !user) { %>
+          <!-- User not logged in -->
+          <% if (conversatorio.estado === 'PROGRAMADO') { %>
+            <button onclick="openAuthModal('enroll')" class="w-full sm:w-auto bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+              <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión para Participar
+            </button>
+          <% } else if (conversatorio.estado === 'ACTIVO' || conversatorio.estado === 'FINALIZADO') { %>
+            <% if (conversatorio.gratuito) { %>
+              <button onclick="openAuthModal('free')" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                <i class="fa-solid fa-award"></i> Obtener Certificado Gratuito
+              </button>
+            <% } else if (firstFreeSpeakerSlug) { %>
+              <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>/ponentes/<%= firstFreeSpeakerSlug %>" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                  <i class="fa-solid fa-play"></i> Ver Ponencia Gratuita
+                </a>
+                <button onclick="openAuthModal('buy')" class="w-full sm:w-auto bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                  <i class="fa-solid fa-cart-shopping"></i> Adquirir Certificado por $<%= price.toFixed(2) %>
+                </button>
+              </div>
+            <% } else { %>
+              <button onclick="openAuthModal('buy')" class="w-full sm:w-auto bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                <i class="fa-solid fa-cart-shopping"></i> Adquirir Certificado por $<%= price.toFixed(2) %>
+              </button>
+            <% } %>
+          <% } %>
+        <% } else { %>
+          <!-- User logged in -->
+          <% 
+            const targetSpeakerObj = (typeof nextSpeakerId !== 'undefined' && nextSpeakerId) 
+              ? (conversatorio.speakers || []).find(s => s.id === nextSpeakerId) 
+              : (conversatorio.speakers && conversatorio.speakers.length > 0 ? conversatorio.speakers[0] : null);
+            const targetSpeakerParam = targetSpeakerObj ? (targetSpeakerObj.slug || targetSpeakerObj.id) : null;
+          %>
+          <% const btnLabel = typeof ctaButtonLabel !== 'undefined' ? ctaButtonLabel : 'Acceder al Evento'; %>
+          <% if (isEnrolled || hasCertificate) { %>
+            <!-- User IS ENROLLED -->
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <% if (targetSpeakerParam) { %>
+                <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>/ponentes/<%= targetSpeakerParam %>" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+                  <i class="fa-solid fa-play"></i> <%= btnLabel %>
+                </a>
+              <% } %>
+
+              <% if (hasCertificate) { %>
+                <% if (typeof acquiredCertificateCode !== 'undefined' && acquiredCertificateCode) { %>
+                  <a href="/certificados/<%= acquiredCertificateCode %>" target="_blank" class="w-full sm:w-auto bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+                    <i class="fa-solid fa-award"></i> Ver Certificado
+                  </a>
+                <% } else { %>
+                  <div class="bg-emerald-50 border border-emerald-200 rounded-2xl py-3 px-5 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-award text-emerald-600"></i> Certificado Obtenido
+                  </div>
+                <% } %>
+              <% } else if (typeof certificatePending !== 'undefined' && certificatePending) { %>
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl py-3 px-5 text-amber-800 text-xs font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-clock-rotate-left text-amber-600 text-sm animate-pulse"></i> Validando Pago
+                </div>
+              <% } else { %>
+                <button type="button" onclick="openCertProgressModal()" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-slate-950 font-black py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                  <i class="fa-solid fa-award"></i> Progreso del Certificado (<%= typeof progressPct !== 'undefined' ? progressPct : 0 %>%)
+                </button>
+              <% } %>
+            </div>
+          <% } else { %>
+            <!-- User NOT ENROLLED -->
+            <% if (conversatorio.gratuito) { %>
+              <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <% if (targetSpeakerParam) { %>
+                  <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>/ponentes/<%= targetSpeakerParam %>" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+                    <i class="fa-solid fa-play"></i> Ver Ponencia Gratuita
+                  </a>
+                <% } %>
+                <% if (locals.user) { %>
+                  <form action="/conversatorios/<%= conversatorio.id %>/inscribirse" method="POST" class="w-full sm:w-auto">
+                    <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                      <i class="fa-solid fa-user-plus"></i> Inscribirme Gratis
+                    </button>
+                  </form>
+                <% } else { %>
+                  <a href="/login?redirect=/conversatorios/<%= conversatorio.slug || conversatorio.id %>" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+                    <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión para Certificado
+                  </a>
+                <% } %>
+              </div>
+            <% } else if (firstFreeSpeakerSlug) { %>
+              <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>/ponentes/<%= firstFreeSpeakerSlug %>" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+                  <i class="fa-solid fa-play"></i> Ver Ponencia Gratuita
+                </a>
+                <button onclick="openPaymentModal()" class="w-full sm:w-auto bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                  <i class="fa-solid fa-award"></i> Adquirir Certificado por $<%= price.toFixed(2) %>
+                </button>
+              </div>
+            <% } else { %>
+              <button onclick="openPaymentModal()" class="w-full sm:w-auto bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                <i class="fa-solid fa-award"></i> Adquirir Certificado por $<%= price.toFixed(2) %>
+              </button>
+            <% } %>
+          <% } %>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Logistics Info Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      
+      <!-- Lugar -->
+      <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-2 hover:shadow-md transition">
+        <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-sm shadow-sm">
+          <i class="fa-solid fa-location-dot"></i>
+        </div>
+        <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Lugar</span>
+        <span class="text-xs font-black text-slate-800 leading-snug"><%= conversatorio.direccion || 'Por confirmar' %>, <%= conversatorio.ciudad %></span>
+      </div>
+
+      <!-- Fecha -->
+      <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-2 hover:shadow-md transition">
+        <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center text-sm shadow-sm">
+          <i class="fa-regular fa-calendar"></i>
+        </div>
+        <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Fecha</span>
+        <span class="text-xs font-black text-slate-800 leading-snug">
+          <%= new Date(conversatorio.fechaInicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', year: 'numeric' }) %>
+        </span>
+      </div>
+
+      <!-- Cupos -->
+      <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-2 hover:shadow-md transition">
+        <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-sm shadow-sm">
+          <i class="fa-solid fa-users"></i>
+        </div>
+        <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Cupos</span>
+        <span class="text-xs font-black text-slate-800 leading-snug">
+          <%= conversatorio.capacidadIlimitada ? 'SIN LÍMITE' : conversatorio.capacidad %>
+        </span>
+      </div>
+
+      <!-- Inversion -->
+      <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-2 hover:shadow-md transition">
+        <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center text-sm shadow-sm">
+          <i class="fa-solid fa-dollar-sign"></i>
+        </div>
+        <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Inversión</span>
+        <span class="text-xs font-black text-slate-800 leading-snug">
+          <% if (conversatorio.gratuito) { %>
+            GRATUITO
+          <% } else if (hasStudentDiscount) { %>
+            <div class="flex flex-col">
+              <span class="line-through text-slate-400 text-[10px]">$<%= conversatorio.precio.toFixed(2) %></span>
+              <span class="text-blue-600 font-extrabold">$<%= Number(studentPriceVal).toFixed(2) %> <i class="fa-solid fa-graduation-cap text-[10px]"></i></span>
+            </div>
+          <% } else { %>
+            $<%= conversatorio.precio.toFixed(2) %>
+          <% } %>
+        </span>
+      </div>
+
+      <!-- Horario -->
+      <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-2 hover:shadow-md transition">
+        <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center text-sm shadow-sm">
+          <i class="fa-regular fa-clock"></i>
+        </div>
+        <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Horario</span>
+        <span class="text-xs font-black text-slate-800 leading-snug"><%= conversatorio.horaInicio %> - <%= conversatorio.horaFin %></span>
+      </div>
+
+    </div>
+
+    <!-- Justificación / Descripción (Black Background Card) -->
+    <div class="bg-slate-950 text-white rounded-3xl p-8 md:p-12 shadow-xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center border border-slate-900">
+      <div class="lg:col-span-6 flex flex-col gap-4">
+        <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Análisis Académico</span>
+        <h2 class="text-3xl font-black text-white leading-tight uppercase tracking-tight">Justificación del Evento</h2>
+        <p class="text-slate-350 text-sm leading-relaxed mt-2 font-medium font-sans"><%= conversatorio.descripcion || 'Este conversatorio reúne a los mejores académicos, profesionales e investigadores.' %></p>
+      </div>
+      <div class="lg:col-span-6 w-full">
+        <% if (conversatorio.youtube || conversatorio.bunnyVideoId) { %>
+          <div class="w-full aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-md">
+            <%- include('partials/custom-video-player', {
+              sourceType: 'conversatorio',
+              sourceId: conversatorio.id,
+              title: conversatorio.titulo,
+              autoplay: false
+            }) %>
+          </div>
+        <% } else { %>
+          <div class="w-full aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-md border border-slate-900">
+            <img src="<%= conversatorio.banner || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800' %>" class="w-full h-full object-cover">
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Revista Científica Section (If Configured) -->
+    <% if (conversatorio.revistaPortada || conversatorio.revistaPdf || conversatorio.revistaFlipbook) { %>
+      <div class="bg-gradient-to-r from-slate-950 to-slate-900 text-white rounded-3xl p-8 md:p-12 shadow-xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center border border-slate-900">
+        <div class="lg:col-span-8 flex flex-col gap-4">
+          <h2 class="text-3xl font-black text-white leading-tight uppercase tracking-tight">Revista Científica Profesionales Ecuador</h2>
+          <p class="text-slate-350 text-sm leading-relaxed max-w-xl font-medium font-sans">Investigación, innovación y conocimiento multidisciplinario desde Ecuador para el mundo.</p>
+          
+          <div class="flex flex-wrap gap-3 mt-4">
+            <% if (conversatorio.revistaPdf) { %>
+              <button onclick="openFlipbook('/conversatorios/<%= conversatorio.slug || conversatorio.id %>/revista.pdf')" class="bg-white hover:bg-slate-200 text-slate-950 font-black py-3.5 px-6 rounded-2xl transition text-xs flex items-center gap-2 shadow-md cursor-pointer">
+                <i class="fa-solid fa-book-open text-emerald-600"></i> Leer Revista (Animación 3D)
+              </button>
+            <% } else if (conversatorio.revistaFlipbook) { %>
+              <a href="<%= conversatorio.revistaFlipbook %>" target="_blank" class="bg-white hover:bg-slate-200 text-slate-950 font-black py-3.5 px-6 rounded-2xl transition text-xs flex items-center gap-2 shadow-md">
+                <i class="fa-solid fa-book-open"></i> Leer Revista de Profesionales Ecuador
+              </a>
+            <% } %>
+            <% if (conversatorio.revistaPdf) { %>
+              <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>/revista.pdf" download="Revista_Profesionales_Ecuador.pdf" class="bg-slate-800 hover:bg-slate-700 text-white font-black py-3.5 px-6 rounded-2xl transition text-xs flex items-center gap-2 border border-slate-750">
+                <i class="fa-solid fa-file-pdf text-rose-500"></i> Descargar Revista PDF
+              </a>
+            <% } %>
+          </div>
+        </div>
+        <div class="lg:col-span-4 flex justify-center">
+          <% if (conversatorio.revistaPortada) { %>
+            <div class="w-full max-w-[200px] aspect-[3/4] rounded-2xl overflow-hidden bg-slate-900 border border-slate-850 shadow-2xl hover:scale-102 transition duration-300">
+              <img src="<%= conversatorio.revistaPortada %>" class="w-full h-full object-cover">
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Itinerary Schedule Section -->
+    <section class="flex flex-col gap-6 mt-6">
+      <div class="flex flex-col text-center gap-1.5 mb-2">
+        <span class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Cronograma Detallado</span>
+        <h2 class="text-3xl font-black text-slate-950 uppercase tracking-tight">
+          <%= conversatorio.estado === 'FINALIZADO' ? (isOnline ? 'Grabaciones del Conversatorio' : 'Revive el Conversatorio') : 'Agenda y Cronograma' %>
+        </h2>
+      </div>
+
+      <div class="flex flex-col gap-8" id="conversatorio-days-list">
+        <% if (conversatorio.itinerary && conversatorio.itinerary.length > 0) { %>
+          <% conversatorio.itinerary.forEach(function(day, idx) { %>
+            
+            <!-- Day Container -->
+            <div class="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm hover:shadow transition duration-200">
+              
+              <!-- Day Header -->
+              <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500 text-white font-black text-sm flex items-center justify-center shadow-inner">
+                  <%= idx + 1 %>
+                </div>
+                <div class="flex flex-col">
+                  <h3 class="text-base font-black text-slate-900 leading-none uppercase"><%= day.nombre || 'Día ' + (idx + 1) %></h3>
+                  <span class="text-[10px] font-extrabold text-slate-400 mt-1.5 flex items-center gap-1.5 uppercase">
+                    <i class="fa-regular fa-clock text-[9px] text-slate-400"></i> Horario: <%= day.horaInicio %> - <%= day.horaFin %>
+                  </span>
+                </div>
+              </div>
+              
+              <!-- Speakers Grid -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <% 
+                  // Strictly match speakers to their exact assigned dayIndex without cross-day leakage
+                  const targetDayIndex = typeof day.computedIndex === 'number' ? day.computedIndex : ((typeof day.orden !== 'undefined' && day.orden !== null) ? Number(day.orden) : idx);
+                  const daySpeakers = (conversatorio.speakers || []).filter(function(s) {
+                    const sIndex = (s.dayIndex !== null && s.dayIndex !== undefined) ? Number(s.dayIndex) : 0;
+                    return sIndex === targetDayIndex;
+                  });
+                %>
+                <% if (daySpeakers && daySpeakers.length > 0) { %>
+                  <% daySpeakers.forEach(function(sp) { %>
+                    
+                    <!-- Speaker Card Link -->
+                    <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>/ponentes/<%= sp.slug || sp.id %>" class="bg-slate-50/50 hover:bg-white border border-slate-100 hover:border-[#0252A4]/20 rounded-2xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition duration-200 flex gap-4 cursor-pointer relative">
+                      <% if (sp.gratuita) { %>
+                        <span class="absolute top-3 right-3 bg-emerald-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm z-10">GRATIS</span>
+                      <% } %>
+                      <div class="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0 shadow-inner">
+                        <img src="<%= sp.foto || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200' %>" class="w-full h-full object-cover" alt="<%= sp.nombre %>">
+                      </div>
+                      <div class="flex flex-col gap-0.5 min-w-0">
+                        <h4 class="text-sm font-extrabold text-slate-900 leading-snug truncate uppercase"><%= sp.nombre %></h4>
+                        <div class="flex items-center gap-2 mt-0.5">
+                          <span class="bg-emerald-50 text-emerald-700 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-emerald-100"><%= sp.profesion || 'Ponente Invitado' %></span>
+                          <span class="text-[9px] font-bold text-slate-450 flex items-center gap-1"><i class="fa-regular fa-clock text-[8px] text-slate-400"></i> <%= sp.horario || 'Por definir' %></span>
+                        </div>
+                        <span class="text-[9px] font-black text-slate-400 mt-2 uppercase tracking-wider leading-none">Tema a exponer:</span>
+                        <p class="text-xs font-bold text-slate-650 mt-0.5 leading-snug line-clamp-2"><%= sp.tema || 'Tema por definir.' %></p>
+                      </div>
+                    </a>
+
+                  <% }); %>
+                <% } else { %>
+                  <div class="col-span-full py-6 text-center text-slate-400 font-bold text-xs bg-slate-50/30 rounded-2xl border border-dashed border-slate-200">
+                    <i class="fa-solid fa-users-slash text-base mb-1.5 text-slate-300 block"></i>
+                    No hay ponentes registrados para este día.
+                  </div>
+                <% } %>
+              </div>
+
+            </div>
+
+          <% }); %>
+        <% } else { %>
+          <div class="text-center py-12 bg-white border border-slate-100 rounded-3xl text-slate-400 flex flex-col items-center justify-center shadow-sm">
+            <i class="fa-solid fa-calendar-xmark text-3xl mb-2 text-slate-350"></i>
+            <span class="text-xs font-bold">El itinerario de este evento aún no ha sido cargado.</span>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <%- include('partials/agreement-carousel', {
+      agreements: conversatorioAgreements,
+      title: 'Gracias A',
+      carouselId: 'conversatorio-agreements-carousel',
+      prevId: 'conversatorio-agr-prev',
+      nextId: 'conversatorio-agr-next',
+      dotClass: 'conversatorio-agr-dot'
+    }) %>
+
+  </main>
+
+  <!-- Modal: 3D Flipbook Viewer -->
+  <div id="flipbook-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md hidden flex flex-col items-center justify-center p-0" style="z-index: 2000;">
+    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-3 text-white z-50">
+      <span class="text-[10px] md:text-xs font-black uppercase tracking-widest bg-white/10 border border-white/10 rounded-full px-3 py-2">Revista Científica Profesionales Ecuador</span>
+      <div class="flex items-center gap-2">
+        <button onclick="zoomFlipbook(-0.1)" aria-label="Alejar revista" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 shadow cursor-pointer text-sm">
+          <i class="fa-solid fa-magnifying-glass-minus"></i>
+        </button>
+        <span id="zoom-display" class="min-w-14 text-center text-[10px] font-black tracking-widest bg-white/10 border border-white/10 rounded-full px-3 py-2">100%</span>
+        <button onclick="zoomFlipbook(0.1)" aria-label="Acercar revista" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 shadow cursor-pointer text-sm">
+          <i class="fa-solid fa-magnifying-glass-plus"></i>
+        </button>
+        <button onclick="closeFlipbook()" aria-label="Cerrar revista" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 shadow cursor-pointer text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Flipbook Container -->
+    <div class="flex-grow flex items-center justify-center w-full relative px-2 pt-16 pb-20 overflow-auto">
+      <!-- Loading indicator -->
+      <div id="flipbook-loading" class="flex flex-col items-center gap-3 text-white">
+        <i class="fa-solid fa-spinner animate-spin text-4xl text-emerald-450"></i>
+        <p class="text-sm font-black tracking-wide uppercase">Iniciando Revista 3D...</p>
+      </div>
+
+      <!-- Book Viewport -->
+      <div id="book-viewport" class="hidden relative select-none" style="perspective: 1800px;">
+        <div id="book-container" class="relative transition-transform duration-500" style="transform-style: preserve-3d; width: 900px; height: 580px;">
+          <!-- Pages dynamically created here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="flipbook-controls" class="hidden fixed left-0 right-0 bottom-3 flex items-center justify-center gap-4 px-3 text-white z-50">
+      <button onclick="prevPage()" aria-label="Página anterior" class="w-12 h-12 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white flex items-center justify-center border border-slate-850 transition cursor-pointer text-sm font-black shadow-lg">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <span id="page-num-display" class="text-[10px] md:text-xs font-black tracking-widest uppercase bg-slate-900/80 px-4 py-3 rounded-full border border-slate-800">Cargando...</span>
+      <button onclick="nextPage()" aria-label="Página siguiente" class="w-12 h-12 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white flex items-center justify-center border border-slate-850 transition cursor-pointer text-sm font-black shadow-lg">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <style>
+    #book-viewport:not(.hidden) {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+    .fb-sheet {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 50%;
+      height: 100%;
+      transform-origin: left center;
+      transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+      transform-style: preserve-3d;
+      z-index: 1;
+    }
+    .fb-sheet.flipped {
+      transform: rotateY(-180deg);
+    }
+    .fb-page {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      background-color: white;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .fb-page::before {
+      content: "CARGANDO PÁGINA...";
+      position: absolute;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      z-index: 0;
+    }
+    .fb-page:has(> .fb-page-padding)::before,
+    .fb-page > .fb-page-padding {
+      content: none;
+    }
+    .fb-page > .fb-page-padding {
+      position: relative;
+      z-index: 1;
+    }
+    .fb-page-front {
+      z-index: 2;
+      border-radius: 0 16px 16px 0;
+    }
+    .fb-page-back {
+      transform: rotateY(180deg);
+      z-index: 1;
+      border-radius: 16px 0 0 16px;
+    }
+    .fb-page canvas {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: white;
+    }
+  </style>
+
+  <script>
+    let pdfDoc = null;
+    let currentSheetIndex = -1;
+    let totalSheets = 0;
+    let sheetsArray = [];
+    let renderedPages = new Set();
+    let pdfJsPromise = null;
+    let flipbookZoom = 1;
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const existingScript = document.querySelector(`script[src="${src}"]`);
+        if (existingScript) {
+          existingScript.addEventListener('load', resolve, { once: true });
+          existingScript.addEventListener('error', reject, { once: true });
+          if (window.pdfjsLib) resolve();
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    async function ensurePdfJs() {
+      if (!pdfJsPromise) {
+        pdfJsPromise = loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js').then(() => {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        });
+      }
+
+      return pdfJsPromise;
+    }
+
+    async function openFlipbook(pdfUrl) {
+      document.getElementById('flipbook-modal').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+
+      // Reset components
+      const loadingElement = document.getElementById('flipbook-loading');
+      loadingElement.innerHTML = `
+        <i class="fa-solid fa-spinner animate-spin text-4xl text-emerald-450"></i>
+        <p class="text-sm font-black tracking-wide uppercase">Iniciando Revista 3D...</p>
+      `;
+      loadingElement.classList.remove('hidden');
+      document.getElementById('book-viewport').classList.add('hidden');
+      document.getElementById('flipbook-controls').classList.add('hidden');
+      document.getElementById('book-container').innerHTML = '';
+      renderedPages.clear();
+      flipbookZoom = 1;
+      updateFlipbookZoom();
+
+      try {
+        await ensurePdfJs();
+        const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
+        pdfDoc = await loadingTask.promise;
+        const numPages = pdfDoc.numPages;
+
+        totalSheets = Math.ceil(numPages / 2);
+        sheetsArray = [];
+
+        // Dynamic adjustment for small screens
+        const viewportWidth = Math.min(window.innerWidth - 24, 1400);
+        const viewportHeight = Math.max(420, window.innerHeight - 132);
+        const bookContainer = document.getElementById('book-container');
+        bookContainer.style.width = viewportWidth + 'px';
+        bookContainer.style.height = viewportHeight + 'px';
+
+        // Create sheets structure
+        for (let i = 0; i < totalSheets; i++) {
+          const sheet = document.createElement('div');
+          sheet.className = 'fb-sheet';
+          sheet.style.zIndex = totalSheets - i;
+
+          // Front Page (Right page when unflipped, i.e., page 2i+1)
+          const pageFrontNum = 2 * i + 1;
+          const pageFront = document.createElement('div');
+          pageFront.className = 'fb-page fb-page-front';
+          if (pageFrontNum <= numPages) {
+            const canvas = document.createElement('canvas');
+            canvas.id = `page-canvas-${pageFrontNum}`;
+            pageFront.appendChild(canvas);
+          } else {
+            pageFront.innerHTML = '<div class="fb-page-padding w-full h-full bg-slate-50 border border-slate-200"></div>';
+          }
+
+          // Back Page (Left page when flipped, i.e., page 2i+2)
+          const pageBackNum = 2 * i + 2;
+          const pageBack = document.createElement('div');
+          pageBack.className = 'fb-page fb-page-back';
+          if (pageBackNum <= numPages) {
+            const canvas = document.createElement('canvas');
+            canvas.id = `page-canvas-${pageBackNum}`;
+            pageBack.appendChild(canvas);
+          } else {
+            pageBack.innerHTML = '<div class="fb-page-padding w-full h-full bg-slate-50 border border-slate-200"></div>';
+          }
+
+          sheet.appendChild(pageFront);
+          sheet.appendChild(pageBack);
+          bookContainer.appendChild(sheet);
+          sheetsArray.push(sheet);
+        }
+
+        currentSheetIndex = -1;
+        updateSheetsZIndex();
+
+        document.getElementById('flipbook-loading').classList.add('hidden');
+        document.getElementById('book-viewport').classList.remove('hidden');
+        document.getElementById('flipbook-controls').classList.remove('hidden');
+        updatePageCounter();
+
+        // Render visible pages immediately, rest in background
+        await renderPageNum(1);
+        if (numPages >= 2) await renderPageNum(2);
+        if (numPages >= 3) await renderPageNum(3);
+
+        renderRemainingPagesBackground(numPages);
+      } catch (error) {
+        console.error('Error initializing flipbook:', error);
+        document.getElementById('flipbook-loading').innerHTML = `
+          <i class="fa-solid fa-triangle-exclamation text-3xl text-rose-500 mb-2"></i>
+          <p class="text-xs font-bold text-slate-300 uppercase">Error al procesar la revista PDF.</p>
+        `;
+      }
+    }
+
+    function updateFlipbookZoom() {
+      const bookContainer = document.getElementById('book-container');
+      const zoomDisplay = document.getElementById('zoom-display');
+      bookContainer.style.transform = `scale(${flipbookZoom})`;
+      bookContainer.style.transformOrigin = 'center center';
+      zoomDisplay.innerText = `${Math.round(flipbookZoom * 100)}%`;
+    }
+
+    function zoomFlipbook(delta) {
+      flipbookZoom = Math.min(1.8, Math.max(0.7, Number((flipbookZoom + delta).toFixed(2))));
+      updateFlipbookZoom();
+    }
+
+    async function renderPageNum(pageNum) {
+      if (renderedPages.has(pageNum)) return;
+      renderedPages.add(pageNum);
+
+      const canvas = document.getElementById(`page-canvas-${pageNum}`);
+      if (!canvas) return;
+
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport
+        };
+        await page.render(renderContext).promise;
+      } catch (error) {
+        console.error(`Error rendering page ${pageNum}:`, error);
+        renderedPages.delete(pageNum);
+      }
+    }
+
+    async function renderRemainingPagesBackground(numPages) {
+      for (let p = 4; p <= numPages; p++) {
+        await renderPageNum(p);
+      }
+    }
+
+    function updateSheetsZIndex() {
+      sheetsArray.forEach((sheet, idx) => {
+        if (idx <= currentSheetIndex) {
+          sheet.classList.add('flipped');
+          sheet.style.zIndex = idx + 1;
+        } else {
+          sheet.classList.remove('flipped');
+          sheet.style.zIndex = totalSheets - idx;
+        }
+      });
+    }
+
+    function updatePageCounter() {
+      const pageDisplay = document.getElementById('page-num-display');
+      if (currentSheetIndex === -1) {
+        pageDisplay.innerText = 'Portada (Pág. 1)';
+      } else {
+        const leftPage = 2 * currentSheetIndex + 2;
+        const rightPage = leftPage + 1;
+        const total = pdfDoc.numPages;
+        if (leftPage >= total) {
+          pageDisplay.innerText = `Pág. ${total} / ${total}`;
+        } else {
+          pageDisplay.innerText = `Pág. ${leftPage} - ${Math.min(rightPage, total)} / ${total}`;
+        }
+      }
+    }
+
+    function nextPage() {
+      if (currentSheetIndex < totalSheets - 1) {
+        currentSheetIndex++;
+        updateSheetsZIndex();
+        updatePageCounter();
+      }
+    }
+
+    function prevPage() {
+      if (currentSheetIndex >= 0) {
+        currentSheetIndex--;
+        updateSheetsZIndex();
+        updatePageCounter();
+      }
+    }
+
+    function closeFlipbook() {
+      document.getElementById('flipbook-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      document.getElementById('book-container').innerHTML = '';
+      renderedPages.clear();
+      sheetsArray = [];
+      if (pdfDoc) {
+        pdfDoc.destroy();
+        pdfDoc = null;
+      }
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !document.getElementById('flipbook-modal').classList.contains('hidden')) {
+        closeFlipbook();
+      }
+    });
+  </script>
+
+  <!-- Modal: Auth (Login/Register) -->
+  <div id="auth-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 transform transition-all duration-300 scale-95 opacity-0 active-modal-animation">
+      <!-- Modal Header -->
+      <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-slate-50">
+        <h3 class="font-extrabold text-sm text-[#0A3C84] uppercase tracking-wide">Acceso Participantes</h3>
+        <button onclick="closeAuthModal()" class="w-8 h-8 rounded-full bg-slate-200/50 hover:bg-slate-250 text-slate-500 hover:text-slate-800 flex items-center justify-center transition border border-slate-200/20 cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="flex border-b border-slate-100 text-xs font-black uppercase">
+        <button id="tab-btn-login" onclick="switchAuthTab('login')" class="flex-1 py-4 text-center border-b-2 border-[#0252A4] text-[#0252A4] cursor-pointer transition">
+          Iniciar Sesión
+        </button>
+        <button id="tab-btn-register" onclick="switchAuthTab('register')" class="flex-1 py-4 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 cursor-pointer transition">
+          Crear Cuenta
+        </button>
+      </div>
+
+      <!-- Error Alert Container -->
+      <div id="auth-error-alert" class="hidden mx-6 mt-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[11px] font-bold flex items-center gap-2">
+        <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+        <span id="auth-error-text"></span>
+      </div>
+
+      <!-- Login Form container -->
+      <div id="form-login-container" class="p-6 flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-black text-slate-500 uppercase">Correo Electrónico</label>
+          <input type="email" id="login-email" placeholder="correo@ejemplo.com" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-semibold outline-none focus:bg-white focus:border-[#0252A4] transition">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-black text-slate-500 uppercase">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="login-password" placeholder="••••••••" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 pl-4 pr-10 text-xs font-semibold outline-none focus:bg-white focus:border-[#0252A4] transition">
+            <button type="button" onclick="togglePasswordVisibility('login-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer bg-transparent border-none p-0 leading-none">
+              <i class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+        </div>
+        <button onclick="submitLogin()" class="w-full bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer mt-2">
+          <span id="login-btn-text">Iniciar Sesión</span>
+          <i class="fa-solid fa-arrow-right" id="login-btn-icon"></i>
+        </button>
+      </div>
+
+      <!-- Register Form container -->
+      <div id="form-register-container" class="p-6 flex flex-col gap-4 hidden">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-black text-slate-500 uppercase">Nombre Completo</label>
+          <input type="text" id="register-name" placeholder="Juan Pérez" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-semibold outline-none focus:bg-white focus:border-[#0252A4] transition">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-black text-slate-500 uppercase">Correo Electrónico</label>
+          <input type="email" id="register-email" placeholder="correo@ejemplo.com" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-semibold outline-none focus:bg-white focus:border-[#0252A4] transition">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-black text-slate-500 uppercase">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="register-password" placeholder="Mínimo 6 caracteres" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 pl-4 pr-10 text-xs font-semibold outline-none focus:bg-white focus:border-[#0252A4] transition">
+            <button type="button" onclick="togglePasswordVisibility('register-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer bg-transparent border-none p-0 leading-none">
+              <i class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+        </div>
+        <button onclick="submitRegister()" class="w-full bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3.5 px-6 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer mt-2">
+          <span id="register-btn-text">Crear Cuenta</span>
+          <i class="fa-solid fa-user-plus" id="register-btn-icon"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Payment Checkout -->
+  <% 
+    const modalDesign = conversatorio.certificateDesign;
+    const modalPrice = conversatorio.gratuito ? 0 : (conversatorio.precio || 0);
+  %>
+  <div id="payment-modal" class="fixed inset-0 z-[1200] flex items-center justify-center p-4 sm:p-6 overflow-x-hidden bg-slate-950/40 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[calc(100dvh-8rem)] shadow-2xl overflow-hidden border border-slate-100 transform transition-all duration-300 scale-95 opacity-0 active-modal-animation flex flex-col">
+      <!-- Modal Header -->
+      <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="font-extrabold text-sm text-[#0A3C84] uppercase tracking-wide">Adquirir Certificado</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase mt-0.5"><%= conversatorio.titulo %></p>
+        </div>
+        <button onclick="closePaymentModal()" class="w-8 h-8 rounded-full bg-slate-200/50 hover:bg-slate-250 text-slate-500 hover:text-slate-800 flex items-center justify-center transition border border-slate-200/20 cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Price indicator -->
+      <div class="bg-gradient-to-r from-slate-950 to-slate-900 text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex flex-col">
+          <span class="text-[8px] font-black text-emerald-400 uppercase tracking-widest leading-none">Certificado Acreditado</span>
+          <span class="text-[11px] font-bold text-slate-300 mt-1"><%= modalDesign ? modalDesign.horas : 40 %> Horas Académicas</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[9px] font-black text-slate-400 block uppercase leading-none">Total a Pagar</span>
+          <span class="text-lg font-black text-emerald-400">$<%= modalPrice.toFixed(2) %></span>
+        </div>
+      </div>
+
+      <!-- STEP 1: Name Input -->
+      <div id="payment-step-name" class="p-6 flex flex-col gap-4 overflow-y-auto overflow-x-hidden min-h-0 flex-1">
+        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paso 1: Nombre en el Certificado</span>
+        
+        <div class="bg-[#0252A4]/5 border border-[#0252A4]/10 rounded-2xl p-4 flex flex-col gap-1.5 text-slate-700 text-xs font-semibold leading-relaxed">
+          <div class="flex items-center gap-2 text-[#0252A4] font-black text-[10px] uppercase tracking-wider mb-0.5">
+            <i class="fa-solid fa-user-pen"></i> Nombre Acreditado
+          </div>
+          <p class="text-[10px] font-medium text-slate-500">
+            Escriba el nombre completo tal como desea que se imprima y registre en el código de verificación del certificado (incluyendo títulos como Dr., Ing., Lcdo., etc. si lo desea).
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-black text-slate-500 uppercase">Nombre para el Certificado</label>
+          <input type="text" id="cert-nombre-usuario" placeholder="Ej: Dr. Juan Pérez" value="<%= user ? (user.nombreCertificado || user.name) : '' %>" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-[#0252A4] transition uppercase">
+        </div>
+
+        <!-- Name Error Alert Container -->
+        <div id="payment-name-error-alert" class="hidden p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[11px] font-bold flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+          <span id="payment-name-error-text">Por favor, ingrese el nombre para el certificado.</span>
+        </div>
+
+        <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100">
+          <button onclick="goToPaymentStep()" class="w-full bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-4 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+            <span>Continuar al Pago</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Payment Details -->
+      <div id="payment-step-details" class="hidden flex flex-col gap-4 overflow-y-auto overflow-x-hidden min-h-0 flex-1">
+        <!-- Display selected name for review -->
+        <div class="px-6 py-3 bg-[#0252A4]/5 border-b border-slate-100 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2 text-slate-600 font-medium">
+            <i class="fa-solid fa-award text-[#0252A4]"></i>
+            <span>Certificado para: <strong id="summary-cert-name" class="text-slate-800 uppercase"></strong></span>
+          </div>
+          <button onclick="goToNameStep()" class="text-[#0252A4] hover:text-[#023E7D] font-extrabold text-[10px] uppercase tracking-wider cursor-pointer">
+            <i class="fa-solid fa-pen"></i> Cambiar
+          </button>
+        </div>
+
+        <!-- Payment Method Selector Tabs -->
+        <div class="p-6 border-b border-slate-100 flex flex-col gap-2 bg-slate-50/50">
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seleccione método de pago</span>
+          <div class="grid grid-cols-3 gap-3">
+            <!-- Bank Transfer -->
+            <button id="pay-tab-transfer" onclick="switchPaymentTab('transfer')" class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border-2 border-[#0252A4] bg-white text-[#0252A4] hover:shadow transition cursor-pointer text-center">
+              <i class="fa-solid fa-building-columns text-base"></i>
+              <span class="text-[9px] font-black uppercase tracking-wide leading-none">Transferencia</span>
+            </button>
+            <!-- PayPhone -->
+            <button id="pay-tab-payphone" onclick="switchPaymentTab('payphone')" class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border-2 border-slate-100 bg-white text-slate-500 hover:text-orange-500 hover:border-orange-100 hover:shadow transition cursor-pointer text-center">
+              <i class="fa-solid fa-mobile-screen-button text-base"></i>
+              <span class="text-[9px] font-black uppercase tracking-wide leading-none">PayPhone</span>
+            </button>
+            <!-- Kushki -->
+            <button id="pay-tab-kushki" onclick="switchPaymentTab('kushki')" class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border-2 border-slate-100 bg-white text-slate-500 hover:text-red-500 hover:border-red-100 hover:shadow transition cursor-pointer text-center">
+              <i class="fa-solid fa-credit-card text-base"></i>
+              <span class="text-[9px] font-black uppercase tracking-wide leading-none">Kushki</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error Alert Container -->
+        <div id="payment-error-alert" class="hidden mx-6 mt-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[11px] font-bold flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+          <span id="payment-error-text"></span>
+        </div>
+
+        <!-- Payment Method Content Panels -->
+        <div class="p-6 flex flex-col gap-4">
+          
+          <!-- Panel 1: Bank Transfer -->
+          <div id="panel-transfer" class="flex flex-col gap-4">
+            <%- include('partials/transfer-bank-account-selector', { activeBankAccounts, legacyBankAccounts: systemConfig.bankAccounts, selectId: 'transfer-bank-account', cardId: 'transfer-bank-account-card', inputName: 'bankAccountId', selectedId: '' }) %>
+
+            <div class="grid grid-cols-2 gap-4">
+              <% if (!Array.isArray(activeBankAccounts) || activeBankAccounts.length === 0) { %>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] font-black text-slate-500 uppercase">Banco Utilizado</label>
+                <select id="transfer-banco" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-3.5 text-xs font-bold outline-none focus:bg-white focus:border-[#0252A4] transition cursor-pointer">
+                  <option value="Banco Pichincha">Banco Pichincha</option>
+                  <option value="Banco Guayaquil">Banco Guayaquil</option>
+                  <option value="Banco del Pacífico">Banco del Pacífico</option>
+                  <option value="Produbanco">Produbanco</option>
+                  <option value="Cooperativa JEP">Cooperativa JEP</option>
+                  <option value="Otro / Transferencia Directa">Otro / Cooperativa</option>
+                </select>
+              </div>
+              <% } %>
+              <div class="flex flex-col gap-1.5 col-span-2">
+                <label class="text-[11px] font-black text-slate-500 uppercase">Referencia / Comprobante</label>
+                <input type="text" id="transfer-ref" placeholder="Ej: 1293847" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-semibold outline-none focus:bg-white focus:border-[#0252A4] transition text-center font-bold">
+              </div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label for="transfer-comprobante" class="text-[11px] font-black text-slate-500 uppercase">Comprobante de Pago (Imagen)</label>
+              <label id="transfer-comprobante-dropzone" for="transfer-comprobante" class="group border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-[#0252A4] rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition">
+                <input type="file" id="transfer-comprobante" accept="image/*" class="sr-only">
+                <div class="h-11 w-11 rounded-full bg-[#0252A4]/10 text-[#0252A4] flex items-center justify-center group-hover:scale-105 transition">
+                  <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <span id="transfer-comprobante-label" class="text-[11px] font-black text-slate-700 uppercase tracking-wide">Haz clic o arrastra tu comprobante aquí</span>
+                  <span class="text-[9px] text-slate-400 font-semibold">JPG, PNG o captura de pantalla</span>
+                </div>
+              </label>
+              <div id="transfer-comprobante-preview-wrap" class="hidden rounded-2xl border border-slate-150 bg-white p-2">
+                <img id="transfer-comprobante-preview" src="" alt="Vista previa del comprobante seleccionado" class="max-h-44 w-full object-contain rounded-xl">
+              </div>
+              <p class="text-[9px] text-slate-400 font-medium leading-tight">Suba una foto o captura clara del comprobante de transferencia bancaria (obligatorio).</p>
+            </div>
+          </div>
+
+          <!-- Panel 2: PayPhone (redirect to real gateway) -->
+          <div id="panel-payphone" class="flex flex-col gap-4 hidden">
+            <p class="text-[10px] font-medium text-slate-500">
+              Serás redirigido a la pasarela de pago segura de PayPhone para completar tu pago con tarjeta de crédito/débito.
+            </p>
+            <button onclick="iniciarPagoPayPhone({ itemType: 'CERTIFICATE', itemId: <%= conversatorio.id %>, baseAmount: Number('<%= modalPrice %>'), hasTax: true, productName: 'Certificado - <%= (conversatorio.titulo || '').replace(/'/g, "\\'") %>' })" class="bg-[#0252A4] hover:bg-[#023E7D] text-white font-extrabold py-3 rounded-2xl text-xs transition shadow-sm text-center cursor-pointer">
+              Pagar con PayPhone
+            </button>
+          </div>
+
+          <!-- Panel 3: Kushki Card -->
+          <div id="panel-kushki" class="flex flex-col gap-4 hidden">
+            <div class="bg-red-50/50 border border-red-100/50 rounded-2xl p-4 flex flex-col gap-1 text-slate-700 text-xs font-semibold leading-relaxed">
+              <div class="flex items-center gap-2 text-red-600 font-black text-[10px] uppercase tracking-wider mb-0.5">
+                <i class="fa-solid fa-shield-halved"></i> Pasarela Segura Kushki
+              </div>
+              <p class="text-[10px] font-medium text-slate-500">Aceptamos todas las tarjetas de crédito y débito nacionales e internacionales.</p>
+            </div>
+            
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] font-black text-slate-500 uppercase">Nombre en la Tarjeta</label>
+              <input type="text" id="kushki-name" placeholder="JUAN PEREZ" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-semibold outline-none focus:bg-white focus:border-red-500 transition uppercase font-bold">
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] font-black text-slate-500 uppercase">Número de Tarjeta</label>
+              <div class="relative">
+                <i class="fa-solid fa-credit-card absolute right-4 top-3.5 text-slate-400 text-sm"></i>
+                <input type="text" id="kushki-number" placeholder="4000 1234 5678 9010" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-red-500 transition tracking-widest">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] font-black text-slate-500 uppercase">Vencimiento</label>
+                <input type="text" id="kushki-expiry" placeholder="MM/YY" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-semibold outline-none focus:bg-white focus:border-red-500 transition text-center font-bold">
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] font-black text-slate-500 uppercase">CVV / CVC</label>
+                <input type="password" id="kushki-cvv" placeholder="•••" maxlength="4" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-semibold outline-none focus:bg-white focus:border-red-500 transition text-center font-bold">
+              </div>
+            </div>
+          </div>
+
+          <!-- Checkout Action Button (hidden for PayPhone, which has its own gateway button) -->
+          <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100">
+            <button id="checkout-submit-btn" onclick="submitCheckoutPayment()" class="w-full bg-[#0A3C84] hover:bg-[#082C62] text-white font-extrabold py-4 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+              <span id="checkout-btn-text">Confirmar y Registrar Pago</span>
+              <i class="fa-solid fa-circle-check" id="checkout-btn-icon"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Free Certificate Name Prompt (mirrors paid Step 1, no payment step) -->
+  <div id="free-cert-modal" class="fixed inset-0 z-[1200] flex items-center justify-center p-4 sm:p-6 overflow-x-hidden bg-slate-950/40 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[calc(100dvh-8rem)] shadow-2xl overflow-hidden border border-slate-100 transform transition-all duration-300 scale-95 opacity-0 active-modal-animation flex flex-col">
+      <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="font-extrabold text-sm text-[#0A3C84] uppercase tracking-wide">Obtener Certificado Gratuito</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase mt-0.5"><%= conversatorio.titulo %></p>
+        </div>
+        <button onclick="closeFreeCertModal()" class="w-8 h-8 rounded-full bg-slate-200/50 hover:bg-slate-250 text-slate-500 hover:text-slate-800 flex items-center justify-center transition border border-slate-200/20 cursor-pointer">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <div class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex flex-col">
+          <span class="text-[8px] font-black text-emerald-200 uppercase tracking-widest leading-none">Certificado Acreditado</span>
+          <span class="text-[11px] font-bold text-slate-100 mt-1"><%= conversatorio.certificateDesign ? conversatorio.certificateDesign.horas : 40 %> Horas Académicas</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[9px] font-black text-slate-200 block uppercase leading-none">Costo</span>
+          <span class="text-lg font-black text-white">GRATUITO</span>
+        </div>
+      </div>
+
+      <div class="p-6 flex flex-col gap-4 overflow-y-auto overflow-x-hidden min-h-0 flex-1">
+        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre en el Certificado</span>
+
+        <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col gap-1.5 text-slate-700 text-xs font-semibold leading-relaxed">
+          <div class="flex items-center gap-2 text-emerald-700 font-black text-[10px] uppercase tracking-wider mb-0.5">
+            <i class="fa-solid fa-user-pen"></i> Nombre Acreditado
+          </div>
+          <p class="text-[10px] font-medium text-slate-500">
+            Escriba el nombre completo tal como desea que se imprima y registre en el código de verificación del certificado (incluyendo títulos como Dr., Ing., Lcdo., etc. si lo desea).
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="free-cert-nombre-usuario" class="text-[11px] font-black text-slate-500 uppercase">Nombre para el Certificado</label>
+          <input type="text" id="free-cert-nombre-usuario" placeholder="Ej: Dr. Juan Pérez" value="<%= user ? (user.nombreCertificado || user.name) : '' %>" class="w-full bg-slate-50 border border-slate-150 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:bg-white focus:border-emerald-600 transition uppercase">
+        </div>
+
+        <div id="free-cert-name-error-alert" class="hidden p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[11px] font-bold flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+          <span id="free-cert-name-error-text">Por favor, ingrese el nombre para el certificado.</span>
+        </div>
+
+        <div class="sticky bottom-0 -mx-6 px-6 pt-3 pb-1 bg-white border-t border-slate-100">
+          <button id="free-cert-confirm-btn" onclick="submitFreeCertificate()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-4 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+            <span id="free-cert-btn-text">Obtener Certificado</span>
+            <i class="fa-solid fa-award" id="free-cert-btn-icon"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Style tag for animations and active modal classes -->
+  <style>
+    .active-modal-animation {
+      animation: modalZoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes modalZoomIn {
+      from {
+        transform: scale(0.95);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    .text-amber-805 {
+      color: #92400e;
+    }
+    .bg-emerald-650 {
+      background-color: #059669;
+    }
+    .bg-emerald-650:hover {
+      background-color: #047857;
+    }
+  </style>
+  <%- include('partials/transfer-bank-account-js', { activeBankAccounts }) %>
+
+  <script>
+    let checkoutFlowTarget = 'buy';
+    let activePaymentMethod = 'transfer';
+
+    function toTitleCase(str) {
+      if (!str) return "";
+      return str
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const select = document.getElementById('transfer-bank-account');
+      if (select) {
+        select.addEventListener('change', function() { syncTransferBankAccountPaymentFields('transfer-bank-account', 'transfer-bank-account-card', 'transfer-ref', 'transfer-comprobante', 'transfer-comprobante-dropzone'); });
+        syncTransferBankAccountPaymentFields('transfer-bank-account', 'transfer-bank-account-card', 'transfer-ref', 'transfer-comprobante', 'transfer-comprobante-dropzone');
+      }
+    });
+
+    function openAuthModal(target) {
+      checkoutFlowTarget = target;
+      
+      const modal = document.getElementById('auth-modal');
+      const container = modal.querySelector('.transform');
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      
+      setTimeout(() => {
+        container.classList.remove('scale-95', 'opacity-0');
+      }, 50);
+      
+      // Reset errors and inputs
+      document.getElementById('auth-error-alert').classList.add('hidden');
+      document.getElementById('login-email').value = '';
+      document.getElementById('login-password').value = '';
+      document.getElementById('register-name').value = '';
+      document.getElementById('register-email').value = '';
+      document.getElementById('register-password').value = '';
+    }
+
+    function closeAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      const container = modal.querySelector('.active-modal-animation') || modal.querySelector('.transform');
+      container.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }, 200);
+    }
+
+    function switchAuthTab(tab) {
+      const loginTabBtn = document.getElementById('tab-btn-login');
+      const registerTabBtn = document.getElementById('tab-btn-register');
+      const loginForm = document.getElementById('form-login-container');
+      const registerForm = document.getElementById('form-register-container');
+      
+      document.getElementById('auth-error-alert').classList.add('hidden');
+      
+      if (tab === 'login') {
+        loginTabBtn.classList.add('border-[#0252A4]', 'text-[#0252A4]');
+        loginTabBtn.classList.remove('border-transparent', 'text-slate-400');
+        registerTabBtn.classList.remove('border-[#0252A4]', 'text-[#0252A4]');
+        registerTabBtn.classList.add('border-transparent', 'text-slate-400');
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+      } else {
+        registerTabBtn.classList.add('border-[#0252A4]', 'text-[#0252A4]');
+        registerTabBtn.classList.remove('border-transparent', 'text-slate-400');
+        loginTabBtn.classList.remove('border-[#0252A4]', 'text-[#0252A4]');
+        loginTabBtn.classList.add('border-transparent', 'text-slate-400');
+        registerForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+      }
+    }
+
+    async function submitLogin() {
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errorAlert = document.getElementById('auth-error-alert');
+      const errorText = document.getElementById('auth-error-text');
+      const btnText = document.getElementById('login-btn-text');
+      const btnIcon = document.getElementById('login-btn-icon');
+
+      if (!email || !password) {
+        errorText.innerText = "Por favor, complete todos los campos.";
+        errorAlert.classList.remove('hidden');
+        return;
+      }
+
+      errorAlert.classList.add('hidden');
+      btnText.innerText = "Iniciando...";
+      btnIcon.className = "fa-solid fa-spinner animate-spin";
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          closeAuthModal();
+          // Prefill name in certificate input if available
+          if (result.user && (result.user.nombreCertificado || result.user.name)) {
+            const certNameInput = document.getElementById('cert-nombre-usuario');
+            if (certNameInput) {
+              certNameInput.value = result.user.nombreCertificado || result.user.name;
+            }
+            const freeCertNameInput = document.getElementById('free-cert-nombre-usuario');
+            if (freeCertNameInput) {
+              freeCertNameInput.value = result.user.nombreCertificado || result.user.name;
+            }
+          }
+          if (checkoutFlowTarget === 'free') {
+            openFreeCertModal();
+          } else if (checkoutFlowTarget === 'buy' || checkoutFlowTarget === 'paid-cert') {
+            setTimeout(() => { openPaymentModal(); }, 300);
+          } else {
+            window.location.reload();
+          }
+        } else {
+          errorText.innerText = result.error || "Credenciales incorrectas.";
+          errorAlert.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        errorText.innerText = "Error de red al conectar al servidor.";
+        errorAlert.classList.remove('hidden');
+      } finally {
+        btnText.innerText = "Iniciar Sesión";
+        btnIcon.className = "fa-solid fa-arrow-right";
+      }
+    }
+
+    async function submitRegister() {
+      const name = document.getElementById('register-name').value.trim();
+      const email = document.getElementById('register-email').value.trim();
+      const password = document.getElementById('register-password').value;
+      const errorAlert = document.getElementById('auth-error-alert');
+      const errorText = document.getElementById('auth-error-text');
+      const btnText = document.getElementById('register-btn-text');
+      const btnIcon = document.getElementById('register-btn-icon');
+
+      if (!name || !email || !password) {
+        errorText.innerText = "Por favor, complete todos los campos.";
+        errorAlert.classList.remove('hidden');
+        return;
+      }
+
+      if (password.length < 6) {
+        errorText.innerText = "La contraseña debe tener al menos 6 caracteres.";
+        errorAlert.classList.remove('hidden');
+        return;
+      }
+
+      errorAlert.classList.add('hidden');
+      btnText.innerText = "Creando Cuenta...";
+      btnIcon.className = "fa-solid fa-spinner animate-spin";
+
+      try {
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          closeAuthModal();
+          // Prefill name in certificate input if available
+          if (result.user && (result.user.nombreCertificado || result.user.name)) {
+            const certNameInput = document.getElementById('cert-nombre-usuario');
+            if (certNameInput) {
+              certNameInput.value = result.user.nombreCertificado || result.user.name;
+            }
+            const freeCertNameInput = document.getElementById('free-cert-nombre-usuario');
+            if (freeCertNameInput) {
+              freeCertNameInput.value = result.user.nombreCertificado || result.user.name;
+            }
+          }
+          if (checkoutFlowTarget === 'free') {
+            openFreeCertModal();
+          } else if (checkoutFlowTarget === 'buy' || checkoutFlowTarget === 'paid-cert') {
+            setTimeout(() => { openPaymentModal(); }, 300);
+          } else {
+            window.location.reload();
+          }
+        } else {
+          errorText.innerText = result.error || "Error al crear la cuenta.";
+          errorAlert.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        errorText.innerText = "Error de red al conectar al servidor.";
+        errorAlert.classList.remove('hidden');
+      } finally {
+        btnText.innerText = "Crear Cuenta";
+        btnIcon.className = "fa-solid fa-user-plus";
+      }
+    }
+
+    function openPaymentModal() {
+      const modal = document.getElementById('payment-modal');
+      const container = modal.querySelector('.transform');
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      
+      setTimeout(() => {
+        container.classList.remove('scale-95', 'opacity-0');
+      }, 50);
+
+      // Reset to Step 1
+      goToNameStep();
+
+      document.getElementById('payment-error-alert').classList.add('hidden');
+      document.getElementById('payment-name-error-alert').classList.add('hidden');
+      document.getElementById('transfer-ref').value = '';
+      const payphonePhone = document.getElementById('payphone-phone');
+      if (payphonePhone) payphonePhone.value = '';
+      document.getElementById('kushki-name').value = '';
+      document.getElementById('kushki-number').value = '';
+      document.getElementById('kushki-expiry').value = '';
+      document.getElementById('kushki-cvv').value = '';
+    }
+
+    function closePaymentModal() {
+      const modal = document.getElementById('payment-modal');
+      const container = modal.querySelector('.active-modal-animation') || modal.querySelector('.transform');
+      container.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }, 200);
+    }
+
+    function goToNameStep() {
+      document.getElementById('payment-step-name').classList.remove('hidden');
+      document.getElementById('payment-step-details').classList.add('hidden');
+    }
+
+    function goToPaymentStep() {
+      const rawNombreUsuario = document.getElementById('cert-nombre-usuario').value.trim();
+      const nombreUsuario = toTitleCase(rawNombreUsuario);
+      const nameErrorAlert = document.getElementById('payment-name-error-alert');
+      
+      if (!nombreUsuario) {
+        nameErrorAlert.classList.remove('hidden');
+        return;
+      }
+      
+      nameErrorAlert.classList.add('hidden');
+      
+      // Update input field visual value to Title Case
+      document.getElementById('cert-nombre-usuario').value = nombreUsuario;
+      document.getElementById('summary-cert-name').innerText = nombreUsuario;
+      
+      document.getElementById('payment-step-name').classList.add('hidden');
+      document.getElementById('payment-step-details').classList.remove('hidden');
+      
+      // Default to transfer tab when showing step 2
+      switchPaymentTab('transfer');
+    }
+
+    function switchPaymentTab(method) {
+      activePaymentMethod = method;
+      
+      const btnTransfer = document.getElementById('pay-tab-transfer');
+      const btnPayphone = document.getElementById('pay-tab-payphone');
+      const btnKushki = document.getElementById('pay-tab-kushki');
+      
+      const panelTransfer = document.getElementById('panel-transfer');
+      const panelPayphone = document.getElementById('panel-payphone');
+      const panelKushki = document.getElementById('panel-kushki');
+      const checkoutSubmitBtn = document.getElementById('checkout-submit-btn');
+      
+      const activeBorder = 'border-[#0252A4]';
+      const activeText = 'text-[#0252A4]';
+      const inactiveBorder = 'border-slate-100';
+      const inactiveText = 'text-slate-500';
+
+      btnTransfer.className = btnTransfer.className.replace(activeBorder, inactiveBorder).replace(activeText, inactiveText);
+      btnPayphone.className = btnPayphone.className.replace(activeBorder, inactiveBorder).replace(activeText, inactiveText);
+      btnKushki.className = btnKushki.className.replace(activeBorder, inactiveBorder).replace(activeText, inactiveText);
+      
+      panelTransfer.classList.add('hidden');
+      panelPayphone.classList.add('hidden');
+      panelKushki.classList.add('hidden');
+      
+      if (method === 'transfer') {
+        btnTransfer.classList.remove(inactiveBorder, inactiveText);
+        btnTransfer.classList.add(activeBorder, activeText);
+        panelTransfer.classList.remove('hidden');
+        if (checkoutSubmitBtn) checkoutSubmitBtn.classList.remove('hidden');
+      } else if (method === 'payphone') {
+        btnPayphone.classList.remove(inactiveBorder, inactiveText);
+        btnPayphone.classList.add(activeBorder, activeText);
+        panelPayphone.classList.remove('hidden');
+        if (checkoutSubmitBtn) checkoutSubmitBtn.classList.add('hidden');
+      } else if (method === 'kushki') {
+        btnKushki.classList.remove(inactiveBorder, inactiveText);
+        btnKushki.classList.add(activeBorder, activeText);
+        panelKushki.classList.remove('hidden');
+        if (checkoutSubmitBtn) checkoutSubmitBtn.classList.remove('hidden');
+      }
+    }
+
+    async function claimFreeCertificate(nombreUsuario) {
+      try {
+        const response = await fetch('/conversatorios/<%= conversatorio.id %>/comprar-certificado', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ paymentMethod: 'gratuito', ajax: true, nombreUsuario: nombreUsuario || null })
+        });
+        const result = await response.json();
+        if (result.success && result.redirect) {
+          window.location.href = result.redirect;
+        } else {
+          alert(result.error || "Ocurrió un error al obtener el certificado.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error al conectar con el servidor.");
+      }
+    }
+
+    function openFreeCertModal() {
+      const modal = document.getElementById('free-cert-modal');
+      const container = modal.querySelector('.transform');
+      const nameInput = document.getElementById('free-cert-nombre-usuario');
+      const fallback = '<%= user ? (user.nombreCertificado || user.name || "") : "" %>';
+      const decoded = fallback.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+      if (nameInput && !nameInput.value && decoded) {
+        nameInput.value = decoded;
+      }
+      document.getElementById('free-cert-name-error-alert').classList.add('hidden');
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      setTimeout(() => {
+        container.classList.remove('scale-95', 'opacity-0');
+        if (nameInput) nameInput.focus();
+      }, 50);
+    }
+
+    function closeFreeCertModal() {
+      const modal = document.getElementById('free-cert-modal');
+      const container = modal.querySelector('.active-modal-animation') || modal.querySelector('.transform');
+      container.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }, 200);
+    }
+
+    async function submitFreeCertificate() {
+      const rawNombreUsuario = document.getElementById('free-cert-nombre-usuario').value.trim();
+      const nombreUsuario = toTitleCase(rawNombreUsuario);
+      const errorAlert = document.getElementById('free-cert-name-error-alert');
+      const errorText = document.getElementById('free-cert-name-error-text');
+      const btnText = document.getElementById('free-cert-btn-text');
+      const btnIcon = document.getElementById('free-cert-btn-icon');
+
+      if (!nombreUsuario) {
+        errorText.innerText = "Por favor, ingrese el nombre para el certificado.";
+        errorAlert.classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('free-cert-nombre-usuario').value = nombreUsuario;
+      errorAlert.classList.add('hidden');
+      btnText.innerText = "Procesando...";
+      btnIcon.className = "fa-solid fa-spinner animate-spin";
+
+      try {
+        const response = await fetch('/conversatorios/<%= conversatorio.id %>/comprar-certificado', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ paymentMethod: 'gratuito', ajax: true, nombreUsuario })
+        });
+        const result = await response.json();
+        if (result.success && result.redirect) {
+          closeFreeCertModal();
+          window.location.href = result.redirect;
+        } else {
+          errorText.innerText = result.error || "Ocurrió un error al obtener el certificado.";
+          errorAlert.classList.remove('hidden');
+          btnText.innerText = "Obtener Certificado";
+          btnIcon.className = "fa-solid fa-award";
+        }
+      } catch (err) {
+        console.error(err);
+        errorText.innerText = "Error al conectar con el servidor.";
+        errorAlert.classList.remove('hidden');
+        btnText.innerText = "Obtener Certificado";
+        btnIcon.className = "fa-solid fa-award";
+      }
+    }
+
+    function readImageAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitCheckoutPayment() {
+      const errorAlert = document.getElementById('payment-error-alert');
+      const errorText = document.getElementById('payment-error-text');
+      const btnText = document.getElementById('checkout-btn-text');
+      const btnIcon = document.getElementById('checkout-btn-icon');
+      const rawNombreUsuario = document.getElementById('cert-nombre-usuario').value.trim();
+      const nombreUsuario = toTitleCase(rawNombreUsuario);
+
+      if (!nombreUsuario) {
+        errorText.innerText = "Por favor, especifique el nombre para el certificado.";
+        errorAlert.classList.remove('hidden');
+        return;
+      }
+
+      // Update input visually
+      document.getElementById('cert-nombre-usuario').value = nombreUsuario;
+
+      let payload = {
+        paymentMethod: activePaymentMethod,
+        nombreUsuario: nombreUsuario,
+        ajax: true
+      };
+
+      if (activePaymentMethod === 'transfer') {
+        const bancoInput = document.getElementById('transfer-banco');
+        const banco = bancoInput ? bancoInput.value : '';
+        const bankAccountSelect = document.getElementById('transfer-bank-account');
+        const reference = document.getElementById('transfer-ref').value.trim();
+        const fileInput = document.getElementById('transfer-comprobante');
+        if (bankAccountSelect && !bankAccountSelect.value) {
+          errorText.innerText = "Seleccione la cuenta bancaria de destino.";
+          errorAlert.classList.remove('hidden');
+          return;
+        }
+        if (!reference) {
+          errorText.innerText = "Por favor, ingrese el número de referencia bancaria.";
+          errorAlert.classList.remove('hidden');
+          return;
+        }
+        if (!fileInput.files || fileInput.files.length === 0) {
+          errorText.innerText = "Por favor, suba la captura de su comprobante de pago.";
+          errorAlert.classList.remove('hidden');
+          return;
+        }
+        if (bancoInput) payload.banco = banco;
+        if (bankAccountSelect) payload.bankAccountId = bankAccountSelect.value;
+        payload.reference = reference;
+        payload.paymentMethod = "transferencia"; // Ensure correct backend mapping
+
+        const file = fileInput.files[0];
+        try {
+          payload.comprobante = await readImageAsBase64(file);
+        } catch (e) {
+          errorText.innerText = "Error al procesar la imagen del comprobante.";
+          errorAlert.classList.remove('hidden');
+          return;
+        }
+      } else if (activePaymentMethod === 'payphone') {
+        // PayPhone se procesa a través de la pasarela real → redirige.
+        iniciarPagoPayPhone({
+          itemType: 'CERTIFICATE',
+          itemId: <%= conversatorio.id %>,
+          baseAmount: Number('<%= modalPrice %>'),
+          hasTax: true,
+          productName: 'Certificado - <%= (conversatorio.titulo || '').replace(/'/g, "\\'") %>'
+        });
+        return;
+      } else if (activePaymentMethod === 'kushki') {
+        const name = document.getElementById('kushki-name').value.trim();
+        const number = document.getElementById('kushki-number').value.trim();
+        const expiry = document.getElementById('kushki-expiry').value.trim();
+        const cvv = document.getElementById('kushki-cvv').value.trim();
+
+        if (!name || !number || !expiry || !cvv) {
+          errorText.innerText = "Por favor, complete todos los campos de su tarjeta.";
+          errorAlert.classList.remove('hidden');
+          return;
+        }
+        payload.reference = "KushkiCard-••••" + number.slice(-4);
+      }
+
+      errorAlert.classList.add('hidden');
+      btnText.innerText = "Procesando pago...";
+      btnIcon.className = "fa-solid fa-spinner animate-spin";
+
+      try {
+        const response = await fetch('/conversatorios/<%= conversatorio.id %>/comprar-certificado', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        
+        if (result.success && result.redirect) {
+          closePaymentModal();
+          window.location.href = result.redirect;
+        } else {
+          errorText.innerText = result.error || "Ocurrió un error al procesar el pago.";
+          errorAlert.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        errorText.innerText = "Error de red al conectar al servidor.";
+        errorAlert.classList.remove('hidden');
+      } finally {
+        btnText.innerText = "Confirmar y Registrar Pago";
+        btnIcon.className = "fa-solid fa-circle-check";
+      }
+    }
+
+    function togglePasswordVisibility(id, btn) {
+      const input = document.getElementById(id);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+  </script>
+
+  <!-- Modal de Progreso del Certificado (Antes de desbloqueo) -->
+  <div id="cert-progress-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 flex flex-col gap-6 relative animate-fade-in">
+      <button type="button" onclick="closeCertProgressModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-2xl shadow-inner flex-shrink-0">
+          <i class="fa-solid fa-award"></i>
+        </div>
+        <div class="flex flex-col">
+          <h3 class="text-base font-black text-slate-900 uppercase tracking-tight">Requisitos del Certificado</h3>
+          <span class="text-xs text-slate-500 font-semibold">Progreso actual de asistencia</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between text-xs font-black text-slate-800">
+          <span>Avance de Asistencia</span>
+          <span class="text-amber-600 font-mono text-sm"><%= typeof progressPct !== 'undefined' ? progressPct : 0 %>% / <%= conversatorio.porcentajeMinimoCertificado || 50 %>%</span>
+        </div>
+        <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden p-0.5 border border-slate-300/60">
+          <div class="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-500" style="width: <%= typeof progressPct !== 'undefined' ? progressPct : 0 %>%;"></div>
+        </div>
+        <p class="text-xs text-slate-600 font-medium leading-relaxed mt-1 font-sans">
+          Has completado <strong><%= typeof completedCount !== 'undefined' ? completedCount : 0 %></strong> de <strong><%= typeof totalSpeakers !== 'undefined' ? totalSpeakers : 0 %></strong> ponencias. Completa al menos el <strong><%= conversatorio.porcentajeMinimoCertificado || 50 %>%</strong> de las ponencias para desbloquear la emisión de tu certificado.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <% const modalTargetSpeakerId = typeof nextSpeakerId !== 'undefined' && nextSpeakerId ? nextSpeakerId : (conversatorio.speakers && conversatorio.speakers.length > 0 ? conversatorio.speakers[0].id : null); %>
+        <% if (modalTargetSpeakerId) { %>
+          <a href="/conversatorios/<%= conversatorio.id %>/ponentes/<%= modalTargetSpeakerId %>" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl text-xs text-center transition flex items-center justify-center gap-2 shadow-md">
+            <i class="fa-solid fa-play"></i> <%= typeof ctaButtonLabel !== 'undefined' ? ctaButtonLabel : 'Continuar Evento' %>
+          </a>
+        <% } %>
+        <button type="button" onclick="closeCertProgressModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-2xl text-xs transition text-center cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openCertProgressModal() {
+      const modal = document.getElementById('cert-progress-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    function closeCertProgressModal() {
+      const modal = document.getElementById('cert-progress-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+  </script>
+
+  <script src="/js/comprobante-dropzone.js"></script>
+  <script src="/js/payphone-helper.js"></script>
+  <%- include('partials/footer') %>
+</body>
+</html>

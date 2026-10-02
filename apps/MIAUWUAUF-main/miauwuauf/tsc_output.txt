@@ -1,0 +1,31 @@
+app/api/adoption/route.ts(70,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+app/api/checkout/route.ts(24,7): error TS2578: Unused '@ts-expect-error' directive.
+app/api/checkout/route.ts(44,9): error TS2578: Unused '@ts-expect-error' directive.
+app/api/diagnoses/route.ts(64,7): error TS2322: Type '{ fecha: string; vetId: string | undefined; veterinario: string; mascota: string; diagnostico: string; notas?: string | undefined; petId?: string | undefined; }' is not assignable to type '(Without<DiagnosisCreateInput, DiagnosisUncheckedCreateInput> & DiagnosisUncheckedCreateInput) | (Without<...> & DiagnosisCreateInput)'.
+  Type '{ fecha: string; vetId: string | undefined; veterinario: string; mascota: string; diagnostico: string; notas?: string | undefined; petId?: string | undefined; }' is not assignable to type 'Without<DiagnosisUncheckedCreateInput, DiagnosisCreateInput> & DiagnosisCreateInput'.
+    Type '{ fecha: string; vetId: string | undefined; veterinario: string; mascota: string; diagnostico: string; notas?: string | undefined; petId?: string | undefined; }' is not assignable to type 'Without<DiagnosisUncheckedCreateInput, DiagnosisCreateInput>'.
+      Types of property 'petId' are incompatible.
+        Type 'string | undefined' is not assignable to type 'undefined'.
+          Type 'string' is not assignable to type 'undefined'.
+app/api/diagnoses/route.ts(90,52): error TS2339: Property 'vet' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; mascota: string; diagnostico: string; notas: string | null; petId: string | null; fecha: string; vetId: string; veterinario: string | null; }'.
+app/api/events/register/route.ts(46,7): error TS2322: Type '{ eventId: string; userId: string | undefined; mascotaId: string | null; petName: string | null; }' is not assignable to type '(Without<EventRegistrationCreateInput, EventRegistrationUncheckedCreateInput> & EventRegistrationUncheckedCreateInput) | (Without<...> & EventRegistrationCreateInput)'.
+  Types of property 'userId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+app/api/events/register/route.ts(64,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+app/api/events/register/route.ts(66,75): error TS2551: Property 'event' does not exist on type '{ id: string; createdAt: Date; userId: string; eventId: string; mascotaId: string | null; petName: string | null; }'. Did you mean 'eventId'?
+app/api/events/register/route.ts(66,105): error TS2551: Property 'event' does not exist on type '{ id: string; createdAt: Date; userId: string; eventId: string; mascotaId: string | null; petName: string | null; }'. Did you mean 'eventId'?
+app/api/events/register/route.ts(66,139): error TS2551: Property 'event' does not exist on type '{ id: string; createdAt: Date; userId: string; eventId: string; mascotaId: string | null; petName: string | null; }'. Did you mean 'eventId'?
+app/api/events/register/route.ts(68,33): error TS2339: Property 'user' does not exist on type '{ id: string; createdAt: Date; userId: string; eventId: string; mascotaId: string | null; petName: string | null; }'.
+app/api/events/register/route.ts(70,68): error TS2551: Property 'event' does not exist on type '{ id: string; createdAt: Date; userId: string; eventId: string; mascotaId: string | null; petName: string | null; }'. Did you mean 'eventId'?
+app/api/events/register/route.ts(101,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+app/api/preventives/route.ts(63,7): error TS2322: Type '{ fecha: string; vetId: string | undefined; veterinario: string; mascota: string; tipo: string; proximaFecha: string; dosis: number; petId?: string | undefined; }' is not assignable to type '(Without<PreventiveCreateInput, PreventiveUncheckedCreateInput> & PreventiveUncheckedCreateInput) | (Without<...> & PreventiveCreateInput)'.
+  Type '{ fecha: string; vetId: string | undefined; veterinario: string; mascota: string; tipo: string; proximaFecha: string; dosis: number; petId?: string | undefined; }' is not assignable to type 'Without<PreventiveUncheckedCreateInput, PreventiveCreateInput> & PreventiveCreateInput'.
+    Type '{ fecha: string; vetId: string | undefined; veterinario: string; mascota: string; tipo: string; proximaFecha: string; dosis: number; petId?: string | undefined; }' is not assignable to type 'Without<PreventiveUncheckedCreateInput, PreventiveCreateInput>'.
+      Types of property 'petId' are incompatible.
+        Type 'string | undefined' is not assignable to type 'undefined'.
+          Type 'string' is not assignable to type 'undefined'.
+app/api/preventives/route.ts(89,51): error TS2339: Property 'vet' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; tipo: string; mascota: string; petId: string | null; dosis: number; proximaFecha: string; fecha: string; vetId: string; veterinario: string | null; }'.

@@ -1,0 +1,65 @@
+<div
+  class="pec-video-player <%= typeof className !== 'undefined' ? className : '' %>"
+  data-video-source-type="<%= sourceType %>"
+  data-video-source-id="<%= sourceId %>"
+  data-video-title="<%= typeof title !== 'undefined' ? title : 'Video Profesionales Ecuador' %>"
+  data-video-autoplay="<%= typeof autoplay !== 'undefined' && autoplay ? 'true' : 'false' %>"
+  data-is-authenticated="<%= (typeof locals !== 'undefined' && locals.user) ? 'true' : 'false' %>"
+  data-preview-limit-seconds="<%= typeof previewLimitSeconds !== 'undefined' ? previewLimitSeconds : 60 %>"
+>
+  <div class="pec-video-stage" data-pec-video-stage></div>
+  <img class="pec-video-poster" data-pec-video-poster alt="" aria-hidden="true">
+  <div class="pec-video-loading" data-pec-video-loading>
+    <i class="fa-solid fa-circle-notch fa-spin"></i>
+    <span>Cargando video...</span>
+  </div>
+  <button type="button" class="pec-video-cover" data-pec-video-cover aria-label="Reproducir video">
+    <span class="pec-video-play-orb">
+      <i class="fa-solid fa-play"></i>
+    </span>
+    <span class="pec-video-cover-text"><%= typeof title !== 'undefined' ? title : 'Reproducir video' %></span>
+    <span class="pec-video-cover-hint">Reproductor Profesionales Ecuador</span>
+  </button>
+  <div class="pec-video-error hidden" data-pec-video-error>
+    <i class="fa-solid fa-video-slash"></i>
+    <span data-pec-video-error-text>No se pudo cargar este video.</span>
+  </div>
+  <div class="pec-video-controls" data-pec-video-controls>
+    <button type="button" data-pec-video-toggle aria-label="Reproducir o pausar">
+      <i class="fa-solid fa-play"></i>
+    </button>
+    <div class="pec-video-progress" data-pec-video-progress role="slider" aria-label="Progreso del video" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <span data-pec-video-progress-bar></span>
+    </div>
+    <span class="pec-video-time" data-pec-video-time>0:00 / 0:00</span>
+    <button type="button" data-pec-video-mute aria-label="Activar o silenciar audio">
+      <i class="fa-solid fa-volume-high"></i>
+    </button>
+    <input
+      class="pec-video-volume"
+      type="range"
+      min="0"
+      max="100"
+      value="100"
+      step="1"
+      data-pec-video-volume
+      aria-label="Volumen del video"
+    >
+    <button type="button" data-pec-video-captions aria-label="Activar subtítulos" title="Subtítulos" aria-pressed="false">
+      <i class="fa-solid fa-closed-captioning"></i>
+    </button>
+    <div class="pec-video-speed" data-pec-video-speed>
+      <button type="button" data-pec-video-speed-toggle aria-label="Velocidad de reproducción" title="Velocidad de reproducción" aria-expanded="false">
+        <span data-pec-video-speed-label>1x</span>
+      </button>
+      <div class="pec-video-speed-menu" data-pec-video-speed-menu role="menu" aria-label="Velocidad de reproducción">
+        <% [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].forEach(function(rate) { %>
+          <button type="button" data-pec-video-rate="<%= rate %>" role="menuitemradio" aria-checked="<%= rate === 1 ? 'true' : 'false' %>"><%= rate %>x</button>
+        <% }) %>
+      </div>
+    </div>
+    <button type="button" data-pec-video-fullscreen aria-label="Entrar a pantalla completa" title="Entrar a pantalla completa" aria-pressed="false">
+      <i class="fa-solid fa-expand"></i>
+    </button>
+  </div>
+</div>

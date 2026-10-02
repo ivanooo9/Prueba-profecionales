@@ -1,0 +1,557 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?   @unique
+  cedula        String?
+  password      String?
+  phone         String?
+  image         String?
+  role          String    @default("usuario")
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  
+  city          String?
+  address       String? // calle principal, secundaria y referencia
+  clinicName    String? // Nombre del local / veterinaria
+  
+  pets                 Pet[] @relation("PetOwner")
+  /// Mascotas donde este usuario actúa como veterinario de confianza (acceso al historial sin permiso explícito)
+  trustedVetForPets    Pet[] @relation("PetAssignedVet")
+  solicitudes   AdoptionRequest[]
+  eventRegistrations EventRegistration[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  specialty     String?
+
+  appointments  Appointment[] @relation("VetAppointments")
+  diagnoses     Diagnosis[]   @relation("VetDiagnoses")
+  treatments    Treatment[]   @relation("VetTreatments")
+  preventives   Preventive[]
+  vaccinations  Vaccination[]
+  notifications Notification[]
+  orders        Order[]
+  exams         Exam[]        @relation("VetExams")
+
+  medicalPermissionsAsVet MedicalPermission[] @relation("VetMedicalPermissions")
+}
+
+/// Permiso del dueño para que un veterinario acceda al historial clínico (Mongo: status como string).
+model MedicalPermission {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  petId  String @db.ObjectId
+  pet    Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vetId  String @db.ObjectId
+  vet    User   @relation("VetMedicalPermissions", fields: [vetId], references: [id], onDelete: Cascade)
+  /// PENDING | ACCEPTED | REJECTED
+  status         String   @default("PENDING")
+  /// Token de un solo uso para enlaces de correo (aceptar/rechazar)
+  responseToken  String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([petId, vetId])
+  @@index([petId])
+  @@index([vetId])
+  @@index([status])
+}
+
+model Pet {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  nombre          String
+  raza            String
+  edad            String
+  peso            String
+  tipo            String   @default("perro")
+  color           String
+  sexo            String
+  esterilizado    String
+  foto            String?
+  fechaNacimiento String?
+  
+  userId          String   @db.ObjectId
+  user            User     @relation("PetOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Veterinario de confianza: mismo id que un User con role veterinario — desbloquea historial automáticamente
+  assignedVetId   String?  @db.ObjectId
+  assignedVet     User?    @relation("PetAssignedVet", fields: [assignedVetId], references: [id], onDelete: SetNull)
+  
+  appointments    Appointment[]
+  diagnoses       Diagnosis[]
+  treatments      Treatment[]
+  preventives     Preventive[]
+  vaccinations    Vaccination[]
+  exams           Exam[]        @relation("PetExams")
+  anamnesico      Anamnesico?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  descripcion     String?
+  alergias        String?
+  qrEnabled       Boolean  @default(false)
+
+  medicalPermissions MedicalPermission[]
+
+  @@index([userId])
+  @@index([assignedVetId])
+}
+
+model ShelterPet {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  nombre           String
+  raza             String
+  edad             String
+  peso             String
+  sexo             String
+  color            String
+  vacunado         Boolean  @default(true)
+  esterilizado     Boolean  @default(false)
+  descripcion      String
+  hogarRecomendado String
+  foto             String?
+  estado           String   @default("disponible")
+  
+  requests         AdoptionRequest[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model AdoptionRequest {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  perroId        String   @db.ObjectId
+  perroNombre    String
+  fecha          String
+  estado         String   @default("pendiente")
+  
+  nombreCompleto String
+  email          String
+  telefono       String
+  cedula              String?
+  direccion           String?
+  
+  // Informacion del Hogar
+  tipoVivienda        String?
+  tienePatio          String?
+  viviendaPropia      String?
+  personasHogar       String?
+  hayNinos            String?
+  otrasMascotas       String?
+  
+  // Experiencia y Motivacion
+  experienciaMascotas String?
+  motivoAdopcion      String?
+  cubrirGastos        String?
+  
+  observacion         String?
+  
+  userId         String   @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  shelterPet     ShelterPet @relation(fields: [perroId], references: [id])
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([perroId])
+}
+
+model Event {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  titulo      String
+  descripcion String
+  fecha       String
+  hora        String
+  lugar       String
+  tipo        String
+  maximo      Int
+  image       String?
+  
+  registrations EventRegistration[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EventRegistration {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId    String   @db.ObjectId
+  event      Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  mascotaId  String?  @db.ObjectId
+  petName    String?
+  
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventId])
+}
+model Appointment {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  mascota    String
+  dueno      String
+  fecha      String
+  hora       String
+  tipo       String
+  estado     String   @default("pendiente")
+  
+  vetId      String   @db.ObjectId
+  vet        User     @relation("VetAppointments", fields: [vetId], references: [id], onDelete: Cascade)
+  
+  petId       String?  @db.ObjectId
+  pet         Pet?     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  motivo      String?
+  veterinario String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reminderSent2Days   Boolean @default(false)
+  reminderSentSameDay Boolean @default(false)
+
+  @@index([vetId])
+  @@index([petId])
+}
+
+model Diagnosis {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  mascota     String
+  fecha       String
+  diagnostico String?
+  notas       String?
+
+  // Nuevos campos médicos extendidos
+  motivoConsulta         String?
+  fRespiratoria          String?
+  fCardiaca              String?
+  temperatura            String?
+  pulso                  String?
+  tiempoLlenado          String?
+  ganglios               String?
+  mucosas                String?
+  actitud                String?
+  sistemas               Json?
+  hallazgosClinicos      String?
+  listaProblemas         String?
+  diagnosticosDiferenciales String?
+  examenesComplementarios Json?
+  hallazgosPruebas       String?
+  
+  vetId       String   @db.ObjectId
+  vet         User     @relation("VetDiagnoses", fields: [vetId], references: [id], onDelete: Cascade)
+  
+  petId       String?  @db.ObjectId
+  pet         Pet?     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  veterinario String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vetId])
+  @@index([petId])
+}
+
+model Exam {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  mascota     String
+  fecha       String
+  titulo      String?
+  descripcion String?
+  fileUrl     String?  // URL del documento subido a Cloudinary
+  fileType    String?  // Tipo de archivo: "pdf", "image"
+  fileName    String?  // Nombre original del archivo para mostrar en pantalla
+  
+  vetId       String   @db.ObjectId
+  vet         User     @relation("VetExams", fields: [vetId], references: [id], onDelete: Cascade)
+  
+  petId       String?  @db.ObjectId
+  pet         Pet?     @relation("PetExams", fields: [petId], references: [id], onDelete: Cascade)
+  veterinario String?
+  diagnosisId String?  @db.ObjectId
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vetId])
+  @@index([petId])
+}
+
+model Anamnesico {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId                 String   @unique @db.ObjectId
+  pet                   Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  
+  ultimaDesparasitacion String?
+  vacunas               String?
+  enfermedadesAnteriores String?
+  tratamientos          String?
+  evolucion             String?
+  alimentacion          String?
+  historiaReproductiva  String?
+  ultimoCelo            String?
+  fechaUltimoParto      String?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Treatment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  mascota     String
+  medicamento String?
+  dosis       String?
+  duracion    String?
+  estado      String   @default("activo")
+  notas       String?
+  
+  vetId       String   @db.ObjectId
+  vet         User     @relation("VetTreatments", fields: [vetId], references: [id], onDelete: Cascade)
+  
+  petId       String?  @db.ObjectId
+  pet         Pet?     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  veterinario String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vetId])
+  @@index([petId])
+}
+
+model BlogPost {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  slug      String?  @unique
+  excerpt   String
+  content   String?
+  author    String
+  authorId  String   @db.ObjectId
+  category  String
+  image     String?
+  images    String[]
+  date      String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+}
+
+model Preventive {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  mascota      String
+  tipo         String?
+  fecha        String
+  proximaFecha String?
+  dosis        Int?
+  
+  vetId        String   @db.ObjectId
+  vet          User     @relation(fields: [vetId], references: [id], onDelete: Cascade)
+  
+  petId        String?  @db.ObjectId
+  pet          Pet?     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  veterinario  String?
+  notas        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([vetId])
+  @@index([petId])
+}
+
+model Vaccination {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  mascota      String
+  dosis        String?
+  fecha        String
+  vacunaId     String?
+  proximaFecha String?
+  periodicidad String?
+  
+  vetId        String   @db.ObjectId
+  vet          User     @relation(fields: [vetId], references: [id], onDelete: Cascade)
+  
+  petId        String?  @db.ObjectId
+  pet          Pet?     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  veterinario  String?
+  notas        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([vetId])
+  @@index([petId])
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "info", "warning", "success", "user_registration", etc.
+  title     String
+  message   String
+  actionUrl String?
+  metadata  Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Product {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  nombre        String
+  slug          String?  @unique
+  precio        Float
+  categoria     String   // perros, gatos, accesorios, alimentos
+  subcategoria  String?
+  marca         String?
+  stock         Int      @default(0)
+  foto          String   // Imagen principal
+  imagenes      String[] // Galería (Cloudinary URLs)
+  descripcion   String
+  etiqueta      String?  // Nuevo, Oferta, etc.
+  calificacion  Float    @default(5.0)
+  descuento     Int      @default(0)
+  descuentoValidoHasta DateTime?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  OrderItems    OrderItem[]
+}
+
+model Order {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber Int?
+  userId      String?  @db.ObjectId
+  user        User?    @relation(fields: [userId], references: [id])
+  total       Float
+  pricingSubtotal  Float?
+  pricingIva       Float?
+  pricingSurcharge Float?
+  ivaRate          Float?
+  taxName          String?
+  taxEnabled       Boolean?
+  surchargeRate    Float?
+  surchargeEnabled Boolean?
+  estado      String   @default("completada") // pendiente, enviada, completada, cancelada
+  
+  items       OrderItem[]
+  
+  nombre      String?  // Para compras de invitados o respaldo
+  email       String?
+  direccion   String?
+  telefono    String?
+  cedula      String?
+  ciudad      String?
+  metodo      String?  @default("Transferencia")
+  comprobanteUrl String?
+  observacion String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orderNumber])
+}
+
+model Counter {
+  id        String   @id @map("_id")
+  value     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String  @db.ObjectId
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String  @db.ObjectId
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  precio    Float   // Precio original sin descuento
+  precioFinal Float?  // Precio efectivo con descuento aplicado
+}
+
+model Plan {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  price       String
+  description String
+  features    String[]
+  badge       String
+  color       String   // Tailwind bg class (e.g., bg-primary)
+  sectionId   String   @default("products-plans")
+  billingCycle String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TechFeature {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  iconName    String   // Lucide icon name (e.g., "Smartphone")
+  title       String
+  description String
+  color       String   // Text color class (e.g., "text-primary")
+  bg          String   // Background color class (e.g., "bg-primary/10")
+  order       Int      @default(0)
+  customIcon  String?  // Optional URL for custom uploaded icon
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SectionContent {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  sectionId   String   @unique // e.g., "products-plans"
+  badge       String?
+  title       String?
+  subtitle    String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CategoryStore {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  nombre    String   @unique
+  icon      String?  // Ej: "Dog", "Cat", "Package"
+  
+  subcategories SubcategoryStore[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SubcategoryStore {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  nombre      String
+  categoryId  String        @db.ObjectId
+  category    CategoryStore @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([categoryId])
+}
+model BlogCategory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  nombre    String   @unique
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-slate-950 flex flex-col min-h-screen text-white antialiased font-sans">
+  <%- include('partials/header') %>
+
+  <!-- Main Content Wrapper -->
+  <main class="flex-grow max-w-5xl mx-auto w-full px-6 md:px-12 py-12 flex flex-col gap-6">
+
+    <!-- Back Button -->
+    <div class="flex justify-start">
+      <a href="/conversatorios/<%= conversatorio.id %>/ponentes/<%= speaker.id %>" class="inline-flex items-center gap-2 text-slate-400 hover:text-white transition text-xs font-extrabold">
+        <i class="fa-solid fa-arrow-left"></i> Volver al Perfil del Ponente
+      </a>
+    </div>
+
+    <!-- Title Header -->
+    <% 
+      const isOnline = !conversatorio.ciudad || 
+                       conversatorio.ciudad.toLowerCase().trim() === 'online' ||
+                       conversatorio.ciudad.toLowerCase().includes('online') ||
+                       conversatorio.ciudad.toLowerCase().includes('virtual') ||
+                       (conversatorio.direccion && conversatorio.direccion.toLowerCase().includes('online')) ||
+                       (conversatorio.direccion && conversatorio.direccion.toLowerCase().includes('virtual')) ||
+                       (conversatorio.slogan && conversatorio.slogan.toLowerCase().includes('online')) ||
+                       (conversatorio.slogan && conversatorio.slogan.toLowerCase().includes('virtual'));
+    %>
+    <div class="flex flex-col text-center gap-1.5 mt-2">
+      <span class="text-[10px] font-black text-emerald-450 uppercase tracking-widest">Multimedia</span>
+      <h1 class="text-3xl font-black text-white uppercase tracking-tight"><%= isOnline ? 'Grabación de la Ponencia' : 'Revive la Experiencia' %></h1>
+    </div>
+
+    <!-- Video Embed Block -->
+    <div class="w-full aspect-video rounded-3xl overflow-hidden bg-slate-900 shadow-2xl border border-slate-900 mt-2">
+      <% if (speaker.videoUrl || speaker.bunnyVideoId) { %>
+        <%- include('partials/custom-video-player', {
+          sourceType: 'conversatorio-speaker',
+          sourceId: speaker.id,
+          title: speaker.tema || speaker.nombre,
+          autoplay: true
+        }) %>
+      <% } else { %>
+        <div class="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+          <i class="fa-solid fa-video-slash text-4xl mb-1 text-slate-600"></i>
+          <span class="text-sm font-bold">La grabación de esta ponencia no está cargada aún.</span>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Control de Asistencia y Avance del Certificado -->
+    <% if (locals.user) { %>
+      <% 
+        const reqMinutesVideo = (typeof requiredMinutes !== 'undefined' && requiredMinutes !== null) ? requiredMinutes : ((typeof systemConfig !== 'undefined' && systemConfig && systemConfig.tiempoMinimoPonenciaMinutos !== null && systemConfig.tiempoMinimoPonenciaMinutos !== undefined) ? systemConfig.tiempoMinimoPonenciaMinutos : 3);
+        const reqMinsFormatted = String(reqMinutesVideo).padStart(2, '0');
+      %>
+      <div class="bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-6 md:p-8 mt-4 flex flex-col gap-5 shadow-2xl" id="speaker-completion-card">
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <div class="flex flex-col gap-1.5">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                <i class="fa-solid fa-list-check text-amber-400"></i> Asistencia y Certificado
+              </span>
+              <% if (!conversatorio.certificadoInmediato) { %>
+                <span class="bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                  Mínimo requerido: <%= conversatorio.porcentajeMinimoCertificado %>%
+                </span>
+              <% } else { %>
+                <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                  Emisión Inmediata
+                </span>
+              <% } %>
+            </div>
+            <h3 class="text-xl font-black text-white">Progreso del Conversatorio: <span id="progress-pct-display" class="text-amber-400"><%= progressPct %>%</span></h3>
+            <p class="text-xs text-slate-400 font-semibold">Has completado <strong id="completed-count-display" class="text-white"><%= completedCount %></strong> de <strong class="text-white"><%= totalSpeakers %></strong> ponencias de este evento.</p>
+          </div>
+
+          <!-- Completion Button / Timer Box -->
+          <div class="flex flex-col items-end gap-2" id="completion-btn-container">
+            <% if (isAlreadyCompleted) { %>
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2">
+                  <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+                  <span>¡Ponencia Completada!</span>
+                </div>
+                <% if (typeof nextSpeaker !== 'undefined' && nextSpeaker) { %>
+                  <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>/ponentes/<%= nextSpeaker.slug || nextSpeaker.id %>/ponencia" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-5 py-3 rounded-2xl text-xs transition flex items-center gap-2 shadow-lg cursor-pointer">
+                    <span>Siguiente Ponencia</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                  </a>
+                <% } else { %>
+                  <a href="/conversatorios/<%= conversatorio.slug || conversatorio.id %>" class="bg-blue-600 hover:bg-blue-500 text-white font-extrabold px-5 py-3 rounded-2xl text-xs transition flex items-center gap-2 shadow-lg cursor-pointer">
+                    <i class="fa-solid fa-flag-checkered text-xs"></i>
+                    <span>Volver al Evento</span>
+                  </a>
+                <% } %>
+              </div>
+            <% } else { %>
+              <button id="btn-complete-speaker" disabled onclick="submitSpeakerCompletion()" class="bg-slate-800 text-slate-400 font-black py-3.5 px-6 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-not-allowed border border-slate-700 opacity-75">
+                <i class="fa-solid fa-clock text-amber-400 animate-pulse"></i>
+                <span id="btn-timer-label">Permanecer en la página (<%= reqMinsFormatted %>:00) para completar</span>
+              </button>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Dynamic Progress Bar -->
+        <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800 p-0.5">
+          <div id="progress-bar-fill" class="bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 h-full rounded-full transition-all duration-700" style="width: <%= progressPct %>%;"></div>
+        </div>
+
+        <!-- Certificate Banner if Earned -->
+        <div id="cert-earned-banner" class="<%= hasCertificate ? '' : 'hidden' %> bg-gradient-to-r from-emerald-950/80 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-award"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-black text-emerald-300 uppercase tracking-wider">¡Certificado Otorgado!</h4>
+              <p class="text-[11px] text-slate-300 font-semibold">Has alcanzado el requisito para obtener tu certificado de participación.</p>
+            </div>
+          </div>
+          <% const certTargetUrlVideo = (typeof acquiredCertificateCode !== 'undefined' && acquiredCertificateCode) ? '/certificados/' + acquiredCertificateCode : '/dashboard/cliente?tab=certificates'; %>
+          <a id="cert-earned-link-video" href="<%= certTargetUrlVideo %>" target="_blank" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 whitespace-nowrap shadow-lg">
+            <i class="fa-solid fa-award"></i> Ver Certificado
+          </a>
+        </div>
+
+      </div>
+    <% } %>
+
+    <!-- Details Card below the video -->
+    <div class="bg-slate-900/50 border border-slate-900 rounded-3xl p-6 md:p-8 mt-4 flex flex-col gap-4">
+      <div>
+        <span class="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-3.5 py-1 rounded-full uppercase tracking-wider border border-emerald-500/20 inline-block"><%= speaker.profesion || 'Ponente Invitado' %></span>
+        <h2 class="text-2xl font-black text-white leading-snug uppercase tracking-tight mt-3"><%= speaker.tema %></h2>
+        <p class="text-slate-400 text-sm font-semibold mt-1">Impartido por: <span class="text-white font-bold"><%= speaker.nombre %></span></p>
+      </div>
+
+      <div class="border-t border-slate-800 pt-4 flex flex-wrap items-center justify-between gap-4 text-xs font-semibold text-slate-400">
+        <div class="flex items-center gap-2">
+          <i class="fa-regular fa-clock text-slate-500"></i>
+          <span>Horario de Exposición: <strong class="text-slate-200"><%= speaker.horario %></strong></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-calendar-day text-slate-500"></i>
+          <span>Evento: <strong class="text-slate-200"><%= conversatorio.titulo %></strong></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <% if (locals.user) { %>
+    <% const reqMinutesVideo = (typeof requiredMinutes !== 'undefined' && requiredMinutes !== null) ? requiredMinutes : ((typeof systemConfig !== 'undefined' && systemConfig && systemConfig.tiempoMinimoPonenciaMinutos !== null && systemConfig.tiempoMinimoPonenciaMinutos !== undefined) ? systemConfig.tiempoMinimoPonenciaMinutos : 3); %>
+    <% const reqSecondsVideoTotal = reqMinutesVideo * 60; %>
+    <script>
+      const requiredTotalSeconds = <%= reqSecondsVideoTotal %>;
+      const storageKey = `pec_timer_conv_<%= conversatorio.id %>_spk_<%= speaker.id %>`;
+      const storageTotalKey = `pec_timer_total_conv_<%= conversatorio.id %>_spk_<%= speaker.id %>`;
+      const isAlreadyCompleted = <%= JSON.stringify(isAlreadyCompleted) %>;
+
+      let secondsRemaining = requiredTotalSeconds;
+      if (!isAlreadyCompleted) {
+        const savedTotalReq = localStorage.getItem(storageTotalKey);
+        if (savedTotalReq !== null && parseInt(savedTotalReq, 10) !== requiredTotalSeconds) {
+          localStorage.removeItem(storageKey);
+          localStorage.removeItem(storageTotalKey);
+        } else {
+          const savedTime = localStorage.getItem(storageKey);
+          if (savedTime !== null) {
+            const parsed = parseInt(savedTime, 10);
+            if (!isNaN(parsed) && parsed >= 0 && parsed <= requiredTotalSeconds) {
+              secondsRemaining = parsed;
+            }
+          }
+        }
+        localStorage.setItem(storageTotalKey, requiredTotalSeconds.toString());
+      }
+
+      function updateTimerVideoUI() {
+        const btn = document.getElementById('btn-complete-speaker');
+        const label = document.getElementById('btn-timer-label');
+        if (secondsRemaining <= 0) {
+          if (btn && label) {
+            btn.disabled = false;
+            btn.classList.remove('bg-slate-800', 'text-slate-400', 'cursor-not-allowed', 'opacity-75', 'border-slate-700');
+            btn.classList.add('bg-amber-500', 'hover:bg-amber-400', 'text-slate-950', 'cursor-pointer', 'shadow-lg', 'border-amber-400');
+            label.innerHTML = '<i class="fa-solid fa-check text-base"></i> Marcar esta Ponencia como Completada';
+          }
+        } else {
+          const mins = Math.floor(secondsRemaining / 60);
+          const secs = secondsRemaining % 60;
+          const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          if (label) {
+            label.innerText = `Permanecer en la página (${formatted}) para completar`;
+          }
+        }
+      }
+
+      if (!isAlreadyCompleted) {
+        updateTimerVideoUI();
+        const timerInterval = setInterval(() => {
+          if (secondsRemaining > 0) {
+            secondsRemaining--;
+            localStorage.setItem(storageKey, secondsRemaining.toString());
+            updateTimerVideoUI();
+            if (secondsRemaining <= 0) {
+              clearInterval(timerInterval);
+            }
+          }
+        }, 1000);
+      }
+
+      async function submitSpeakerCompletion() {
+        const btn = document.getElementById('btn-complete-speaker');
+        if (btn) btn.disabled = true;
+
+        try {
+          const res = await fetch('/api/events/conversatorio/complete-speaker', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              conversatorioId: <%= conversatorio.id %>,
+              speakerId: <%= speaker.id %>,
+              durationWatchedSeconds: requiredTotalSeconds - Math.max(0, secondsRemaining)
+            })
+          });
+
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.error || 'No se pudo registrar el avance.');
+            if (btn) btn.disabled = false;
+            return;
+          }
+
+          localStorage.removeItem(storageKey);
+          localStorage.removeItem(storageTotalKey);
+
+          document.getElementById('progress-pct-display').innerText = data.progressPct + '%';
+          document.getElementById('completed-count-display').innerText = data.completedCount;
+          document.getElementById('progress-bar-fill').style.width = data.progressPct + '%';
+
+          const nextSpeakerTargetUrl = "<%= (typeof nextSpeaker !== 'undefined' && nextSpeaker) ? '/conversatorios/' + (conversatorio.slug || conversatorio.id) + '/ponentes/' + (nextSpeaker.slug || nextSpeaker.id) + '/ponencia' : '/conversatorios/' + (conversatorio.slug || conversatorio.id) %>";
+          const isFinalSpeaker = <%= (typeof nextSpeaker === 'undefined' || !nextSpeaker) ? 'true' : 'false' %>;
+
+          const btnContainer = document.getElementById('completion-btn-container');
+          if (btnContainer) {
+            btnContainer.innerHTML = `
+              <div class="flex items-center gap-2 flex-wrap animate-fade-in">
+                <div class="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2">
+                  <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+                  <span>¡Ponencia Completada!</span>
+                </div>
+                <a href="${nextSpeakerTargetUrl}" class="${isFinalSpeaker ? 'bg-blue-600 hover:bg-blue-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-extrabold px-5 py-3 rounded-2xl text-xs transition flex items-center gap-2 shadow-lg cursor-pointer">
+                  ${isFinalSpeaker ? '<i class="fa-solid fa-flag-checkered text-xs"></i> <span>Volver al Evento</span>' : '<span>Siguiente Ponencia</span> <i class="fa-solid fa-arrow-right text-xs"></i>'}
+                </a>
+              </div>
+            `;
+          }
+
+          if (data.certificateGranted) {
+            const certBanner = document.getElementById('cert-earned-banner');
+            const certLink = document.getElementById('cert-earned-link-video');
+            if (data.certCode && certLink) {
+              certLink.href = '/certificados/' + data.certCode;
+              certLink.target = '_blank';
+            }
+            if (certBanner) certBanner.classList.remove('hidden');
+
+            const modalShownKey = `pec_cert_modal_shown_conv_<%= conversatorio.id %>`;
+            const hasModalBeenShown = localStorage.getItem(modalShownKey);
+            if (!hasModalBeenShown) {
+              localStorage.setItem(modalShownKey, 'true');
+              openCertUnlockedModal(data.certCode);
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Ocurrió un error al registrar la ponencia.');
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      function openCertUnlockedModal(certCode) {
+        const modal = document.getElementById('cert-unlocked-modal');
+        const viewBtn = document.getElementById('cert-unlocked-modal-view-btn');
+        if (viewBtn && certCode) {
+          viewBtn.href = '/certificados/' + certCode;
+        }
+        if (modal) modal.classList.remove('hidden');
+      }
+
+      function closeCertUnlockedModal() {
+        const modal = document.getElementById('cert-unlocked-modal');
+        if (modal) modal.classList.add('hidden');
+      }
+    </script>
+  <% } %>
+
+  <!-- Modal: Certificado Desbloqueado (Aparición Única) -->
+  <div id="cert-unlocked-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 hidden animate-fade-in font-sans">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 flex flex-col items-center text-center relative overflow-hidden">
+      <!-- Background glows -->
+      <div class="absolute -top-12 -right-12 w-32 h-32 bg-emerald-100 rounded-full blur-2xl opacity-60"></div>
+      <div class="absolute -bottom-12 -left-12 w-32 h-32 bg-amber-100 rounded-full blur-2xl opacity-60"></div>
+
+      <!-- Trophy Icon -->
+      <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400 to-amber-200 text-amber-900 flex items-center justify-center text-4xl mb-4 shadow-lg shadow-amber-500/20 relative">
+        <i class="fa-solid fa-trophy"></i>
+      </div>
+
+      <!-- Content -->
+      <h3 class="text-xl font-black text-slate-900 uppercase tracking-tight">¡Felicitaciones!</h3>
+      <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider mt-1">Certificado Desbloqueado</p>
+      <p class="text-xs text-slate-600 font-medium leading-relaxed mt-3">
+        Has alcanzado el porcentaje mínimo de asistencia requerido. Tu certificado oficial de participación ha sido generado con éxito.
+      </p>
+
+      <!-- Buttons -->
+      <div class="w-full flex flex-col gap-2.5 mt-6">
+        <a id="cert-unlocked-modal-view-btn" href="#" target="_blank" onclick="closeCertUnlockedModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-5 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer font-sans">
+          <i class="fa-solid fa-award text-sm"></i>
+          <span>Ver / Descargar Certificado</span>
+        </a>
+        <button type="button" onclick="closeCertUnlockedModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-3 px-5 rounded-2xl text-xs transition cursor-pointer font-sans">
+          Continuar Viendo el Evento
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<footer class="bg-black text-gray-400 pt-10 pb-8 px-6 md:px-12 border-t border-slate-950 relative font-sans">
+  <div class="max-w-7xl mx-auto flex flex-col gap-8">
+    
+    <!-- Top Row: Logo and Social Links -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-900/60">
+      <div class="flex flex-col items-center sm:items-start">
+        <div class="flex items-center gap-1">
+          <% if (typeof systemConfig !== 'undefined' && systemConfig.footerLogo) { %>
+            <img src="<%= systemConfig.footerLogo %>" alt="<%= systemConfig.systemName %>" class="h-12 max-w-[200px] object-contain">
+          <% } else if (typeof systemConfig !== 'undefined' && systemConfig.systemLogo) { %>
+            <img src="<%= systemConfig.systemLogo %>" alt="<%= systemConfig.systemName %>" class="h-12 max-w-[200px] object-contain">
+          <% } else { %>
+            <span class="text-2xl font-black tracking-tight text-white font-sans">P<span class="text-sky-500">.</span>ec</span>
+          <% } %>
+        </div>
+      </div>
+      
+      <!-- Social Networks -->
+      <div class="flex items-center gap-4">
+        <% if (typeof systemConfig !== 'undefined' && (systemConfig.facebookUrl || systemConfig.instagramUrl || systemConfig.youtubeUrl || systemConfig.tiktokUrl || systemConfig.linkedinUrl)) { %>
+          <% if (systemConfig.facebookUrl) { %>
+            <a href="<%= systemConfig.facebookUrl %>" target="_blank" class="w-8 h-8 rounded-full bg-black border border-slate-800/80 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300" title="Facebook">
+              <i class="fa-brands fa-facebook-f text-xs"></i>
+            </a>
+          <% } %>
+          <% if (systemConfig.instagramUrl) { %>
+            <a href="<%= systemConfig.instagramUrl %>" target="_blank" class="w-8 h-8 rounded-full bg-black border border-slate-800/80 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300" title="Instagram">
+              <i class="fa-brands fa-instagram text-xs"></i>
+            </a>
+          <% } %>
+          <% if (systemConfig.youtubeUrl) { %>
+            <a href="<%= systemConfig.youtubeUrl %>" target="_blank" class="w-8 h-8 rounded-full bg-black border border-slate-800/80 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300" title="YouTube">
+              <i class="fa-brands fa-youtube text-xs"></i>
+            </a>
+          <% } %>
+          <% if (systemConfig.tiktokUrl) { %>
+            <a href="<%= systemConfig.tiktokUrl %>" target="_blank" class="w-8 h-8 rounded-full bg-black border border-slate-800/80 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300" title="TikTok">
+              <i class="fa-brands fa-tiktok text-xs"></i>
+            </a>
+          <% } %>
+          <% if (systemConfig.linkedinUrl) { %>
+            <a href="<%= systemConfig.linkedinUrl %>" target="_blank" class="w-8 h-8 rounded-full bg-black border border-slate-800/80 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300" title="LinkedIn">
+              <i class="fa-brands fa-linkedin-in text-xs"></i>
+            </a>
+          <% } %>
+        <% } else { %>
+          <!-- Fallback defaults -->
+          <a href="https://facebook.com" target="_blank" class="w-8 h-8 rounded-full bg-black border border-slate-800/80 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300" title="Facebook">
+            <i class="fa-brands fa-facebook-f text-xs"></i>
+          </a>
+          <a href="https://instagram.com" target="_blank" class="w-8 h-8 rounded-full bg-black border border-slate-800/80 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300" title="Instagram">
+            <i class="fa-brands fa-instagram text-xs"></i>
+          </a>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Middle Row: Columns -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 py-2 text-left">
+      
+      <!-- Column 1: ENLACES -->
+      <div>
+        <h3 class="text-white font-black text-xs tracking-wider uppercase mb-5 font-sans">Enlaces</h3>
+        <ul class="flex flex-col gap-2.5 text-xs text-gray-400 font-medium">
+          <li><a href="/directorio" class="hover:text-white transition-colors duration-200">Directorio</a></li>
+          <li><a href="/eventos" class="hover:text-white transition-colors duration-200">Educación</a></li>
+          <li><a href="/cursos" class="hover:text-white transition-colors duration-200">Cursos</a></li>
+          <li><a href="/beneficios" class="hover:text-white transition-colors duration-200 font-bold text-sky-400">Beneficios & Convenios</a></li>
+          <li><a href="/p/nosotros" class="hover:text-white transition-colors duration-200">Nosotros</a></li>
+          <li><a href="/contacto" class="hover:text-white transition-colors duration-200">Contacto</a></li>
+        </ul>
+      </div>
+
+      <!-- Column 2: ÚNETE -->
+      <div>
+        <h3 class="text-white font-black text-xs tracking-wider uppercase mb-5 font-sans">Únete</h3>
+        <ul class="flex flex-col gap-4 text-xs text-gray-400 font-medium">
+          <li>
+            <div class="text-gray-300 font-bold">Ponente</div>
+            <a href="/contacto?ref=ponente" class="text-[10px] text-sky-400 hover:text-sky-300 transition-colors duration-200 flex items-center gap-1 mt-0.5 font-bold">
+              Más info <i class="fa-solid fa-arrow-right-long text-[9px]"></i>
+            </a>
+          </li>
+          <li>
+            <div class="text-gray-300 font-bold">Asistente</div>
+            <a href="/contacto?ref=asistente" class="text-[10px] text-sky-400 hover:text-sky-300 transition-colors duration-200 flex items-center gap-1 mt-0.5 font-bold">
+              Más info <i class="fa-solid fa-arrow-right-long text-[9px]"></i>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Column 3: FAQS PROF. -->
+      <div>
+        <h3 class="text-white font-black text-xs tracking-wider uppercase mb-5 font-sans">Faqs Prof.</h3>
+        <div class="flex flex-col gap-2 text-xs">
+          <% if (typeof footerFaqs !== 'undefined' && footerFaqs.prof && footerFaqs.prof.length > 0) { %>
+            <% footerFaqs.prof.forEach(function(item, index) { %>
+              <details class="group border-b border-slate-900 pb-2 last:border-none">
+                <summary class="list-none flex justify-between items-center cursor-pointer text-gray-400 font-medium select-none group-open:text-white transition-colors duration-200">
+                  <span class="text-[11px] hover:text-gray-200"><%= item.q %></span>
+                  <span class="transition-transform group-open:rotate-180 text-gray-500 text-[9px]"><i class="fa-solid fa-chevron-down"></i></span>
+                </summary>
+                <div class="mt-2 text-gray-500 text-[11px] leading-relaxed pl-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <%= item.a %>
+                </div>
+              </details>
+            <% }) %>
+          <% } else { %>
+            <div class="text-gray-600 text-[10px]">No hay preguntas cargadas.</div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Column 4: FAQS EVENTOS -->
+      <div>
+        <h3 class="text-white font-black text-xs tracking-wider uppercase mb-5 font-sans">Faqs Eventos</h3>
+        <div class="flex flex-col gap-2 text-xs">
+          <% if (typeof footerFaqs !== 'undefined' && footerFaqs.eventos && footerFaqs.eventos.length > 0) { %>
+            <% footerFaqs.eventos.forEach(function(item, index) { %>
+              <details class="group border-b border-slate-900 pb-2 last:border-none">
+                <summary class="list-none flex justify-between items-center cursor-pointer text-gray-400 font-medium select-none group-open:text-white transition-colors duration-200">
+                  <span class="text-[11px] hover:text-gray-200"><%= item.q %></span>
+                  <span class="transition-transform group-open:rotate-180 text-gray-500 text-[9px]"><i class="fa-solid fa-chevron-down"></i></span>
+                </summary>
+                <div class="mt-2 text-gray-500 text-[11px] leading-relaxed pl-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <%= item.a %>
+                </div>
+              </details>
+            <% }) %>
+          <% } else { %>
+            <div class="text-gray-600 text-[10px]">No hay preguntas cargadas.</div>
+          <% } %>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Row: Copyrights -->
+    <div class="border-t border-slate-900/60 pt-6 flex flex-col items-center gap-2 text-[10px] text-gray-500 font-medium">
+      <div>Developed by 1998 - Desarrollo Digital y Marketing</div>
+      <div class="flex items-center gap-1.5 mt-0.5 text-gray-600">
+        <a href="/p/terminos" class="hover:text-gray-400 transition-colors duration-200">Términos</a>
+        <span>|</span>
+        <a href="mailto:info@profesionales.ec" class="hover:text-gray-400 transition-colors duration-200">info@profesionales.ec</a>
+      </div>
+    </div>
+
+  </div>
+</footer>
+
+<!-- Floating WhatsApp Widget (hidden in preview mode) -->
+<% 
+  var whatsappNumber = (typeof systemConfig !== 'undefined' && systemConfig.adminWhatsapp) ? systemConfig.adminWhatsapp : '593999999999';
+  var whatsappText = encodeURIComponent('Hola, necesito información sobre la plataforma Profesionales Ecuador.');
+  var isDashboardPage = (typeof isDashboard !== 'undefined' && isDashboard) || (typeof activePage !== 'undefined' && (activePage === 'dashboard' || activePage === 'dashboard-estudiante' || activePage === 'dashboard-profesional' || activePage === 'estudiantes-dashboard'));
+  var isViewingProfile = (typeof profile !== 'undefined' && profile && profile.user && !isDashboardPage);
+  var showWhatsappWidget = isViewingProfile && (typeof previewMode === 'undefined' || !previewMode);
+  
+  if (showWhatsappWidget) {
+    var rawPhone = profile.whatsapp || profile.telefono || '';
+    var cleanPhone = rawPhone.replace(/\D/g, ''); // Keep only numbers
+    
+    if (cleanPhone) {
+      if (cleanPhone.length === 9 && cleanPhone.startsWith('9')) {
+        cleanPhone = '593' + cleanPhone;
+      } else if (cleanPhone.length === 10 && cleanPhone.startsWith('09')) {
+        cleanPhone = '593' + cleanPhone.slice(1);
+      }
+      whatsappNumber = cleanPhone;
+      whatsappText = encodeURIComponent('Hola ' + profile.user.name + ', vi tu perfil en Profesionales Ecuador y me gustaría contactar contigo.');
+    }
+  }
+%>
+<% if (showWhatsappWidget) { %>
+  <div class="fixed bottom-6 left-6 z-50 flex items-center gap-3">
+    <!-- WhatsApp Button -->
+    <a id="whatsapp-floating-btn" href="https://wa.me/<%= whatsappNumber %>?text=<%= whatsappText %>" target="_blank" class="text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 hover:brightness-95 transition duration-300" style="background: <%= isViewingProfile ? 'var(--primary-color)' : '#10b981' %>;" title="<%= isViewingProfile ? 'Contactar a ' + profile.user.name : 'Contactar por WhatsApp' %>">
+      <i class="fa-brands fa-whatsapp text-3xl"></i>
+    </a>
+
+    <!-- Contextual Bubble (Tooltip) -->
+    <div id="whatsapp-profile-bubble" class="bg-slate-900 text-white text-[10px] sm:text-[11px] font-bold py-2.5 px-4 rounded-2xl shadow-xl border border-slate-800 flex items-center gap-2 transform translate-x-4 opacity-0 transition-all duration-500 ease-out whitespace-nowrap pointer-events-none select-none relative font-sans">
+      <!-- Triangle Indicator -->
+      <div class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-900 border-l border-b border-slate-800 rotate-45"></div>
+      <span class="relative z-10 flex items-center gap-1.5">
+        <i class="fa-solid fa-sparkles text-amber-400 mr-0.5 animate-pulse"></i>
+        Escríbele por WhatsApp a <b><%= profile.user.name %></b>
+      </span>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        const bubble = document.getElementById("whatsapp-profile-bubble");
+        const btn = document.getElementById("whatsapp-floating-btn");
+
+        if (bubble) {
+          // Slide in and fade in after 800ms
+          setTimeout(() => {
+            bubble.classList.remove("translate-x-4", "opacity-0");
+            bubble.classList.add("translate-x-0", "opacity-100");
+
+            // Glow and bounce button briefly
+            if (btn) {
+              btn.classList.add("scale-110");
+              btn.style.boxShadow = "0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 0 0 6px var(--primary-color)";
+              setTimeout(() => {
+                btn.classList.remove("scale-110");
+                btn.style.boxShadow = "";
+              }, 1000);
+            }
+          }, 800);
+
+          // Hide bubble after 6 seconds
+          setTimeout(() => {
+            bubble.classList.remove("translate-x-0", "opacity-100");
+            bubble.classList.add("translate-x-4", "opacity-0");
+            setTimeout(() => {
+              bubble.remove();
+            }, 500);
+          }, 6000);
+        }
+      });
+    </script>
+  </div>
+<% } %>
+
+<!-- Real-time Updates Socket.io -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  (function() {
+    if (typeof io !== 'undefined') {
+      const socket = io();
+      socket.on('realtime_reload', function(data) {
+        
+        // Prevent reloading if the user is typing to avoid breaking user experience
+        const activeElem = document.activeElement;
+        const isTyping = activeElem && (
+          activeElem.tagName === 'INPUT' || 
+          activeElem.tagName === 'TEXTAREA' || 
+          activeElem.isContentEditable
+        );
+        if (isTyping) return;
+
+        // Show premium micro-animation toast
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-6 right-6 z-[9999] bg-slate-900 text-white text-xs font-bold py-3.5 px-5 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-2.5 transform translate-y-10 opacity-0 transition-all duration-500 font-sans';
+        toast.innerHTML = `
+          <i class="fa-solid fa-arrows-rotate text-sky-400 animate-spin"></i>
+          <span>Actualizando plataforma en tiempo real...</span>
+        `;
+        document.body.appendChild(toast);
+        
+        // Trigger animation
+        requestAnimationFrame(() => {
+          toast.style.transform = 'translateY(0)';
+          toast.style.opacity = '1';
+        });
+
+        // Reload after a short delay to let the toast display
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      });
+    }
+  })();
+</script>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="h-full font-sans text-slate-800 bg-slate-50 flex flex-col min-h-screen">
+
+  <%- include('partials/header') %>
+
+  <!-- Student Hero Header -->
+  <section class="relative bg-gradient-to-r from-[#0A3C84] via-[#0a66c2] to-sky-600 text-white overflow-hidden py-12 lg:py-16">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 relative z-10 flex flex-col md:flex-row items-center gap-6">
+      
+      <!-- Circular Avatar -->
+      <div class="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-white shrink-0">
+        <img src="<%= profile.foto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400' %>" alt="<%= profile.user.name %>" class="w-full h-full object-cover">
+      </div>
+
+      <!-- Info -->
+      <div class="space-y-3 text-center md:text-left flex-grow">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold text-white border border-white/20">
+          <i class="fa-solid fa-graduation-cap"></i> Perfil de Estudiante
+        </div>
+        
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white leading-tight">
+          <%= profile.user.name %>
+        </h1>
+
+        <p class="text-blue-100 font-bold text-base">
+          <%= profile.carrera %> · <%= profile.institucionEducativa %>
+        </p>
+
+        <div class="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1 text-xs">
+          <span class="px-3 py-1 rounded-xl bg-white/10 font-semibold">
+            <i class="fa-solid fa-location-dot"></i> <%= profile.ciudad || profile.provincia || 'Ecuador' %>
+          </span>
+          <span class="px-3 py-1 rounded-xl <%= profile.estadoCarrera === 'EGRESADO' ? 'bg-amber-400 text-amber-950' : 'bg-emerald-400 text-emerald-950' %> font-black">
+            <%= profile.estadoCarrera === 'EGRESADO' ? 'Egresado / Graduado' : 'Estudiante en Curso' %>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Grid -->
+  <main class="max-w-5xl mx-auto w-full px-4 sm:px-6 py-10 flex-grow space-y-8">
+    
+    <!-- Biography / Presentation -->
+    <% if (profile.bio) { %>
+      <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8 space-y-3">
+        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-50 pb-3">
+          <i class="fa-solid fa-user text-[#0a66c2]"></i> Sobre mí
+        </h2>
+        <p class="text-slate-600 text-xs sm:text-sm leading-relaxed"><%= profile.bio %></p>
+      </section>
+    <% } %>
+
+    <!-- Projects Section -->
+    <% if (profile.projects && profile.projects.length > 0) { %>
+      <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8 space-y-4">
+        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-50 pb-3">
+          <i class="fa-solid fa-diagram-project text-[#0a66c2]"></i> Proyectos Académicos y Personales
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <% profile.projects.forEach(function(proj) { %>
+            <div class="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-2 text-xs flex flex-col justify-between">
+              <div class="space-y-2">
+                <h3 class="font-bold text-slate-900 text-sm"><%= proj.titulo %></h3>
+                <% if (proj.areaTecnologia) { %>
+                  <span class="inline-block px-2 py-0.5 rounded-full bg-blue-100 text-[#0a66c2] text-[10px] font-bold"><%= proj.areaTecnologia %></span>
+                <% } %>
+                <% if (proj.descripcion) { %>
+                  <p class="text-slate-600 text-xs leading-relaxed"><%= proj.descripcion %></p>
+                <% } %>
+                <% const pImgs = (proj.imagenes && proj.imagenes.length > 0) ? proj.imagenes : (proj.imagenUrl ? [proj.imagenUrl] : []); %>
+                <% if (pImgs.length > 0) { %>
+                  <div class="flex items-center gap-2 pt-2 overflow-x-auto">
+                    <% pImgs.slice(0, 5).forEach(function(imgUrl) { %>
+                      <a href="<%= imgUrl %>" target="_blank" class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 hover:opacity-80 transition shadow-sm">
+                        <img src="<%= imgUrl %>" class="w-full h-full object-cover">
+                      </a>
+                    <% }); %>
+                  </div>
+                <% } %>
+              </div>
+              <% if (proj.enlaceRepo) { %>
+                <div class="pt-2 border-t border-slate-200/50">
+                  <a href="<%= proj.enlaceRepo %>" target="_blank" class="inline-flex items-center gap-1 text-[#0a66c2] font-bold hover:underline">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Proyecto / Repositorio
+                  </a>
+                </div>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+      </section>
+    <% } %>
+
+    <!-- External Courses and Platform Certificates -->
+    <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8 space-y-4">
+      <h2 class="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-50 pb-3">
+        <i class="fa-solid fa-certificate text-[#0a66c2]"></i> Cursos y Acreditaciones
+      </h2>
+
+      <% if (profile.externalCourses && profile.externalCourses.length > 0) { %>
+        <div class="space-y-3">
+          <% profile.externalCourses.forEach(function(ec) { %>
+            <div class="p-4 rounded-2xl border border-slate-100 bg-slate-50 flex items-center justify-between text-xs">
+              <div>
+                <h4 class="font-bold text-slate-900"><%= ec.nombreCurso %></h4>
+                <p class="text-slate-500 text-[11px]"><%= ec.institucion %> <%= ec.horas ? '· ' + ec.horas + ' horas' : '' %> <%= ec.anioEmision ? '· Año ' + ec.anioEmision : '' %></p>
+                <% if (ec.certificadoUrl) { 
+                   let certLink = ec.certificadoUrl;
+                   if (certLink.includes('cloudinary.com') && certLink.includes('/raw/upload/')) {
+                     const fn = certLink.split('/').pop();
+                     if (fn && !fn.includes('.')) certLink += '.pdf';
+                   }
+                 %>
+                  <a href="<%= certLink %>" target="_blank" class="inline-flex items-center gap-1 text-[#0a66c2] font-bold hover:underline text-[11px] mt-1">
+                    <i class="fa-solid fa-file-pdf text-rose-500"></i> Ver Certificado
+                  </a>
+                <% } %>
+              </div>
+              <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">Certificado Externo</span>
+            </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <p class="text-xs text-slate-400 italic">No hay información disponible.</p>
+      <% } %>
+    </section>
+
+    <!-- Internships and Experiences -->
+    <% if (profile.experiences && profile.experiences.length > 0) { %>
+      <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8 space-y-4">
+        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-50 pb-3">
+          <i class="fa-solid fa-briefcase text-[#0a66c2]"></i> Pasantías Preprofesionales y Experiencia
+        </h2>
+        <div class="space-y-3">
+          <% profile.experiences.forEach(function(exp) { %>
+            <div class="p-4 rounded-2xl border border-slate-100 bg-slate-50 space-y-2 text-xs">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-[#0a66c2]"><%= exp.tipo.replace('_', ' ') %></span>
+              <h3 class="font-bold text-slate-900"><%= exp.cargo %> — <%= exp.empresaInstitucion %></h3>
+              <% if (exp.descripcionFunciones) { %>
+                <p class="text-slate-600 text-xs leading-relaxed"><%= exp.descripcionFunciones %></p>
+              <% } %>
+              <% if (exp.imagenes && exp.imagenes.length > 0) { %>
+                <div class="flex items-center gap-2 pt-2 overflow-x-auto">
+                  <% exp.imagenes.slice(0, 5).forEach(function(imgUrl) { %>
+                    <a href="<%= imgUrl %>" target="_blank" class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 hover:opacity-80 transition shadow-sm">
+                      <img src="<%= imgUrl %>" class="w-full h-full object-cover">
+                    </a>
+                  <% }); %>
+                </div>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+      </section>
+    <% } %>
+
+  </main>
+
+  <%- include('partials/footer') %>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+/**
+ * ====================================================================
+ * CLEAN HARDWARE-ACCELERATED SCROLL REVEAL (Zero Conflicts)
+ * Profesionales Ecuador
+ * ====================================================================
+ */
+
+/* Initial state for elements to reveal */
+[data-reveal],
+.sr-reveal,
+.reveal-init {
+  opacity: 0 !important;
+  transform: translate3d(0, 36px, 0) scale(0.97) !important;
+  transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform, opacity;
+}
+
+/* Revealed / Visible state */
+[data-reveal].is-revealed,
+[data-reveal].sr-visible,
+.sr-reveal.sr-visible,
+.sr-reveal.is-revealed,
+.reveal-init.is-revealed {
+  opacity: 1 !important;
+  transform: translate3d(0, 0, 0) scale(1) !important;
+}
+
+/* Directional variants */
+[data-reveal="fade-left"] {
+  transform: translate3d(40px, 0, 0) !important;
+}
+[data-reveal="fade-right"] {
+  transform: translate3d(-40px, 0, 0) !important;
+}
+[data-reveal="zoom-in"] {
+  transform: translate3d(0, 20px, 0) scale(0.92) !important;
+}
+[data-reveal="fade-down"] {
+  transform: translate3d(0, -36px, 0) !important;
+}
+
+/* Revealed directional */
+[data-reveal="fade-left"].is-revealed,
+[data-reveal="fade-right"].is-revealed,
+[data-reveal="zoom-in"].is-revealed,
+[data-reveal="fade-down"].is-revealed {
+  transform: translate3d(0, 0, 0) scale(1) !important;
+}
+
+/* Premium Card Hover Lift */
+.premium-card-hover {
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.premium-card-hover:hover {
+  transform: translate3d(0, -5px, 0) !important;
+  box-shadow: 0 16px 32px -8px rgba(10, 60, 132, 0.15) !important;
+}
+
+html.dark .premium-card-hover:hover {
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 0 12px 1px rgba(56, 189, 248, 0.15) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  .sr-reveal,
+  .reveal-init {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

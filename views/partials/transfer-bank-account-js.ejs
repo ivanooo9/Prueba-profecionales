@@ -1,0 +1,75 @@
+<script>
+  const transferBankAccounts = <%- JSON.stringify(Array.isArray(activeBankAccounts) ? activeBankAccounts : []) %>;
+
+  function escapeTransferAccountHtml(value) {
+    return String(value || '').replace(/[&<>"]/g, function(char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char];
+    });
+  }
+
+  function renderTransferBankAccountCard(selectId, cardId) {
+    const select = document.getElementById(selectId);
+    const card = document.getElementById(cardId);
+    if (!select || !card || transferBankAccounts.length === 0) return;
+
+    const account = transferBankAccounts.find(function(item) {
+      return String(item.id) === String(select.value);
+    });
+
+    if (!account) {
+      card.classList.add('hidden');
+      card.innerHTML = '';
+      return;
+    }
+
+    if (String(account.type || '').toUpperCase() === 'QR') {
+      card.innerHTML = `
+        <div class="flex flex-col gap-3">
+          <div>
+            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Institución</span>
+            <strong class="text-slate-900">${escapeTransferAccountHtml(account.institution)}</strong>
+          </div>
+          ${account.qrImageUrl ? `<img src="${escapeTransferAccountHtml(account.qrImageUrl)}" alt="Código QR de ${escapeTransferAccountHtml(account.institution)}" class="max-h-52 w-full object-contain rounded-xl border border-white bg-white p-2">` : ''}
+        </div>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><span class="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Institución</span><strong class="text-slate-900">${escapeTransferAccountHtml(account.institution)}</strong></div>
+          <div><span class="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Tipo</span><strong class="text-slate-900">${escapeTransferAccountHtml(account.accountType)}</strong></div>
+          <div><span class="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Número</span><strong class="text-slate-900 font-mono">${escapeTransferAccountHtml(account.accountNumber)}</strong></div>
+          ${account.taxId ? `<div><span class="text-[9px] font-black uppercase tracking-widest text-slate-400 block">RUC o cédula</span><strong class="text-slate-900 font-mono">${escapeTransferAccountHtml(account.taxId)}</strong></div>` : ''}
+          <div><span class="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Beneficiario</span><strong class="text-slate-900">${escapeTransferAccountHtml(account.beneficiaryName)}</strong></div>
+        </div>
+      `;
+    }
+
+    card.classList.remove('hidden');
+  }
+
+  function syncTransferBankAccountPaymentFields(selectId, cardId, referenceId, receiptId, dropzoneId) {
+    const select = document.getElementById(selectId);
+    if (select) renderTransferBankAccountCard(selectId, cardId);
+
+    const shouldDisable = Boolean(select && transferBankAccounts.length > 0 && !select.value);
+    const reference = document.getElementById(referenceId);
+    const receipt = document.getElementById(receiptId);
+    const dropzone = dropzoneId ? document.getElementById(dropzoneId) : null;
+
+    if (reference) {
+      reference.disabled = shouldDisable;
+      reference.classList.toggle('opacity-60', shouldDisable);
+      reference.classList.toggle('cursor-not-allowed', shouldDisable);
+    }
+
+    if (receipt) {
+      receipt.disabled = shouldDisable;
+    }
+
+    if (dropzone) {
+      dropzone.classList.toggle('opacity-60', shouldDisable);
+      dropzone.classList.toggle('cursor-not-allowed', shouldDisable);
+      dropzone.classList.toggle('pointer-events-none', shouldDisable);
+    }
+  }
+</script>

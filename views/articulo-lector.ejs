@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%- include('partials/head') %>
+  <style>
+    /* 3D Flipbook & PDF Viewer Styles */
+    body.mode-pdf {
+      background-color: #0b0f19 !important;
+      color: #f8fafc !important;
+      overflow: hidden !important;
+    }
+    
+    #book-viewport:not(.hidden) {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      perspective: 2500px;
+    }
+    .fb-sheet {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 50%;
+      height: 100%;
+      transform-origin: left center;
+      transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+      transform-style: preserve-3d;
+      z-index: 1;
+    }
+    .fb-sheet.flipped {
+      transform: rotateY(-180deg);
+    }
+    .fb-page {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      background-color: white;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.05);
+    }
+    .fb-page::before {
+      content: "CARGANDO PÁGINA...";
+      position: absolute;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      z-index: 0;
+    }
+    .fb-page:has(> .fb-page-padding)::before,
+    .fb-page > .fb-page-padding {
+      content: none;
+    }
+    .fb-page > .fb-page-padding {
+      position: relative;
+      z-index: 1;
+    }
+    .fb-page-front {
+      z-index: 2;
+      border-radius: 0 16px 16px 0;
+      box-shadow: 10px 0 20px rgba(0,0,0,0.15);
+    }
+    .fb-page-back {
+      transform: rotateY(180deg);
+      z-index: 1;
+      border-radius: 16px 0 0 16px;
+      box-shadow: -10px 0 20px rgba(0,0,0,0.15);
+    }
+    .fb-page canvas {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: white;
+    }
+
+    /* Premium Reader Styles for HTML Mode */
+    body.theme-claro {
+      background-color: #fbf9f4 !important;
+      color: #1e293b !important;
+    }
+    body.theme-claro .reader-card {
+      background-color: #fbf9f4 !important;
+      border-color: #f1ebd9 !important;
+    }
+    body.theme-claro .control-bar {
+      background-color: #ffffff !important;
+      border-color: #e2e8f0 !important;
+      color: #334155 !important;
+    }
+    body.theme-claro .control-btn {
+      background-color: #f8fafc;
+      color: #334155;
+      border-color: #e2e8f0;
+    }
+    body.theme-claro .control-btn.active {
+      background-color: #0A3C84;
+      color: #ffffff;
+      border-color: #0A3C84;
+    }
+
+    body.theme-sepia {
+      background-color: #f4ecd8 !important;
+      color: #5c4033 !important;
+    }
+    body.theme-sepia .reader-card {
+      background-color: #f4ecd8 !important;
+      border-color: #e4d7b8 !important;
+    }
+    body.theme-sepia .control-bar {
+      background-color: #ebdcb9 !important;
+      border-color: #d8c292 !important;
+      color: #5c4033 !important;
+    }
+    body.theme-sepia .control-btn {
+      background-color: #ebdcb9;
+      color: #5c4033;
+      border-color: #d8c292;
+    }
+    body.theme-sepia .control-btn.active {
+      background-color: #8b5a2b;
+      color: #ffffff;
+      border-color: #8b5a2b;
+    }
+
+    body.theme-oscuro {
+      background-color: #0f172a !important;
+      color: #cbd5e1 !important;
+    }
+    body.theme-oscuro .reader-card {
+      background-color: #0f172a !important;
+      border-color: #1e293b !important;
+    }
+    body.theme-oscuro .control-bar {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+      color: #cbd5e1 !important;
+    }
+    body.theme-oscuro .control-btn {
+      background-color: #1e293b;
+      color: #cbd5e1;
+      border-color: #334155;
+    }
+    body.theme-oscuro .control-btn.active {
+      background-color: #38bdf8;
+      color: #0f172a;
+      border-color: #38bdf8;
+    }
+
+    /* Font Family Utility Classes */
+    .font-serif-mode { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif !important; }
+    .font-sans-mode { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important; }
+    .font-mono-mode { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; }
+
+    /* Content Margin Classes */
+    .margin-estrecho { max-width: 720px !important; }
+    .margin-medio { max-width: 860px !important; }
+    .margin-ancho { max-width: 1040px !important; }
+  </style>
+</head>
+<body class="<%= article.displayMode === 'PDF' ? 'mode-pdf bg-[#0b0f19]' : 'theme-claro' %> flex flex-col min-h-screen antialiased copy-protection transition-colors duration-300">
+
+<% if (article.displayMode === 'PDF') { %>
+  <!-- ==================== ADAPTIVE PDF VIEWER (DESKTOP FLIPBOOK / MOBILE HD SINGLE PAGE) ==================== -->
+  <div class="fixed inset-0 bg-[#0b0f19] flex flex-col justify-between z-50 overflow-hidden select-none">
+    
+    <!-- Top Control Header (Fixed) -->
+    <header class="w-full py-3 px-3 md:px-6 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-md z-50">
+      <!-- Title Badge -->
+      <div class="flex items-center gap-2">
+        <span class="bg-slate-900 border border-slate-700/80 text-white text-[11px] font-extrabold px-3 py-1.5 rounded-full tracking-wider uppercase shadow-md flex items-center gap-1.5 shrink-0">
+          <i class="fa-solid fa-file-lines text-sky-400"></i> ARTÍCULO<span class="hidden sm:inline"> PROFESIONALES ECUADOR</span>
+        </span>
+        <span class="hidden lg:inline-block text-slate-400 text-xs font-semibold truncate max-w-md">
+          - <%= article.titulo %>
+        </span>
+      </div>
+
+      <!-- Right Action Controls -->
+      <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
+        <button onclick="zoomPdf(-0.15)" class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-200 flex items-center justify-center transition shadow cursor-pointer" title="Reducir zoom">
+          <i class="fa-solid fa-magnifying-glass-minus text-xs"></i>
+        </button>
+        <span id="zoom-display" class="bg-slate-900 border border-slate-700/80 text-slate-200 text-[10px] md:text-[11px] font-bold px-2.5 py-1 md:py-1.5 rounded-full shadow-inner min-w-[44px] text-center">
+          100%
+        </span>
+        <button onclick="zoomPdf(0.15)" class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-200 flex items-center justify-center transition shadow cursor-pointer" title="Aumentar zoom">
+          <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+        </button>
+        <a href="<%= article.pdfUrl %>" download="<%= article.titulo %>.pdf" class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-sky-400 flex items-center justify-center transition shadow cursor-pointer" title="Descargar PDF">
+          <i class="fa-solid fa-download text-xs"></i>
+        </a>
+        <button onclick="closeViewer()" class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-900 hover:bg-rose-900/80 border border-slate-700/80 hover:border-rose-700 text-slate-200 hover:text-white flex items-center justify-center transition shadow cursor-pointer ml-1" title="Cerrar">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport Area -->
+    <main class="flex-grow relative flex items-center justify-center overflow-hidden p-2 md:p-4 bg-[#0b0f19]">
+      
+      <!-- Loading Spinner -->
+      <div id="flipbook-loading" class="flex flex-col items-center justify-center gap-4 text-slate-300">
+        <i class="fa-solid fa-spinner animate-spin text-5xl text-sky-500"></i>
+        <p class="text-xs font-black tracking-widest uppercase text-slate-400">Cargando Artículo PDF...</p>
+      </div>
+
+      <!-- Desktop 3D Book Container Viewport (>= 768px) -->
+      <div id="book-viewport" class="hidden relative w-full h-full flex items-center justify-center">
+        <div id="book-container" class="relative shadow-2xl transition-transform duration-300"></div>
+      </div>
+
+      <!-- Mobile Single-Page Container (< 768px) -->
+      <div id="mobile-pdf-container" class="hidden w-full h-full overflow-auto flex items-center justify-center p-2 bg-[#0b0f19] select-none" style="touch-action: pan-x pan-y;">
+        <div id="mobile-single-page-wrapper" class="relative bg-white shadow-2xl rounded-sm overflow-hidden flex items-center justify-center transition-all duration-150">
+          <canvas id="mobile-single-page-canvas" class="block bg-white"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Page Navigation Bar (Fixed) -->
+    <footer id="flipbook-controls" class="hidden w-full py-3 px-4 flex items-center justify-center bg-slate-950/95 backdrop-blur-md border-t border-slate-800/80 z-50">
+      <div class="flex items-center gap-3" id="nav-desktop-buttons">
+        <button id="btn-prev-page" onclick="prevPage()" class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-white flex items-center justify-center transition shadow cursor-pointer hover:scale-105 active:scale-95" title="Página Anterior">
+          <i class="fa-solid fa-chevron-left text-xs md:text-sm"></i>
+        </button>
+        
+        <span id="page-num-display" class="bg-slate-900 border border-slate-700/80 text-white text-[11px] md:text-xs font-black uppercase px-5 py-1.5 md:py-2 rounded-full tracking-wider shadow-inner text-center min-w-[150px]">
+          PORTADA (PÁG. 1)
+        </span>
+
+        <button id="btn-next-page" onclick="nextPage()" class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-white flex items-center justify-center transition shadow cursor-pointer hover:scale-105 active:scale-95" title="Siguiente Página">
+          <i class="fa-solid fa-chevron-right text-xs md:text-sm"></i>
+        </button>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    let pdfDoc = null;
+    let currentSheetIndex = -1;
+    let currentMobilePageNum = 1;
+    let totalSheets = 0;
+    let sheetsArray = [];
+    let pdfZoom = 1;
+    let renderedPages = new Set();
+    let pdfJsPromise = null;
+    let isMobileView = false;
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    async function ensurePdfJs() {
+      if (!pdfJsPromise) {
+        pdfJsPromise = loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js').then(() => {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        });
+      }
+      return pdfJsPromise;
+    }
+
+    function updateZoomDisplay() {
+      const zoomDisplay = document.getElementById('zoom-display');
+      if (zoomDisplay) {
+        zoomDisplay.innerText = `${Math.round(pdfZoom * 100)}%`;
+      }
+      if (isMobileView) {
+        renderSingleMobilePage(currentMobilePageNum);
+      } else {
+        const bookContainer = document.getElementById('book-container');
+        if (bookContainer) {
+          bookContainer.style.transform = `scale(${pdfZoom})`;
+          bookContainer.style.transformOrigin = 'center center';
+        }
+      }
+    }
+
+    function zoomPdf(delta) {
+      pdfZoom = Math.min(2.5, Math.max(0.5, Number((pdfZoom + delta).toFixed(2))));
+      updateZoomDisplay();
+    }
+
+    async function renderDesktopPageNum(pageNum) {
+      if (renderedPages.has(pageNum)) return;
+      renderedPages.add(pageNum);
+
+      const canvas = document.getElementById(`page-canvas-${pageNum}`);
+      if (!canvas || !pdfDoc) return;
+
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+      } catch (error) {
+        console.error(`Error rendering page ${pageNum}:`, error);
+        renderedPages.delete(pageNum);
+      }
+    }
+
+    async function renderSingleMobilePage(pageNum) {
+      if (!pdfDoc) return;
+      const canvas = document.getElementById('mobile-single-page-canvas');
+      if (!canvas) return;
+
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        const availWidth = Math.min(window.innerWidth - 16, 768);
+        const availHeight = Math.max(300, window.innerHeight - 130);
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+
+        const scaleX = availWidth / unscaledViewport.width;
+        const scaleY = availHeight / unscaledViewport.height;
+        const baseScale = Math.min(scaleX, scaleY);
+
+        // High-DPI Vector Crisp Zoom (no pixelation)
+        const dpr = Math.max(window.devicePixelRatio || 1, 2);
+        const renderScale = baseScale * pdfZoom * dpr;
+        const viewport = page.getViewport({ scale: renderScale });
+
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        const cssWidth = Math.round(unscaledViewport.width * baseScale * pdfZoom);
+        const cssHeight = Math.round(unscaledViewport.height * baseScale * pdfZoom);
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        updatePageCounter();
+      } catch (err) {
+        console.error(`Error rendering single mobile page ${pageNum}:`, err);
+      }
+    }
+
+    function updateSheetsZIndex() {
+      sheetsArray.forEach((sheet, idx) => {
+        if (idx <= currentSheetIndex) {
+          sheet.classList.add('flipped');
+          sheet.style.zIndex = idx + 1;
+        } else {
+          sheet.classList.remove('flipped');
+          sheet.style.zIndex = totalSheets - idx;
+        }
+      });
+    }
+
+    function updatePageCounter() {
+      const pageDisplay = document.getElementById('page-num-display');
+      if (!pageDisplay || !pdfDoc) return;
+
+      if (isMobileView) {
+        pageDisplay.innerText = `PÁG. ${currentMobilePageNum} DE ${pdfDoc.numPages}`;
+        return;
+      }
+
+      if (currentSheetIndex === -1) {
+        pageDisplay.innerText = 'PORTADA (PÁG. 1)';
+      } else {
+        const leftPage = 2 * currentSheetIndex + 2;
+        const rightPage = leftPage + 1;
+        const total = pdfDoc.numPages;
+        if (leftPage >= total) {
+          pageDisplay.innerText = `PÁG. ${total} / ${total}`;
+        } else {
+          pageDisplay.innerText = `PÁG. ${leftPage} - ${Math.min(rightPage, total)} / ${total}`;
+        }
+      }
+    }
+
+    function nextPage() {
+      if (isMobileView) {
+        if (pdfDoc && currentMobilePageNum < pdfDoc.numPages) {
+          currentMobilePageNum++;
+          renderSingleMobilePage(currentMobilePageNum);
+        }
+      } else if (currentSheetIndex < totalSheets - 1) {
+        currentSheetIndex++;
+        updateSheetsZIndex();
+        updatePageCounter();
+      }
+    }
+
+    function prevPage() {
+      if (isMobileView) {
+        if (currentMobilePageNum > 1) {
+          currentMobilePageNum--;
+          renderSingleMobilePage(currentMobilePageNum);
+        }
+      } else if (currentSheetIndex >= 0) {
+        currentSheetIndex--;
+        updateSheetsZIndex();
+        updatePageCounter();
+      }
+    }
+
+    function closeViewer() {
+      if (window.history.length > 1) {
+        window.close();
+        setTimeout(() => {
+          window.location.href = '<%= article.profile.slug ? "/directorio/" + article.profile.slug : "/directorio" %>';
+        }, 200);
+      } else {
+        window.location.href = '<%= article.profile.slug ? "/directorio/" + article.profile.slug : "/directorio" %>';
+      }
+    }
+
+    async function initPdfViewer() {
+      const pdfUrl = `<%- article.pdfUrl %>`;
+      const loadingElement = document.getElementById('flipbook-loading');
+      isMobileView = window.innerWidth < 768;
+
+      try {
+        await ensurePdfJs();
+        const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
+        pdfDoc = await loadingTask.promise;
+        const numPages = pdfDoc.numPages;
+
+        loadingElement.classList.add('hidden');
+        document.getElementById('flipbook-controls').classList.remove('hidden');
+
+        if (isMobileView) {
+          // ==================== MOBILE SINGLE-PAGE HD MODE ====================
+          const mobileContainer = document.getElementById('mobile-pdf-container');
+          mobileContainer.classList.remove('hidden');
+          currentMobilePageNum = 1;
+
+          // Touch Drag & Swipe Panning
+          let touchStartX = 0;
+          let touchStartY = 0;
+          let scrollLeft = 0;
+          let scrollTop = 0;
+          let isDragging = false;
+
+          mobileContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+              isDragging = true;
+              touchStartX = e.touches[0].pageX - mobileContainer.offsetLeft;
+              touchStartY = e.touches[0].pageY - mobileContainer.offsetTop;
+              scrollLeft = mobileContainer.scrollLeft;
+              scrollTop = mobileContainer.scrollTop;
+            }
+          }, { passive: true });
+
+          mobileContainer.addEventListener('touchmove', (e) => {
+            if (!isDragging || e.touches.length !== 1) return;
+            const x = e.touches[0].pageX - mobileContainer.offsetLeft;
+            const y = e.touches[0].pageY - mobileContainer.offsetTop;
+            const walkX = (x - touchStartX);
+            const walkY = (y - touchStartY);
+            mobileContainer.scrollLeft = scrollLeft - walkX;
+            mobileContainer.scrollTop = scrollTop - walkY;
+          }, { passive: true });
+
+          mobileContainer.addEventListener('touchend', (e) => {
+            isDragging = false;
+          }, { passive: true });
+
+          await renderSingleMobilePage(1);
+
+        } else {
+          // ==================== DESKTOP 3D FLIPBOOK ====================
+          totalSheets = Math.ceil(numPages / 2);
+          sheetsArray = [];
+
+          const viewportWidth = Math.min(window.innerWidth - 32, 1400);
+          const viewportHeight = Math.max(450, window.innerHeight - 150);
+          const bookContainer = document.getElementById('book-container');
+          bookContainer.style.width = viewportWidth + 'px';
+          bookContainer.style.height = viewportHeight + 'px';
+
+          for (let i = 0; i < totalSheets; i++) {
+            const sheet = document.createElement('div');
+            sheet.className = 'fb-sheet';
+            sheet.style.zIndex = totalSheets - i;
+
+            const pageFrontNum = 2 * i + 1;
+            const pageFront = document.createElement('div');
+            pageFront.className = 'fb-page fb-page-front';
+            if (pageFrontNum <= numPages) {
+              const canvas = document.createElement('canvas');
+              canvas.id = `page-canvas-${pageFrontNum}`;
+              pageFront.appendChild(canvas);
+            } else {
+              pageFront.innerHTML = '<div class="fb-page-padding w-full h-full bg-slate-50 border border-slate-200"></div>';
+            }
+
+            const pageBackNum = 2 * i + 2;
+            const pageBack = document.createElement('div');
+            pageBack.className = 'fb-page fb-page-back';
+            if (pageBackNum <= numPages) {
+              const canvas = document.createElement('canvas');
+              canvas.id = `page-canvas-${pageBackNum}`;
+              pageBack.appendChild(canvas);
+            } else {
+              pageBack.innerHTML = '<div class="fb-page-padding w-full h-full bg-slate-50 border border-slate-200"></div>';
+            }
+
+            sheet.appendChild(pageFront);
+            sheet.appendChild(pageBack);
+            bookContainer.appendChild(sheet);
+            sheetsArray.push(sheet);
+          }
+
+          currentSheetIndex = -1;
+          updateSheetsZIndex();
+
+          document.getElementById('book-viewport').classList.remove('hidden');
+          updatePageCounter();
+
+          await renderDesktopPageNum(1);
+          if (numPages >= 2) await renderDesktopPageNum(2);
+          if (numPages >= 3) await renderDesktopPageNum(3);
+
+          for (let p = 4; p <= numPages; p++) {
+            await renderDesktopPageNum(p);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing PDF Viewer:', error);
+        if (loadingElement) {
+          loadingElement.innerHTML = `
+            <i class="fa-solid fa-triangle-exclamation text-4xl text-rose-500 mb-2"></i>
+            <p class="text-xs font-bold text-slate-300 uppercase">Error al cargar el artículo PDF.</p>
+            <a href="<%- article.pdfUrl %>" download class="mt-3 bg-sky-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow">Descargar PDF Directo</a>
+          `;
+        }
+      }
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') nextPage();
+      if (event.key === 'ArrowLeft') prevPage();
+      if (event.key === 'Escape') closeViewer();
+    });
+
+    window.addEventListener('DOMContentLoaded', initPdfViewer);
+  </script>
+
+<% } else { %>
+  <!-- ==================== FLOWABLE HTML E-READER ==================== -->
+  <header class="control-bar sticky top-0 z-40 w-full py-3.5 px-6 shadow-sm border-b transition-colors duration-300">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <a href="<%= article.profile.slug ? '/directorio/' + article.profile.slug : '/directorio' %>" class="flex items-center gap-2 text-xs font-bold hover:opacity-80 transition">
+        <i class="fa-solid fa-arrow-left-long"></i> Volver al Perfil
+      </a>
+
+      <div class="hidden md:flex flex-wrap items-center gap-6">
+        <div class="flex items-center gap-1.5 border-r border-slate-200 pr-6 mr-1">
+          <span class="text-[10px] font-black uppercase tracking-wider opacity-60 mr-1.5">Fuente</span>
+          <button onclick="setFontFamily('serif')" id="font-serif-btn" class="control-btn px-3 py-1.5 rounded-lg text-xs font-bold border transition active">Serif</button>
+          <button onclick="setFontFamily('sans')" id="font-sans-btn" class="control-btn px-3 py-1.5 rounded-lg text-xs font-bold border transition">Sans</button>
+          <button onclick="setFontFamily('mono')" id="font-mono-btn" class="control-btn px-3 py-1.5 rounded-lg text-xs font-bold border transition">Mono</button>
+        </div>
+
+        <div class="flex items-center gap-1 border-r border-slate-200 pr-6 mr-1">
+          <span class="text-[10px] font-black uppercase tracking-wider opacity-60 mr-1.5">Tamaño</span>
+          <button onclick="adjustFontSize(-2)" class="control-btn w-8 h-8 rounded-lg text-xs font-bold border flex items-center justify-center transition hover:scale-105"><i class="fa-solid fa-minus text-[9px]"></i></button>
+          <button onclick="adjustFontSize(2)" class="control-btn w-8 h-8 rounded-lg text-xs font-bold border flex items-center justify-center transition hover:scale-105"><i class="fa-solid fa-plus text-[9px]"></i></button>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] font-black uppercase tracking-wider opacity-60 mr-1.5">Tema</span>
+          <button onclick="setTheme('claro')" id="theme-claro-btn" class="w-8 h-8 rounded-full bg-[#fbf9f4] border-2 border-amber-800/40 flex items-center justify-center text-amber-900 transition hover:scale-105" title="Claro"></button>
+          <button onclick="setTheme('sepia')" id="theme-sepia-btn" class="w-8 h-8 rounded-full bg-[#f4ecd8] border-2 border-yellow-800/40 flex items-center justify-center text-amber-950 transition hover:scale-105" title="Sepia"></button>
+          <button onclick="setTheme('oscuro')" id="theme-oscuro-btn" class="w-8 h-8 rounded-full bg-[#0f172a] border-2 border-slate-700/40 flex items-center justify-center text-slate-100 transition hover:scale-105" title="Oscuro"></button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow py-12 px-6">
+    <div id="reader-content-wrapper" class="mx-auto margin-estrecho transition-all duration-300">
+      <div class="border-b border-slate-200/50 pb-8 mb-8 text-left">
+        <span class="text-[9px] font-black uppercase tracking-[0.2em] text-sky-500">Artículo de Investigación</span>
+        <h1 class="text-2xl md:text-3xl font-black mt-2 leading-tight font-sans"><%= article.titulo %></h1>
+        <div class="flex items-center gap-3 mt-6">
+          <% if (article.profile && article.profile.foto) { %>
+            <img src="<%= article.profile.foto %>" alt="<%= article.profile.user ? article.profile.user.name : 'Profesional' %>" class="w-10 h-10 rounded-full border object-cover">
+          <% } %>
+          <div>
+            <div class="text-xs font-black"><%= article.profile && article.profile.user ? article.profile.user.name : 'Profesional' %></div>
+            <div class="text-[9px] opacity-60 font-bold mt-0.5"><%= article.profile ? article.profile.slogan : '' %></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reader-card border border-transparent rounded-[24px] p-2 md:p-6 transition-colors duration-300 text-left font-serif-mode" id="reader-text-container" style="font-size: 16px; line-height: 1.6;">
+        <% if (article.conversionStatus === 'COMPLETED' && article.contentHtml) { %>
+          <div class="epub-body"><%- article.contentHtml %></div>
+        <% } else { %>
+          <div class="py-20 text-center flex flex-col items-center gap-4">
+            <i class="fa-solid fa-triangle-exclamation text-4xl text-amber-500"></i>
+            <h3 class="text-base font-black text-slate-800">Contenido en proceso de conversión</h3>
+            <p class="text-xs text-slate-500 font-medium max-w-sm mt-1">Este artículo aún no ha finalizado su procesamiento a texto fluido HTML.</p>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+<% } %>
+
+</body>
+</html>

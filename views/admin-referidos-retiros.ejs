@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitudes de Retiro de Comisiones | Profesionales Ecuador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Outfit', sans-serif; }
+  </style>
+</head>
+<body class="h-full flex flex-col bg-slate-50 text-slate-800">
+
+  <!-- Top Admin Bar -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/dashboard/admin" class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">ADMIN</div>
+          <span class="font-extrabold text-base tracking-tight text-white hidden sm:inline">Profesionales<span class="text-sky-400">Ecuador</span></span>
+        </a>
+        <span class="bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border border-amber-500/30">Módulo Referidos</span>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-1">
+        <a href="/dashboard/admin/referidos" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-users-gear text-blue-400"></i> Cuentas Referidos
+        </a>
+        <a href="/dashboard/admin/referidos/ventas" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-file-circle-check text-emerald-400"></i> Revisar Ventas
+        </a>
+        <a href="/dashboard/admin/referidos/comisiones" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-2">
+          <i class="fa-solid fa-percent text-sky-400"></i> Reglas Comisiones
+        </a>
+        <a href="/dashboard/admin/referidos/retiros" class="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-slate-800 border border-slate-700 flex items-center gap-2">
+          <i class="fa-solid fa-money-bill-transfer text-amber-400"></i> Retiros
+        </a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a href="/dashboard/admin" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-arrow-left"></i> Volver a Admin
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-150 shadow-sm">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-money-bill-transfer text-amber-500"></i> Solicitudes de Retiro de Comisiones
+        </h1>
+        <p class="text-xs text-slate-500 mt-1">Revisa y procesa las transferencias bancarias solicitadas por los referidos a fin de mes.</p>
+      </div>
+    </div>
+
+    <!-- Feedback Alerts -->
+    <% if (success === 'withdrawal_processed') { %>
+      <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-semibold flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-lg text-emerald-600"></i>
+        <span>Solicitud de retiro procesada exitosamente.</span>
+      </div>
+    <% } %>
+    <% if (error) { %>
+      <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 text-xs font-semibold flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-lg text-rose-600"></i>
+        <span><%= error %></span>
+      </div>
+    <% } %>
+
+    <!-- Table Container -->
+    <div class="bg-white rounded-3xl border border-slate-150 shadow-sm overflow-hidden">
+      <% if (withdrawals.length === 0) { %>
+        <div class="text-center py-16 px-4">
+          <i class="fa-solid fa-hand-holding-dollar text-4xl text-slate-300 mb-3"></i>
+          <h3 class="text-base font-bold text-slate-800">No hay solicitudes de retiro registradas</h3>
+        </div>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs divide-y divide-slate-100">
+            <thead class="bg-slate-50 text-slate-400 uppercase text-[10px] tracking-wider font-bold">
+              <tr>
+                <th class="p-4">Retiro ID / Fecha</th>
+                <th class="p-4">Referido</th>
+                <th class="p-4">Datos Bancarios para Transferencia</th>
+                <th class="p-4">Monto Solicitado</th>
+                <th class="p-4 text-center">Estado</th>
+                <th class="p-4 text-center">Acciones Admin</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <% withdrawals.forEach(function(w) { %>
+                <tr class="hover:bg-slate-50/60 transition">
+                  <td class="p-4">
+                    <p class="font-black text-slate-900">#<%= w.id %></p>
+                    <p class="text-[10px] text-slate-400"><%= new Date(w.createdAt).toLocaleDateString('es-EC') %></p>
+                  </td>
+                  <td class="p-4">
+                    <p class="font-bold text-slate-900"><%= w.referral.nombres ? (w.referral.nombres + ' ' + (w.referral.apellidos || '')) : w.referral.user.name %></p>
+                    <p class="text-[10px] text-blue-600 font-semibold"><%= w.referral.user.email %></p>
+                  </td>
+                  <td class="p-4">
+                    <div class="space-y-0.5 text-xs">
+                      <p class="font-extrabold text-slate-900 text-xs"><%= w.banco || (w.referral && w.referral.banco) || 'Banco no registrado' %></p>
+                      <p class="text-[11px] font-mono text-slate-800"><span class="font-bold text-slate-500">Número de cuenta:</span> <%= w.numeroCuenta || (w.referral && w.referral.numeroCuenta) || '-' %></p>
+                      <p class="text-[11px] text-slate-700"><span class="font-bold text-slate-500">Cédula:</span> <%= w.titularCedula || (w.referral && (w.referral.titularCedula || w.referral.cedula)) || '-' %></p>
+                      <p class="text-[11px] text-slate-700">
+                        <span class="font-bold text-slate-500">Tipo de cuenta:</span> <%= w.tipoCuenta || (w.referral && w.referral.tipoCuenta) || 'Cuenta de ahorros' %> 
+                        <span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 ml-1">
+                          <%= (w.referral && (w.referral.status === 'ACTIVE' || w.referral.status === 'ACTIVA')) ? 'cuenta activa' : (w.referral ? w.referral.status : 'cuenta activa') %>
+                        </span>
+                      </p>
+                      <p class="text-[11px] font-bold text-slate-900"><span class="font-normal text-slate-500">Nombre titular:</span> <%= w.titularNombre || (w.referral && (w.referral.titularNombre || (w.referral.nombres ? (w.referral.nombres + ' ' + (w.referral.apellidos || '')) : w.referral.user.name))) %></p>
+                    </div>
+                  </td>
+                  <td class="p-4 font-black text-emerald-600 text-base">$<%= w.monto.toFixed(2) %></td>
+                  <td class="p-4 text-center">
+                    <% if (w.estado === 'PAGADO') { %>
+                      <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full">Pagado</span>
+                    <% } else if (w.estado === 'PENDIENTE') { %>
+                      <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-3 py-1 rounded-full">Pendiente</span>
+                    <% } else { %>
+                      <span class="bg-rose-100 text-rose-800 text-[10px] font-black px-3 py-1 rounded-full">Rechazado</span>
+                    <% } %>
+                  </td>
+                  <td class="p-4 text-center">
+                    <% if (w.estado !== 'PAGADO') { %>
+                      <div class="flex items-center justify-center gap-1.5">
+                        <button onclick="openPayModal(<%= w.id %>, <%= w.monto %>)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-black shadow-sm transition">
+                          <i class="fa-solid fa-check"></i> Marcar Pagado
+                        </button>
+                        <% if (w.estado !== 'RECHAZADO') { %>
+                          <button onclick="openRejectWithdrawalModal(<%= w.id %>)" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-[10px] font-bold transition">
+                            <i class="fa-solid fa-xmark"></i> Rechazar
+                          </button>
+                        <% } %>
+                      </div>
+                    <% } else { %>
+                      <% if (w.comprobantePagoUrl) { %>
+                        <a href="<%= w.comprobantePagoUrl %>" target="_blank" class="text-[10px] font-bold text-blue-600 hover:underline">Ver Comprobante</a>
+                      <% } else { %>
+                        <span class="text-[10px] text-slate-400 font-semibold">Completado</span>
+                      <% } %>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+
+  <!-- Modal Marcar Pagado -->
+  <div id="modalPagado" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 relative shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h3 class="text-base font-black text-emerald-600 flex items-center gap-2">
+          <i class="fa-solid fa-circle-check"></i> Confirmar Pago de Retiro
+        </h3>
+        <button onclick="closePayModal()" class="text-slate-400 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formPagado" action="" method="POST" class="space-y-4 text-xs">
+        <input type="hidden" name="estado" value="PAGADO">
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">URL / Enlace al Comprobante de Transferencia *</label>
+          <input type="text" name="comprobantePagoUrl" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none" placeholder="https://... o enlace Drive/Dropbox">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Observación Administrativa (Opcional)</label>
+          <textarea name="observacionesAdmin" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none" placeholder="Ej. Transferencia Banco Pichincha Ref. 987654"></textarea>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closePayModal()" class="px-4 py-2 rounded-xl bg-slate-100 font-bold">Cancelar</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-md">Confirmar Pago</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Rechazar Retiro -->
+  <div id="modalRechazarRetiro" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 relative shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h3 class="text-base font-black text-rose-600 flex items-center gap-2">
+          <i class="fa-solid fa-circle-xmark"></i> Rechazar Solicitud de Retiro
+        </h3>
+        <button onclick="closeRejectWithdrawalModal()" class="text-slate-400 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formRechazarRetiro" action="" method="POST" class="space-y-4 text-xs">
+        <input type="hidden" name="estado" value="RECHAZADO">
+
+        <div>
+          <label class="block font-bold text-slate-700 uppercase mb-1">Motivo del Rechazo *</label>
+          <textarea name="observacionesAdmin" required rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium text-slate-900 focus:outline-none" placeholder="Ej. Datos bancarios incorrectos. Favor actualizar en su perfil."></textarea>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeRejectWithdrawalModal()" class="px-4 py-2 rounded-xl bg-slate-100 font-bold">Cancelar</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold shadow-md">Rechazar y Reintegrar Fondos</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openPayModal(wId) {
+      document.getElementById('formPagado').action = '/dashboard/admin/referidos/retiros/' + wId + '/procesar';
+      document.getElementById('modalPagado').classList.remove('hidden');
+      document.getElementById('modalPagado').classList.add('flex');
+    }
+    function closePayModal() {
+      document.getElementById('modalPagado').classList.add('hidden');
+      document.getElementById('modalPagado').classList.remove('flex');
+    }
+    function openRejectWithdrawalModal(wId) {
+      document.getElementById('formRechazarRetiro').action = '/dashboard/admin/referidos/retiros/' + wId + '/procesar';
+      document.getElementById('modalRechazarRetiro').classList.remove('hidden');
+      document.getElementById('modalRechazarRetiro').classList.add('flex');
+    }
+    function closeRejectWithdrawalModal() {
+      document.getElementById('modalRechazarRetiro').classList.add('hidden');
+      document.getElementById('modalRechazarRetiro').classList.remove('flex');
+    }
+  </script>
+
+</body>
+</html>

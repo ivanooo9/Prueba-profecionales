@@ -1,0 +1,557 @@
+/* Usando Gilroy (Local) vía Next Font en layout.tsx */
+
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Paleta marca MIAUWUAUF — fondo app (blog / usuario / vet); landing usa fucsia en página */
+  --background: #ffffff;
+  --foreground: #000000;
+
+  /* Tarjetas: blanco (el lavanda se aplica explícitamente con bg-[#e7bef8] donde se necesita) */
+  --card: #ffffff;
+  --card-foreground: #000000;
+
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+
+  --primary: #e7bef8;
+  --primary-foreground: #000000;
+
+  --secondary: #e7bef8;
+  --secondary-foreground: #000000;
+
+  --muted: #f0f0f0;
+  --muted-foreground: #4a4a4a;
+
+  --accent: #93abd9;
+  --accent-foreground: #000000;
+
+  /* Acción destructiva: contraste crema sobre negro (fuera de la paleta solo aquí) */
+  --destructive: #000000;
+  --destructive-foreground: #ede986;
+
+  --border: #000000;
+  --box-border: #000000;
+  --input: #ffffff;
+  --ring: #e7bef8;
+
+  --chart-1: #e7bef8;
+  --chart-2: #e7bef8;
+  --chart-3: #93abd9;
+  --chart-4: #ede986;
+  --chart-5: #000000;
+
+  --black: #000000;
+  --radius: 2rem;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #e7bef8;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #e7bef8;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #000000;
+  --sidebar-ring: #e7bef8;
+}
+
+.dark {
+  --background: oklch(0.12 0 0);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.15 0 0);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.15 0 0);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.8 0.2 85);
+  --primary-foreground: oklch(0.15 0 0);
+  --secondary: oklch(0.6 0.18 260);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.25 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.75 0.15 45);
+  --accent-foreground: oklch(0.15 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.25 0 0);
+  --input: oklch(0.25 0 0);
+  --ring: oklch(0.8 0.2 85);
+  --chart-1: oklch(0.8 0.2 85);
+  --chart-2: oklch(0.6 0.18 260);
+  --chart-3: oklch(0.75 0.15 45);
+  --chart-4: oklch(0.7 0.15 160);
+  --chart-5: oklch(0.85 0.1 50);
+  --radius: 2rem;
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme {
+  /* Gilroy: única familia UI (títulos, cuerpo y detalles); peso con utilidades Tailwind */
+  --font-heading: var(--font-gilroy), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-gilroy), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-gilroy), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+
+  /* Pesos semánticos (referencia marca): title=black, subtitle=bold, redacción=normal, detalle=light */
+  --font-weight-title: 900;
+  --font-weight-subtitle: 700;
+  --font-weight-redaction: 400;
+  --font-weight-detail: 300;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-box-border: var(--box-border);
+  --color-black: var(--black);
+}
+
+@layer components {
+
+  /* Estilo base para las "cajitas" basado en las capturas proporcionadas */
+  .soft-box {
+    @apply rounded-3xl border-[3px] border-[#000000] bg-white shadow-[4px_4px_0px_0px_#000000];
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: var(--font-gilroy), ui-sans-serif, system-ui, sans-serif;
+    font-weight: var(--font-weight-redaction);
+  }
+
+  /* Misma familia en controles y editor (evita mezclas con fuentes del SO) */
+  button,
+  input,
+  textarea,
+  select,
+  optgroup,
+  .tiptap,
+  .tiptap .ProseMirror {
+    font-family: var(--font-gilroy), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes wiggle {
+
+    0%,
+    100% {
+      transform: rotate(-3deg);
+    }
+
+    50% {
+      transform: rotate(3deg);
+    }
+  }
+
+  @keyframes bounce-soft {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes peek {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.5s ease-out forwards;
+  }
+
+  .animate-wiggle {
+    animation: wiggle 2s ease-in-out infinite;
+  }
+
+  .animate-bounce-soft {
+    animation: bounce-soft 2s ease-in-out infinite;
+  }
+
+  .animate-peek {
+    animation: peek 1.5s ease-in-out infinite;
+  }
+}
+@keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+@keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.animate-heartbeat { animation: heartbeat 1.5s ease-in-out infinite; }
+.animate-marquee { animation: marquee 10s linear infinite; }
+
+/* Scroll bonito del menú lateral de Admin */
+.admin-sidebar-scroll {
+  scrollbar-width: auto !important;
+  scrollbar-color: #93abd9 #e9e9e9 !important;
+  scrollbar-gutter: stable both-edges;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar {
+  width: 14px !important;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-track {
+  background: #e9e9e9 !important;
+  border-left: 2px solid #000000 !important;
+  border-right: 2px solid #000000 !important;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #c7d2f2 0%, #93abd9 100%) !important;
+  border: 2px solid #000000 !important;
+  border-radius: 9999px !important;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #d5ddf8 0%, #7f96c8 100%) !important;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-button {
+  background: #d9d9d9 !important;
+  border-left: 2px solid #000000 !important;
+  border-right: 2px solid #000000 !important;
+  border-bottom: 2px solid #000000 !important;
+  height: 14px !important;
+}
+
+/* Modales checkout / listas: scroll sin barra nativa (Windows clásico, Chrome, Safari) */
+.hide-scrollbar-touch {
+  scrollbar-gutter: auto;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.hide-scrollbar-touch::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+.hide-scrollbar-touch::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+
+/* Anular fondo celeste de autofill en navegadores */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #000000 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+/* Estilos para el contenido del Blog (HTML generado por Tiptap) */
+.blog-content-inner {
+  @apply mb-10;
+}
+
+.blog-content-inner h2 {
+  @apply text-3xl font-title font-heading text-foreground mt-12 mb-6 leading-tight;
+}
+
+.blog-content-inner h3 {
+  @apply text-2xl font-title font-heading text-foreground mt-8 mb-4 leading-tight;
+}
+
+.blog-content-inner p {
+  @apply text-lg font-redaction text-foreground/90 leading-relaxed mb-6 text-justify;
+  display: flow-root;
+}
+
+.blog-content-inner ul {
+  @apply list-disc list-inside mb-6 space-y-2 font-redaction text-foreground/90;
+}
+
+.blog-content-inner ol {
+  @apply list-decimal list-inside mb-6 space-y-2 font-redaction text-foreground/90;
+}
+
+.blog-content-inner blockquote {
+  @apply border-l-[6px] border-primary pl-6 py-2 my-8 italic font-subtitle text-xl text-foreground/80 bg-primary/10 rounded-r-xl;
+}
+
+.blog-content-inner {
+  background-color: var(--background);
+  position: relative;
+}
+
+/* Efecto de textura de papel opcional */
+.blog-content-inner::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.blog-content-inner > * {
+  position: relative;
+  z-index: 1;
+}
+
+.blog-content-inner a {
+  @apply font-subtitle underline decoration-[2px] underline-offset-2 transition-colors;
+  color: #000000;
+}
+.blog-content-inner a:hover {
+  color: #e7bef8;
+}
+
+/* Imágenes del artículo: bloque, max-width 100%, mismo ritmo que el editor Tiptap */
+.blog-content-inner img, 
+.blog-content-inner .node-imageResize img,
+.blog-content-inner [data-node="image"] img {
+  box-sizing: border-box;
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 1rem;
+  border: 3.5px solid #000000;
+  box-shadow: 6px 6px 0 0 #000000;
+  transition: all 0.2s ease;
+}
+
+/* El contenedor solo tiene margen cuando NO está alineado */
+.blog-content-inner .node-imageResize {
+  margin: 1.5rem 0;
+  max-width: 300px !important;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.blog-content-inner img[width],
+.prose img[width] {
+  height: auto;
+  max-width: 100%;
+}
+
+/* HTML antiguo y nuevo (float / data-align): envoltorio de texto pro */
+.blog-content-inner img[data-align="left"],
+.blog-content-inner [data-align="left"],
+.blog-content-inner .node-imageResize[data-align="left"] {
+  float: left !important;
+  margin-right: 24px !important;
+  margin-bottom: 12px !important;
+  margin-top: 8px !important;
+  max-width: 320px !important;
+  display: inline-block !important;
+}
+
+.blog-content-inner img[data-align="right"],
+.blog-content-inner [data-align="right"],
+.blog-content-inner .node-imageResize[data-align="right"] {
+  float: right !important;
+  margin-left: 24px !important;
+  margin-bottom: 12px !important;
+  margin-top: 8px !important;
+  max-width: 320px !important;
+  display: inline-block !important;
+}
+
+.blog-content-inner img[data-align="center"],
+.blog-content-inner [data-align="center"],
+.blog-content-inner .node-imageResize[data-align="center"] {
+  display: block !important;
+  margin: 2rem auto !important;
+  float: none !important;
+  max-width: 100% !important;
+}
+
+/* Soporte para anchos personalizados (persistencia desde Tiptap) */
+.blog-content-inner img[style*="width"],
+.blog-content-inner img[width] {
+  height: auto !important;
+}
+
+/* Limpiar floats después del contenido para que no rompa el diseño del footer */
+.blog-content-inner::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* Sólo móvil / tablet estrecha: imágenes al 100% sin float (texto bajo el bloque) */
+@media (max-width: 768px) {
+  .blog-content-inner img[data-align="left"],
+  .blog-content-inner [data-align="left"] img,
+  .blog-content-inner .node-imageResize[data-align="left"],
+  .blog-content-inner img[data-align="right"],
+  .blog-content-inner [data-align="right"] img,
+  .blog-content-inner .node-imageResize[data-align="right"] {
+    float: none !important;
+    display: block !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .blog-content-inner .node-imageResize[data-align="left"],
+  .blog-content-inner .node-imageResize[data-align="right"] {
+    max-width: 100% !important;
+    width: 100% !important;
+    display: block !important;
+  }
+}
+
+/* Alineación inyectada por TextAlign para párrafos */
+.tiptap [data-text-align="left"], 
+.blog-content-inner [data-text-align="left"] { text-align: left; }
+
+.tiptap [data-text-align="center"], 
+.blog-content-inner [data-text-align="center"] { text-align: center; }
+
+.tiptap [data-text-align="right"], 
+.blog-content-inner [data-text-align="right"] { text-align: right; }
+
+/* Capitular Editorial (Drop Cap) "Bart" Style Professional */
+.editorial-dropcap p:first-of-type::first-letter {
+  float: left;
+  font-family: var(--font-gilroy), ui-sans-serif, system-ui, sans-serif;
+  font-size: 4.5rem;
+  line-height: 0.8;
+  padding-top: 8px;
+  padding-right: 12px;
+  padding-left: 3px;
+  font-weight: var(--font-weight-title);
+  text-transform: uppercase;
+  color: #000000;
+  /* Asegura que el texto fluya bien debajo de la letra */
+  margin-bottom: -5px;
+}
+/* Forzamos el estilo de los títulos de sección al final del archivo para máxima prioridad */
+span.section-title-pill {
+  color: #ede986 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+  border-radius: 0 !important;
+  display: inline-block !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
+  font-size: 1.5rem !important; /* Tamaño equilibrado móvil */
+  line-height: 1.2 !important;
+  font-family: var(--font-gilroy), sans-serif !important;
+}
+
+@media (min-width: 768px) {
+  span.section-title-pill {
+    font-size: 2.2rem !important; /* Tamaño equilibrado equilibrado desktop */
+  }
+}
+
+/* Variante puntual para títulos solicitados en color rosa */
+span.section-title-pill.section-title-pill-pink {
+  color: #f2619c !important;
+}
