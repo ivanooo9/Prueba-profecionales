@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DentalBudget } from '../../types';
 import { dentalService } from '../../services/dentalService';
 import { X, DollarSign, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -72,32 +73,40 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
     setAmount(Number((budget.balance / 2).toFixed(2)));
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <CreditCard className="w-5 h-5" />
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-slate-900/70 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-md my-auto max-h-[88vh] bg-white rounded-2xl border border-slate-200 shadow-2xl text-left flex flex-col overflow-hidden animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+          {/* Modal Header */}
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Registrar Pago / Abono</h3>
+                <p className="text-xs text-slate-500">
+                  Presupuesto #{budget.id}: {budget.title}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Registrar Pago / Abono</h3>
-              <p className="text-xs text-slate-500">
-                Presupuesto #{budget.id}: {budget.title}
-              </p>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Modal Body */}
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-75px)] overscroll-contain">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -235,4 +244,6 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Project, Client, Task, Deliverable, Budget } from '../../types';
+import { Project, Client, Task, Deliverable, ReportsSummary } from '../../types';
 import { StatusBadge } from '../ui/StatusBadge';
 import { Printer, BarChart3, Building2, DollarSign, CheckSquare, PackageCheck } from 'lucide-react';
 
@@ -8,7 +8,7 @@ interface ReportsViewProps {
   clients: Client[];
   tasks: Task[];
   deliverables: Deliverable[];
-  budgets: Budget[];
+  summary: ReportsSummary | null;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -16,10 +16,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   clients,
   tasks,
   deliverables,
-  budgets
+  summary
 }) => {
-  const totalEstimated = projects.reduce((acc, p) => acc + p.estimatedBudget, 0);
-  const totalApproved = projects.reduce((acc, p) => acc + p.approvedBudget, 0);
+  const financialOverview = summary?.financialOverview;
   const completedTasks = tasks.filter((t) => t.status === 'Completada').length;
   const approvedDeliverables = deliverables.filter((d) => d.status === 'Aprobado' || d.status === 'Entregado').length;
 
@@ -98,13 +97,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
               <span>Presupuesto Estimado:</span>
-              <strong className="font-mono text-sm text-slate-900">${totalEstimated.toLocaleString()} USD</strong>
+              <strong className="font-mono text-sm text-slate-900">
+                {financialOverview ? `$${financialOverview.totalEstimated.toLocaleString()} USD` : 'No disponible'}
+              </strong>
             </div>
             <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex justify-between items-center text-emerald-900">
               <span>Presupuesto Aprobado:</span>
-              <strong className="font-mono text-sm text-emerald-800">${totalApproved.toLocaleString()} USD</strong>
+              <strong className="font-mono text-sm text-emerald-800">
+                {financialOverview ? `$${financialOverview.totalApproved.toLocaleString()} USD` : 'No disponible'}
+              </strong>
             </div>
           </div>
+          {financialOverview?.ambiguousProjectsCount ? (
+            <p role="status" className="text-xs text-amber-800">
+              {financialOverview.ambiguousProjectsCount} proyecto(s) con varios presupuestos sin criterio principal no se incluyen en el estimado.
+            </p>
+          ) : null}
         </div>
 
         {/* Projects Breakdown Table */}

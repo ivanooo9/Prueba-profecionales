@@ -758,6 +758,10 @@ export const clinicalStore = {
    * Registra una tarea de seguimiento clínico en PostgreSQL.
    */
   addFollowUpTask: async (task: FollowUpTask): Promise<FollowUpTask> => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (task.dueDate && task.dueDate < todayStr) {
+      throw new Error('La fecha límite no puede ser anterior a hoy.');
+    }
     const orgId = currentState.activeOrganization?.id;
     if (!orgId) throw new Error('No hay una organización activa seleccionada.');
 
@@ -816,6 +820,10 @@ export const clinicalStore = {
     room?: string;
     notes?: string;
   }): Promise<Appointment> => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (appointmentData.date && appointmentData.date < todayStr) {
+      throw new Error('La fecha de la cita no puede ser anterior a hoy.');
+    }
     const orgId = currentState.activeOrganization?.id;
     if (!orgId) throw new Error('No hay una organización activa seleccionada.');
 
@@ -1006,6 +1014,10 @@ export const clinicalStore = {
       notes?: string;
     }
   ): Promise<PreventiveItem> => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (item.dueDate && item.dueDate < todayStr) {
+      throw new Error('La fecha programada no puede ser anterior a hoy.');
+    }
     const orgId = currentState.activeOrganization?.id;
     if (!orgId) throw new Error('No hay una organización activa seleccionada.');
 

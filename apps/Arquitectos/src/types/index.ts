@@ -3,6 +3,24 @@
 export type ClientType = 'Persona' | 'Empresa';
 export type ClientStatus = 'Activo' | 'Inactivo';
 
+export interface ArchitectureOrganization {
+  id: number;
+  name: string;
+  slug: string;
+  type: string;
+  status: string;
+  role?: string;
+  memberStatus?: string;
+}
+
+export interface ArchitectureAssignableUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  canBeResponsible: boolean;
+}
+
 export interface Client {
   id: string | number;
   organizationId?: number;
@@ -38,9 +56,12 @@ export type ProjectStatus =
   | 'En revisión'
   | 'En construcción'
   | 'Finalizado'
-  | 'Archivado';
+  | 'Entregado'
+  | 'Archivado'
+  | 'Cancelado';
 
 export type ProjectPriority = 'Baja' | 'Media' | 'Alta';
+export type ProjectFinancialStatus = 'none' | 'draft' | 'not_approved' | 'approved' | 'ambiguous';
 
 export type StageName =
   | 'Conceptualización'
@@ -83,8 +104,9 @@ export interface Project {
   status: ProjectStatus;
   priority: ProjectPriority;
   progress: number; // 0 - 100
-  estimatedBudget: number;
-  approvedBudget: number;
+  estimatedBudget: number | null;
+  approvedBudget: number | null;
+  financialStatus?: ProjectFinancialStatus;
   clientRequirements?: string;
   description: string;
   notes?: string;
@@ -112,7 +134,7 @@ export interface Task {
   title: string;
   description?: string;
   assignedTo: string;
-  assignedToUserId?: number;
+  assignedToUserId?: number | null;
   priority: ProjectPriority;
   status: TaskStatus;
   dueDate: string;
@@ -150,7 +172,7 @@ export interface Deliverable {
   name: string;
   type: DeliverableType;
   assignedTo: string;
-  assignedToUserId?: number;
+  assignedToUserId?: number | null;
   dueDate: string;
   status: DeliverableStatus;
   deliveredAt?: string;
@@ -179,7 +201,7 @@ export interface Meeting {
   modality: MeetingModality;
   meetingType?: 'Reunión' | 'Inspección' | string;
   leadArchitect: string;
-  leadArchitectUserId?: number;
+  leadArchitectUserId?: number | null;
   status: MeetingStatus;
   notes?: string;
   completedAt?: string;
@@ -344,6 +366,8 @@ export interface DashboardData {
     totalApproved: number;
     approvedBudgetsCount: number;
     draftBudgetsCount: number;
+    estimatedProjectsCount: number;
+    ambiguousProjectsCount: number;
   };
   nextAction?: {
     type: 'urgent_task' | 'upcoming_meeting' | 'pending_deliverable' | 'info';
@@ -363,6 +387,8 @@ export interface ReportsSummary {
     totalEstimated: number;
     totalApproved: number;
     approvedProjectsCount: number;
+    estimatedProjectsCount: number;
+    ambiguousProjectsCount: number;
     averageBudgetPerProject: number;
   };
   topProjectsByBudget: Array<{

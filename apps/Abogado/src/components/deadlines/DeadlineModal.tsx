@@ -17,19 +17,23 @@ export const DeadlineModal: React.FC<DeadlineModalProps> = ({
   cases,
   defaultCaseId,
 }) => {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const [error, setError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     caseId: '',
     caseNumber: '',
     caseTitle: '',
     description: '',
-    dueDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date().toLocaleDateString('en-CA'),
     priority: 'Alta' as Priority,
     status: 'Pendiente' as DeadlineStatus,
-    responsible: 'Dr. Alejandro Benítez',
+    responsible: '',
     notes: '',
   });
 
   useEffect(() => {
+    setError(null);
     if (cases.length > 0) {
       const selected = defaultCaseId
         ? cases.find((c) => c.id === defaultCaseId) || cases[0]
@@ -61,6 +65,11 @@ export const DeadlineModal: React.FC<DeadlineModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.description || !formData.caseId) return;
+    if (formData.dueDate < todayStr) {
+      setError('La fecha límite no puede ser anterior a hoy.');
+      return;
+    }
+    setError(null);
     onSave(formData);
     onClose();
   };
@@ -74,6 +83,11 @@ export const DeadlineModal: React.FC<DeadlineModalProps> = ({
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+            {error}
+          </div>
+        )}
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">
             Expediente / Caso Vinculado *
@@ -114,8 +128,12 @@ export const DeadlineModal: React.FC<DeadlineModalProps> = ({
             <input
               type="date"
               required
+              min={todayStr}
               value={formData.dueDate}
-              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              onChange={(e) => {
+                setError(null);
+                setFormData({ ...formData, dueDate: e.target.value });
+              }}
               className="w-full px-3 py-2 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold font-mono"
             />
           </div>

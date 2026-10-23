@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Budget, Project } from '../../types';
+import { Budget, DashboardData, Project } from '../../types';
 import { StatusBadge } from '../ui/StatusBadge';
 import { MetricCard } from '../ui/MetricCard';
 import { EmptyState } from '../ui/EmptyState';
@@ -20,6 +20,7 @@ interface BudgetListProps {
   onOpenCreateModal: () => void;
   onEditBudget: (budget: Budget) => void;
   onApproveBudget?: (budget: Budget) => void;
+  financialSummary?: DashboardData['budgetSummary'];
 }
 
 export const BudgetList: React.FC<BudgetListProps> = ({
@@ -29,7 +30,8 @@ export const BudgetList: React.FC<BudgetListProps> = ({
   onSearchChange,
   onOpenCreateModal,
   onEditBudget,
-  onApproveBudget
+  onApproveBudget,
+  financialSummary
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -41,8 +43,6 @@ export const BudgetList: React.FC<BudgetListProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  const totalEstimated = budgets.reduce((acc, b) => acc + b.estimatedAmount, 0);
-  const totalApproved = budgets.reduce((acc, b) => acc + b.approvedAmount, 0);
   const approvedCount = budgets.filter((b) => b.status === 'Aprobado').length;
 
   return (
@@ -51,14 +51,14 @@ export const BudgetList: React.FC<BudgetListProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
           title="Total Estimado Portafolio"
-          value={`$${totalEstimated.toLocaleString()}`}
-          subtitle="Suma de presupuestos proyectados"
+          value={financialSummary ? `$${financialSummary.totalEstimated.toLocaleString()}` : '—'}
+          subtitle={financialSummary?.ambiguousProjectsCount ? `${financialSummary.ambiguousProjectsCount} proyectos con criterio pendiente` : 'Importes estimados definidos por proyecto'}
           icon={TrendingUp}
           color="blue"
         />
         <MetricCard
           title="Total Aprobado por Clientes"
-          value={`$${totalApproved.toLocaleString()}`}
+          value={financialSummary ? `$${financialSummary.totalApproved.toLocaleString()}` : '—'}
           subtitle={`${approvedCount} presupuestos contratados`}
           icon={CheckCircle2}
           color="emerald"

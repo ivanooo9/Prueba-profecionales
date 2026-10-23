@@ -3,6 +3,7 @@ import { FileText, Download, Upload, ExternalLink, Loader2, AlertCircle, X, Plus
 import type { ClinicalDocument } from '../../types/clinical.types';
 import { clinicalStore } from '../../services/clinical/clinicalStore';
 import { DataTable } from '../ui/DataTable';
+import { PdfViewerModal, downloadPdfFile } from './PdfViewerModal';
 
 export interface ClinicalDocumentManagerProps {
   documents: ClinicalDocument[];
@@ -11,6 +12,7 @@ export interface ClinicalDocumentManagerProps {
 
 export const ClinicalDocumentManager: React.FC<ClinicalDocumentManagerProps> = ({ documents, patientId }) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedPdfDoc, setSelectedPdfDoc] = useState<ClinicalDocument | null>(null);
   const [title, setTitle] = useState('');
   const [type, setType] = useState<ClinicalDocument['type']>('CERTIFICATE');
   const [author, setAuthor] = useState('');
@@ -326,22 +328,21 @@ export const ClinicalDocumentManager: React.FC<ClinicalDocumentManagerProps> = (
                 <div className="flex items-center gap-1.5">
                   {r.fileUrl ? (
                     <>
-                      <a
-                        href={r.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPdfDoc(r)}
                         className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold flex items-center gap-1 border border-sky-200 transition"
                       >
                         <ExternalLink className="w-3 h-3 text-sky-600" /> Ver PDF
-                      </a>
-                      <a
-                        href={r.fileUrl}
-                        download={r.fileName || 'documento.pdf'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadPdfFile(r.fileUrl!, r.fileName || `${r.title}.pdf`)}
                         className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
                         title="Descargar archivo"
                       >
                         <Download className="w-3.5 h-3.5" />
-                      </a>
+                      </button>
                     </>
                   ) : (
                     <span className="text-[10px] font-mono text-slate-400">Sin archivo adjunto</span>
@@ -353,6 +354,15 @@ export const ClinicalDocumentManager: React.FC<ClinicalDocumentManagerProps> = (
           data={documents}
         />
       )}
+
+      {/* Visor de PDF Integrado Seguro */}
+      <PdfViewerModal
+        isOpen={Boolean(selectedPdfDoc)}
+        onClose={() => setSelectedPdfDoc(null)}
+        fileUrl={selectedPdfDoc?.fileUrl || null}
+        fileName={selectedPdfDoc?.fileName || 'documento.pdf'}
+        title={selectedPdfDoc?.title || 'Documento Clínico'}
+      />
     </div>
   );
 };

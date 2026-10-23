@@ -21,6 +21,7 @@ export const PatientHeader: React.FC<PatientHeaderProps> = ({
   onOpenPrescriptionModal,
 }) => {
   const activeSevereAllergies = allergies.filter((a) => a.status === 'ACTIVE' && a.severity === 'SEVERE');
+  const otherActiveAllergies = allergies.filter((a) => a.status === 'ACTIVE' && a.severity !== 'SEVERE');
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
@@ -85,10 +86,27 @@ export const PatientHeader: React.FC<PatientHeaderProps> = ({
                   key={a.id}
                   className="px-2 py-0.5 rounded bg-rose-600 text-white font-mono font-bold"
                 >
-                  {a.substance} ({a.reaction})
+                  {a.substance}{a.reaction ? ` (${a.reaction})` : ''}
                 </span>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Non-severe allergies: Informative Badge */}
+      {activeSevereAllergies.length === 0 && otherActiveAllergies.length > 0 && (
+        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-2 text-xs">
+          <span className="font-bold text-amber-800 shrink-0">Alergias registradas:</span>
+          <div className="flex flex-wrap gap-1.5">
+            {otherActiveAllergies.map((a) => (
+              <span
+                key={a.id}
+                className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-medium text-[11px]"
+              >
+                {a.substance}{a.reaction ? ` (${a.reaction})` : ''}
+              </span>
+            ))}
           </div>
         </div>
       )}

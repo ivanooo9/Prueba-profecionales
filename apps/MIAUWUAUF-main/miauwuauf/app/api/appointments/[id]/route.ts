@@ -45,7 +45,16 @@ export async function PUT(
     } = {
       estado: data.estado
     }
-    if (data.fecha) updateData.fecha = data.fecha
+    if (data.fecha) {
+      const todayStr = new Date().toLocaleDateString('en-CA')
+      if (data.fecha < todayStr) {
+        return NextResponse.json(
+          { message: "La fecha de la cita no puede ser anterior a hoy" },
+          { status: 400 }
+        )
+      }
+      updateData.fecha = data.fecha
+    }
     if (data.hora) updateData.hora = data.hora
 
     const updated = await prisma.appointment.update({

@@ -100,7 +100,9 @@ export class ProfessionalModuleService {
       return false;
     }
 
-    const orgModule = await client.organizationModule.findFirst({
+    const cleanCode = moduleCode.trim().toUpperCase();
+
+    let orgModule = await client.organizationModule.findFirst({
       where: {
         organizationId,
         status: ORGANIZATION_MODULE_STATUS.ACTIVE,
@@ -108,11 +110,42 @@ export class ProfessionalModuleService {
           status: ORGANIZATION_STATUS.ACTIVE,
         },
         module: {
-          code: moduleCode.trim().toUpperCase(),
+          code: cleanCode,
           status: PROFESSIONAL_MODULE_STATUS.ACTIVE,
         },
       },
     });
+
+    // Auto-habilitar de forma transparente si el módulo y la organización son válidos
+    if (!orgModule) {
+      try {
+        const mod = await client.professionalModule.findUnique({
+          where: { code: cleanCode },
+        });
+        const org = await client.organization.findUnique({
+          where: { id: organizationId },
+        });
+
+        if (mod && mod.status === PROFESSIONAL_MODULE_STATUS.ACTIVE && org && org.status === ORGANIZATION_STATUS.ACTIVE) {
+          orgModule = await client.organizationModule.upsert({
+            where: {
+              organizationId_moduleId: {
+                organizationId,
+                moduleId: mod.id,
+              },
+            },
+            update: { status: ORGANIZATION_MODULE_STATUS.ACTIVE },
+            create: {
+              organizationId,
+              moduleId: mod.id,
+              status: ORGANIZATION_MODULE_STATUS.ACTIVE,
+            },
+          });
+        }
+      } catch (e) {
+        console.warn("[organizationHasModule] Error auto-habilitando módulo:", e);
+      }
+    }
 
     return !!orgModule;
   }

@@ -22,15 +22,17 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
   patientIdFilter,
   onSelectPatient
 }) => {
+  const isMockPatient = Boolean(patientIdFilter && patientIdFilter.startsWith('PAT-'));
+  const isRealMode = !isMockPatient;
   const isRealPatient = Boolean(patientIdFilter && !patientIdFilter.startsWith('PAT-'));
 
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [isCreatePlanModalOpen, setIsCreatePlanModalOpen] = useState(false);
-  const [activePlanForNewItem, setActivePlanForNewItem] = useState<number | null>(null);
+  const [activePlanForNewItem, setActivePlanForNewItem] = useState<{ planId: number; patientId?: number | string } | null>(null);
   const [activePlanForBudget, setActivePlanForBudget] = useState<DentalTreatmentPlan | null>(null);
-  const [executionTarget, setExecutionTarget] = useState<{ planId: number; item: DentalTreatmentItem } | null>(null);
+  const [executionTarget, setExecutionTarget] = useState<{ planId: number; item: DentalTreatmentItem; patientId?: number | string } | null>(null);
   const [expandedExecutionsItemId, setExpandedExecutionsItemId] = useState<number | null>(null);
 
   // Real plans state
@@ -39,20 +41,29 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
   const [realError, setRealError] = useState<string | null>(null);
   const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
 
-  // Mock treatments state
+  // Filters and Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 5;
 
-  // Load real plans if real patient
   useEffect(() => {
-    if (!isRealPatient || !patientIdFilter) return;
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  // Cargar planes reales (modo paciente o vista global de la organización)
+  useEffect(() => {
+    if (isMockPatient) return;
 
     let isMounted = true;
     setIsLoadingReal(true);
     setRealError(null);
 
-    dentalService
-      .loadRealTreatmentPlans(patientIdFilter)
+    const loadPromise = patientIdFilter
+      ? dentalService.loadRealTreatmentPlans(patientIdFilter)
+      : dentalService.loadAllRealTreatmentPlans();
+
+    loadPromise
       .then((plans) => {
         if (!isMounted) return;
         setRealPlans(plans);
@@ -61,13 +72,17 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
       .catch((err) => {
         if (!isMounted) return;
         console.error('[TreatmentList] Error loading real plans:', err);
-        setRealError('Error al cargar planes de tratamiento del paciente.');
+        setRealError('Error al cargar planes de tratamiento desde la base de datos.');
         setIsLoadingReal(false);
       });
 
     const unsubscribe = dentalService.subscribe(() => {
       if (isMounted) {
-        setRealPlans(dentalService.getRealTreatmentPlans(patientIdFilter));
+        if (patientIdFilter) {
+          setRealPlans(dentalService.getRealTreatmentPlans(patientIdFilter));
+        } else {
+          setRealPlans(dentalService.getAllRealTreatmentPlans());
+        }
       }
     });
 
@@ -75,18 +90,19 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
       isMounted = false;
       unsubscribe();
     };
-  }, [patientIdFilter, isRealPatient]);
+  }, [patientIdFilter, isMockPatient]);
 
   // Legacy mock treatments handling
   const treatments = patientIdFilter 
     ? dentalService.getTreatmentsByPatient(patientIdFilter)
     : dentalService.getTreatments();
 
-  const filteredTreatments = treatments.filter(t => {
+  const filteredTreatments = (treatments || []).filter(t => {
+    const q = searchQuery.toLowerCase();
     const matchesQuery = 
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      (t.title || '').toLowerCase().includes(q) ||
+      (t.patientName || '').toLowerCase().includes(q) ||
+      (t.description && t.description.toLowerCase().includes(q));
 
     const matchesStatus = !statusFilter || t.status === statusFilter;
 
@@ -99,8 +115,9 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
   };
 
   // Real plan item status toggler
-  const handleCycleItemStatus = async (planId: number, item: DentalTreatmentItem) => {
-    if (!patientIdFilter) return;
+  const handleCycleItemStatus = async (planId: number, item: DentalTreatmentItem, planPatientId?: number | string) => {
+    const targetPatientId = patientIdFilter || (planPatientId ? String(planPatientId) : undefined);
+    if (!targetPatientId) return;
     setUpdatingItemId(item.id);
 
     const nextStatus: Record<DentalTreatmentItemStatus, DentalTreatmentItemStatus> = {
@@ -111,9 +128,12 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
     };
 
     try {
-      await dentalService.updateRealTreatmentItem(patientIdFilter, planId, item.id, {
+      await dentalService.updateRealTreatmentItem(targetPatientId, planId, item.id, {
         status: nextStatus[item.status]
       });
+      if (!patientIdFilter) {
+        await dentalService.loadAllRealTreatmentPlans();
+      }
     } catch (err: any) {
       console.error('[TreatmentList] Error cycling item status:', err);
       alert(err.message || 'Error al actualizar estado del procedimiento.');
@@ -122,13 +142,17 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
     }
   };
 
-  const handleDeleteItem = async (planId: number, itemId: number) => {
-    if (!patientIdFilter) return;
+  const handleDeleteItem = async (planId: number, itemId: number, planPatientId?: number | string) => {
+    const targetPatientId = patientIdFilter || (planPatientId ? String(planPatientId) : undefined);
+    if (!targetPatientId) return;
     if (!window.confirm('¿Está seguro de eliminar este procedimiento del plan de tratamiento?')) return;
 
     setUpdatingItemId(itemId);
     try {
-      await dentalService.deleteRealTreatmentItem(patientIdFilter, planId, itemId);
+      await dentalService.deleteRealTreatmentItem(targetPatientId, planId, itemId);
+      if (!patientIdFilter) {
+        await dentalService.loadAllRealTreatmentPlans();
+      }
     } catch (err: any) {
       console.error('[TreatmentList] Error deleting item:', err);
       alert(err.message || 'Error al eliminar procedimiento.');
@@ -137,12 +161,16 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
     }
   };
 
-  const handlePlanStatusChange = async (planId: number, newStatus: string) => {
-    if (!patientIdFilter) return;
+  const handlePlanStatusChange = async (planId: number, newStatus: string, planPatientId?: number | string) => {
+    const targetPatientId = patientIdFilter || (planPatientId ? String(planPatientId) : undefined);
+    if (!targetPatientId) return;
     try {
-      await dentalService.updateRealTreatmentPlan(patientIdFilter, planId, {
+      await dentalService.updateRealTreatmentPlan(targetPatientId, planId, {
         status: newStatus
       });
+      if (!patientIdFilter) {
+        await dentalService.loadAllRealTreatmentPlans();
+      }
     } catch (err: any) {
       console.error('[TreatmentList] Error updating plan status:', err);
       alert(err.message || 'Error al actualizar estado del plan.');
@@ -223,9 +251,26 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
         </div>
       </div>
 
-      {/* VISTA PARA PACIENTES REALES (PERSISTENCIA CORE POSTGRESQL) */}
-      {isRealPatient ? (
+      {/* VISTA PARA PACIENTES REALES O VISTA GLOBAL ORGANIZACIONAL (PERSISTENCIA CORE POSTGRESQL) */}
+      {isRealMode ? (
         <div className="space-y-6">
+          {/* Barra de búsqueda y filtros */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm no-print">
+            <SearchFilter
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              placeholder="Buscar plan por título, procedimiento o paciente..."
+              filterOptions={[
+                { label: 'Borrador', value: 'DRAFT' },
+                { label: 'Activo', value: 'ACTIVE' },
+                { label: 'Completado', value: 'COMPLETED' },
+                { label: 'Cancelado', value: 'CANCELLED' }
+              ]}
+              selectedFilter={statusFilter}
+              onFilterChange={setStatusFilter}
+            />
+          </div>
+
           {realError && (
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
               {realError}
@@ -241,15 +286,43 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
             <EmptyState
               icon={<Activity className="w-8 h-8" />}
               title="Sin planes de tratamiento"
-              description="No existen planes de tratamiento creados para este paciente en PostgreSQL. Puede crear un nuevo plan aquí o agregar piezas desde el Odontograma."
-              actionLabel="+ Crear Primer Plan"
-              onAction={() => setIsCreatePlanModalOpen(true)}
+              description={
+                patientIdFilter
+                  ? "No existen planes de tratamiento creados para este paciente en PostgreSQL. Puede crear un nuevo plan aquí o agregar piezas desde el Odontograma."
+                  : "No existen planes de tratamiento registrados en la organización clínica. Cree un nuevo plan dentro de la ficha de un paciente o agréguelos desde su Odontograma."
+              }
+              actionLabel={patientIdFilter ? "+ Crear Primer Plan" : undefined}
+              onAction={patientIdFilter ? () => setIsCreatePlanModalOpen(true) : undefined}
             />
-          ) : (
-            <div className="space-y-6">
-              {realPlans.map((plan) => {
-                const completedItems = plan.items.filter(i => i.status === 'COMPLETED').length;
-                const totalItems = plan.items.length;
+          ) : (() => {
+            const filteredRealPlans = (realPlans || []).filter((plan) => {
+              const planTitle = plan.title || 'Plan de Tratamiento';
+              const planPatientName = plan.patientName || '';
+              const planItems = plan.items || [];
+              const q = searchQuery.toLowerCase();
+              const matchesQuery =
+                planTitle.toLowerCase().includes(q) ||
+                planPatientName.toLowerCase().includes(q) ||
+                planItems.some(
+                  (it) =>
+                    (it.procedureName || '').toLowerCase().includes(q) ||
+                    (it.notes && it.notes.toLowerCase().includes(q))
+                );
+              const matchesStatus = !statusFilter || plan.status === statusFilter;
+              return matchesQuery && matchesStatus;
+            });
+            const totalRealPages = Math.ceil(filteredRealPlans.length / PAGE_SIZE) || 1;
+            const paginatedRealPlans = filteredRealPlans.slice(
+              (currentPage - 1) * PAGE_SIZE,
+              currentPage * PAGE_SIZE
+            );
+
+            return (
+              <div className="space-y-6">
+                {paginatedRealPlans.map((plan) => {
+                const planItems = plan.items || [];
+                const completedItems = planItems.filter(i => i.status === 'COMPLETED').length;
+                const totalItems = planItems.length;
                 const progressPct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
                 return (
@@ -260,9 +333,26 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                     {/* Header del Plan */}
                     <div className="p-5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-base font-bold text-slate-900">{plan.title}</h3>
                           {getPlanStatusBadge(plan.status)}
+                          {plan.patientName && (
+                            <div className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                              <User className="w-3 h-3 text-cyan-600" />
+                              <span className="font-semibold text-slate-700">Paciente:</span>
+                              {onSelectPatient && plan.patientId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectPatient(String(plan.patientId))}
+                                  className="text-cyan-700 hover:text-cyan-900 font-bold hover:underline"
+                                >
+                                  {plan.patientName}
+                                </button>
+                              ) : (
+                                <span className="font-semibold text-slate-800">{plan.patientName}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         {plan.notes && (
                           <p className="text-xs text-slate-500 max-w-xl">{plan.notes}</p>
@@ -278,7 +368,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                           <span className="text-[11px] text-slate-400 font-semibold">Estado:</span>
                           <select
                             value={plan.status}
-                            onChange={(e) => handlePlanStatusChange(plan.id, e.target.value)}
+                            onChange={(e) => handlePlanStatusChange(plan.id, e.target.value, plan.patientId)}
                             className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700"
                           >
                             <option value="DRAFT">Borrador</option>
@@ -294,7 +384,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                             Total Estimado
                           </span>
                           <span className="text-lg font-mono font-bold text-slate-900">
-                            ${(plan.totalEstimated || 0).toFixed(2)}
+                            ${(Number(plan.totalEstimated ?? (plan as any).totalAmount) || 0).toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -318,7 +408,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
 
                     {/* Tabla de Procedimientos / Ítems */}
                     <div className="overflow-x-auto">
-                      {plan.items.length === 0 ? (
+                      {planItems.length === 0 ? (
                         <div className="p-6 text-center text-xs text-slate-400">
                           Sin procedimientos asociados a este plan. Utilice el botón inferior o agréguelos desde el Odontograma.
                         </div>
@@ -336,7 +426,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {plan.items.map((item) => (
+                            {planItems.map((item) => (
                               <React.Fragment key={item.id}>
                                 <tr className="hover:bg-slate-50/60 transition-colors">
                                   <td className="py-3 px-4 font-mono font-bold text-slate-800">
@@ -357,13 +447,13 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                                     )}
                                   </td>
                                   <td className="py-3 px-4 text-center font-mono font-medium text-slate-700">
-                                    {item.quantity}
+                                    {item.quantity ?? 1}
                                   </td>
                                   <td className="py-3 px-4 text-right font-mono text-slate-700">
-                                    ${item.unitPrice.toFixed(2)}
+                                    ${(Number(item.unitPrice) || 0).toFixed(2)}
                                   </td>
                                   <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                                    ${item.totalPrice.toFixed(2)}
+                                    ${(Number(item.totalPrice ?? item.unitPrice) || 0).toFixed(2)}
                                   </td>
                                   <td className="py-3 px-4 text-center">
                                     {getItemStatusBadge(item.status)}
@@ -373,7 +463,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                                     {item.status !== 'CANCELLED' && item.status !== 'COMPLETED' && (
                                       <button
                                         type="button"
-                                        onClick={() => setExecutionTarget({ planId: plan.id, item })}
+                                        onClick={() => setExecutionTarget({ planId: plan.id, item, patientId: plan.patientId })}
                                         className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 border border-cyan-300 text-cyan-800 font-bold text-[11px] rounded-lg transition-colors shadow-2xs"
                                         title="Registrar evolución clínica o sesión"
                                       >
@@ -397,7 +487,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
 
                                     <button
                                       type="button"
-                                      onClick={() => handleCycleItemStatus(plan.id, item)}
+                                      onClick={() => handleCycleItemStatus(plan.id, item, plan.patientId)}
                                       disabled={updatingItemId === item.id}
                                       className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[11px] rounded transition-colors"
                                       title="Avanzar estado del procedimiento"
@@ -406,7 +496,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleDeleteItem(plan.id, item.id)}
+                                      onClick={() => handleDeleteItem(plan.id, item.id, plan.patientId)}
                                       disabled={updatingItemId === item.id}
                                       className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
                                       title="Eliminar procedimiento del plan"
@@ -481,7 +571,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                         )}
                         <button
                           type="button"
-                          onClick={() => setActivePlanForNewItem(plan.id)}
+                          onClick={() => setActivePlanForNewItem({ planId: plan.id, patientId: plan.patientId })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-cyan-50 border border-cyan-600/70 text-cyan-700 font-semibold text-xs rounded-xl shadow-xs transition-colors"
                         >
                           <Plus className="w-3.5 h-3.5 text-cyan-600" />
@@ -492,8 +582,39 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
                   </div>
                 );
               })}
+
+              {/* Barra de Paginación */}
+              {totalRealPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-white rounded-xl border border-slate-200 text-xs text-slate-600 no-print">
+                  <span>
+                    Mostrando {((currentPage - 1) * PAGE_SIZE) + 1} - {Math.min(currentPage * PAGE_SIZE, filteredRealPlans.length)} de {filteredRealPlans.length} planes de tratamiento
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 font-medium transition-colors"
+                    >
+                      Anterior
+                    </button>
+                    <span className="font-semibold text-slate-800">
+                      Página {currentPage} de {totalRealPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.min(totalRealPages, p + 1))}
+                      disabled={currentPage === totalRealPages}
+                      className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 font-medium transition-colors"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          );
+        })()}
         </div>
       ) : (
         /* VISTA MOCK LEGACY (Para vista global de tratamientos sin paciente seleccionado o PAT-*) */
@@ -562,7 +683,7 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
 
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400 font-semibold uppercase block">Costo Estimado</span>
-                      <span className="font-mono font-bold text-slate-900 text-sm">${t.estimatedCost.toFixed(2)}</span>
+                      <span className="font-mono font-bold text-slate-900 text-sm">${(Number(t.estimatedCost) || 0).toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -628,38 +749,46 @@ export const TreatmentList: React.FC<TreatmentListProps> = ({
       )}
 
       {/* Agregar Ítem al Plan Modal */}
-      {isRealPatient && patientIdFilter && activePlanForNewItem !== null && (
+      {isRealMode && activePlanForNewItem !== null && (
         <AddTreatmentItemModal
           isOpen={activePlanForNewItem !== null}
           onClose={() => setActivePlanForNewItem(null)}
-          planId={activePlanForNewItem}
-          patientId={patientIdFilter}
+          planId={activePlanForNewItem.planId}
+          patientId={patientIdFilter || String(activePlanForNewItem.patientId || '')}
           onSuccess={() => {
-            dentalService.loadRealTreatmentPlans(patientIdFilter);
+            if (patientIdFilter) {
+              dentalService.loadRealTreatmentPlans(patientIdFilter);
+            } else {
+              dentalService.loadAllRealTreatmentPlans();
+            }
           }}
         />
       )}
 
       {/* Generar Presupuesto Modal */}
-      {isRealPatient && patientIdFilter && activePlanForBudget !== null && (
+      {isRealMode && activePlanForBudget !== null && (
         <GenerateBudgetModal
           isOpen={activePlanForBudget !== null}
           onClose={() => setActivePlanForBudget(null)}
-          patientId={patientIdFilter}
+          patientId={patientIdFilter || String(activePlanForBudget.patientId || '')}
           plan={activePlanForBudget}
         />
       )}
 
       {/* Registrar Ejecución Clínica / Evolución Modal */}
-      {isRealPatient && patientIdFilter && executionTarget !== null && (
+      {isRealMode && executionTarget !== null && (
         <RecordExecutionModal
           isOpen={executionTarget !== null}
           onClose={() => setExecutionTarget(null)}
           planId={executionTarget.planId}
           item={executionTarget.item}
-          patientId={patientIdFilter}
+          patientId={patientIdFilter || String(executionTarget.patientId || '')}
           onSuccess={() => {
-            dentalService.loadRealTreatmentPlans(patientIdFilter);
+            if (patientIdFilter) {
+              dentalService.loadRealTreatmentPlans(patientIdFilter);
+            } else {
+              dentalService.loadAllRealTreatmentPlans();
+            }
           }}
         />
       )}

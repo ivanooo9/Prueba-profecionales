@@ -94,6 +94,18 @@ function formatHumanDate(dateStr: string): string {
   }
 }
 
+function formatMonthYear(date: Date): string {
+  try {
+    const formatted = date.toLocaleDateString('es-EC', {
+      month: 'long',
+      year: 'numeric',
+    });
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  } catch {
+    return date.toISOString().slice(0, 7);
+  }
+}
+
 export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
   onOpenSoapModal,
   onSelectPatient,
@@ -106,6 +118,8 @@ export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
   const state = useClinicalStore((s) => s);
   const { appointments, patients, consultations } = state;
 
+  const [viewMode, setViewMode] = useState<'DAY' | 'CALENDAR' | 'UPCOMING'>('DAY');
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string>(() => getToday());
   const [filter, setFilter] = useState<AppointmentFilter>('ALL');
 
@@ -177,6 +191,108 @@ export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
     return dayAppointments.filter((a) => a.status === filter);
   }, [dayAppointments, filter]);
 
+  // Matriz de días para el Calendario Mensual
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+
+    // Lunes = 0 ... Domingo = 6
+    const firstDayIndex = (firstDayOfMonth.getDay() + 6) % 7;
+    const daysInMonth = lastDayOfMonth.getDate();
+
+    const days: {
+      dateStr: string;
+      dayNumber: number;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      isSelected: boolean;
+      appointments: Appointment[];
+    }[] = [];
+
+    const todayStr = getToday();
+
+    // Días del mes anterior
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const dayNum = prevMonthLastDay - i;
+      const prevDate = new Date(year, month - 1, dayNum);
+      const dateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      days.push({
+        dateStr,
+        dayNumber: dayNum,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+        appointments: appointments
+          .filter((a) => a.date === dateStr)
+          .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+      });
+    }
+
+    // Días del mes actual
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      days.push({
+        dateStr,
+        dayNumber: i,
+        isCurrentMonth: true,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+        appointments: appointments
+          .filter((a) => a.date === dateStr)
+          .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+      });
+    }
+
+    // Días del mes siguiente (hasta 42 celdas)
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      const nextDate = new Date(year, month + 1, i);
+      const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      days.push({
+        dateStr,
+        dayNumber: i,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+        appointments: appointments
+          .filter((a) => a.date === dateStr)
+          .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+      });
+    }
+
+    return days;
+  }, [calendarMonth, appointments, selectedDate]);
+
+  // Próximas citas ordenadas cronológicamente para la vista de Próximas Actividades
+  const upcomingAppointmentsGrouped = useMemo(() => {
+    const todayStr = getToday();
+    const upcoming = appointments
+      .filter((a) => a.date >= todayStr && a.status !== 'CANCELLED' && a.status !== 'NO_SHOW')
+      .sort((a, b) => {
+        const dateCmp = a.date.localeCompare(b.date);
+        if (dateCmp !== 0) return dateCmp;
+        return a.startTime.localeCompare(b.startTime);
+      });
+
+    const groups: { [dateStr: string]: Appointment[] } = {};
+    for (const apt of upcoming) {
+      if (!groups[apt.date]) groups[apt.date] = [];
+      groups[apt.date].push(apt);
+    }
+    return Object.entries(groups);
+  }, [appointments]);
+
+  const totalUpcomingCount = useMemo(() => {
+    const todayStr = getToday();
+    return appointments.filter(
+      (a) => a.date >= todayStr && a.status !== 'CANCELLED' && a.status !== 'NO_SHOW'
+    ).length;
+  }, [appointments]);
+
   // Navegación de fecha
   const shiftDate = (days: number) => {
     const parts = selectedDate.split('-');
@@ -187,6 +303,17 @@ export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
   };
 
   const jumpToToday = () => {
+    setSelectedDate(getToday());
+  };
+
+  // Navegación de mes para vista calendario
+  const shiftMonth = (delta: number) => {
+    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+
+  const jumpToCurrentMonth = () => {
+    const now = new Date();
+    setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
     setSelectedDate(getToday());
   };
 
@@ -209,6 +336,14 @@ export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
     e.preventDefault();
     if (!newPatientId) {
       setNewError('Seleccione un paciente');
+      return;
+    }
+    if (!newDate) {
+      setNewError('Seleccione una fecha para la cita');
+      return;
+    }
+    if (newDate < getToday()) {
+      setNewError('La fecha de la cita no puede ser anterior a hoy');
       return;
     }
     if (!newReason.trim()) {
@@ -347,66 +482,72 @@ export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
   return (
     <div className="space-y-4">
       {/* ========================================================= */}
-      {/* 1. CABECERA PRINCIPAL Y SELECTOR DE FECHA                 */}
+      {/* 1. CABECERA PRINCIPAL Y SELECTOR DE MODO DE VISTA         */}
       {/* ========================================================= */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
               Agenda Médica
             </h1>
-            {isToday && (
+            {isToday && viewMode === 'DAY' && (
               <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide bg-sky-100 text-sky-700 rounded-full border border-sky-200">
                 Hoy
               </span>
             )}
           </div>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            {formatHumanDate(selectedDate)}
+            {viewMode === 'DAY' && formatHumanDate(selectedDate)}
+            {viewMode === 'CALENDAR' && `Vista mensual: ${formatMonthYear(calendarMonth)}`}
+            {viewMode === 'UPCOMING' && `Próximas consultas programadas (${totalUpcomingCount} en total)`}
           </p>
         </div>
 
-        {/* Controles de navegación y acción */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Navegación de fecha */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+        {/* Selector de Modo de Vista + Botón Nueva Cita */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Switcher de Vistas */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               type="button"
-              onClick={() => shiftDate(-1)}
-              className="p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition shadow-xs"
-              title="Día anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={jumpToToday}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
-                isToday
+              onClick={() => setViewMode('DAY')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                viewMode === 'DAY'
                   ? 'bg-white text-sky-700 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Hoy
+              <Clock className="w-3.5 h-3.5" />
+              <span>Día</span>
             </button>
             <button
               type="button"
-              onClick={() => shiftDate(1)}
-              className="p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition shadow-xs"
-              title="Día siguiente"
+              onClick={() => setViewMode('CALENDAR')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                viewMode === 'CALENDAR'
+                  ? 'bg-white text-sky-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <ChevronRight className="w-4 h-4" />
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Calendario Mensual</span>
             </button>
-          </div>
-
-          {/* Date Picker directo */}
-          <div className="relative">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-              className="py-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-xs"
-            />
+            <button
+              type="button"
+              onClick={() => setViewMode('UPCOMING')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                viewMode === 'UPCOMING'
+                  ? 'bg-white text-sky-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>Próximas Citas</span>
+              {totalUpcomingCount > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${viewMode === 'UPCOMING' ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'}`}>
+                  {totalUpcomingCount}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Botón Nueva Cita */}
@@ -422,339 +563,784 @@ export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* 2. FILTROS POR ESTADO                                     */}
+      {/* VISTA 1: DÍA                                              */}
       {/* ========================================================= */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          type="button"
-          onClick={() => setFilter('ALL')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
-            filter === 'ALL'
-              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>Todas</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
-            {counts.ALL}
-          </span>
-        </button>
+      {viewMode === 'DAY' && (
+        <>
+          {/* Barra de navegación de fecha diaria */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => shiftDate(-1)}
+                className="p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition shadow-xs"
+                title="Día anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={jumpToToday}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                  isToday
+                    ? 'bg-white text-sky-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Hoy
+              </button>
+              <button
+                type="button"
+                onClick={() => shiftDate(1)}
+                className="p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition shadow-xs"
+                title="Día siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
 
-        <button
-          type="button"
-          onClick={() => setFilter('PENDING')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
-            filter === 'PENDING'
-              ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-              : 'bg-white text-amber-700 border-slate-200 hover:bg-amber-50/50'
-          }`}
-        >
-          <span>Pendientes</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'PENDING' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'}`}>
-            {counts.PENDING}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setFilter('WAITING_ROOM')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
-            filter === 'WAITING_ROOM'
-              ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
-              : 'bg-white text-orange-700 border-slate-200 hover:bg-orange-50/50'
-          }`}
-        >
-          <span>En sala de espera</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'WAITING_ROOM' ? 'bg-orange-700 text-white' : 'bg-orange-100 text-orange-800'}`}>
-            {counts.WAITING_ROOM}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setFilter('IN_CONSULTATION')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
-            filter === 'IN_CONSULTATION'
-              ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-              : 'bg-white text-sky-700 border-slate-200 hover:bg-sky-50/50'
-          }`}
-        >
-          <span>En consulta</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'IN_CONSULTATION' ? 'bg-sky-700 text-white' : 'bg-sky-100 text-sky-800'}`}>
-            {counts.IN_CONSULTATION}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setFilter('ATTENDED')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
-            filter === 'ATTENDED'
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-              : 'bg-white text-emerald-700 border-slate-200 hover:bg-emerald-50/50'
-          }`}
-        >
-          <span>Atendidas</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'ATTENDED' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
-            {counts.ATTENDED}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setFilter('CANCELLED')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
-            filter === 'CANCELLED'
-              ? 'bg-slate-700 text-white border-slate-700 shadow-xs'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>Canceladas</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'CANCELLED' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
-            {counts.CANCELLED}
-          </span>
-        </button>
-      </div>
-
-      {/* ========================================================= */}
-      {/* 3. LISTA SIMPLIFICADA DE CITAS                            */}
-      {/* ========================================================= */}
-      {filteredAppointments.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-xs">
-          <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mx-auto mb-2">
-            <CalendarDays className="w-6 h-6" />
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-600">Fecha seleccionada:</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                className="py-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-xs"
+              />
+            </div>
           </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            No hay citas programadas para este día
-          </h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            {filter === 'ALL'
-              ? 'Haga clic en "+ Nueva Cita" para programar una consulta médica.'
-              : 'Cambie el filtro para ver otras citas agendadas.'}
-          </p>
-          {filter === 'ALL' && (
+
+          {/* Filtros por Estado */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setFilter('ALL')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                filter === 'ALL'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>Todas</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                {counts.ALL}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter('PENDING')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                filter === 'PENDING'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                  : 'bg-white text-amber-700 border-slate-200 hover:bg-amber-50/50'
+              }`}
+            >
+              <span>Pendientes</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'PENDING' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'}`}>
+                {counts.PENDING}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter('WAITING_ROOM')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                filter === 'WAITING_ROOM'
+                  ? 'bg-orange-600 text-white border-orange-600 shadow-xs'
+                  : 'bg-white text-orange-700 border-slate-200 hover:bg-orange-50/50'
+              }`}
+            >
+              <span>En sala de espera</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'WAITING_ROOM' ? 'bg-orange-700 text-white' : 'bg-orange-100 text-orange-800'}`}>
+                {counts.WAITING_ROOM}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter('IN_CONSULTATION')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                filter === 'IN_CONSULTATION'
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                  : 'bg-white text-sky-700 border-slate-200 hover:bg-sky-50/50'
+              }`}
+            >
+              <span>En consulta</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'IN_CONSULTATION' ? 'bg-sky-700 text-white' : 'bg-sky-100 text-sky-800'}`}>
+                {counts.IN_CONSULTATION}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter('ATTENDED')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                filter === 'ATTENDED'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  : 'bg-white text-emerald-700 border-slate-200 hover:bg-emerald-50/50'
+              }`}
+            >
+              <span>Atendidas</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'ATTENDED' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                {counts.ATTENDED}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter('CANCELLED')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                filter === 'CANCELLED'
+                  ? 'bg-slate-700 text-white border-slate-700 shadow-xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>Canceladas</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === 'CANCELLED' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                {counts.CANCELLED}
+              </span>
+            </button>
+          </div>
+
+          {/* Lista de citas del día */}
+          {filteredAppointments.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-xs">
+              <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <CalendarDays className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800">
+                No hay citas programadas para este día
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                {filter === 'ALL'
+                  ? 'Haga clic en "+ Nueva Cita" para programar una consulta médica.'
+                  : 'Cambie el filtro para ver otras citas agendadas.'}
+              </p>
+              {filter === 'ALL' && (
+                <button
+                  type="button"
+                  onClick={handleOpenNewModal}
+                  className="mt-3 inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Nueva Cita</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredAppointments.map((apt) => {
+                const patient = patientMap.get(apt.patientId);
+                const statusCfg = STATUS_CONFIG[apt.status] || STATUS_CONFIG.PENDING;
+                const typeLabel = TYPE_CONFIG[apt.type] || 'Consulta';
+
+                const secondaryParts = [
+                  apt.endTime ? `${apt.startTime} - ${apt.endTime}` : apt.startTime,
+                  apt.room || null,
+                  typeLabel,
+                ].filter(Boolean);
+                const secondaryText = secondaryParts.join(' · ');
+
+                const isMenuOpen = activeMenuId === apt.id;
+
+                return (
+                  <div
+                    key={apt.id}
+                    className="bg-white border border-slate-200 rounded-2xl py-3 px-4 sm:px-5 shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3"
+                  >
+                    {/* Bloque Izquierdo */}
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
+                      <div className="flex items-center justify-center w-16 py-1.5 bg-slate-50 rounded-xl border border-slate-200 shrink-0">
+                        <span className="text-base font-black text-slate-900 tracking-tight">
+                          {apt.startTime}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onSelectPatient && onSelectPatient(apt.patientId)}
+                            className="text-sm font-extrabold text-slate-900 hover:text-sky-600 transition text-left truncate"
+                            title="Ver expediente del paciente"
+                          >
+                            {patient ? patient.name : `Paciente #${apt.patientId}`}
+                          </button>
+
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-bold rounded-full border ${statusCfg.badgeClass}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dotClass}`} />
+                            <span>{statusCfg.label}</span>
+                          </span>
+                        </div>
+
+                        <p className="text-xs font-semibold text-slate-700 truncate">
+                          {apt.reason}
+                        </p>
+
+                        <p className="text-[11px] font-medium text-slate-400 truncate">
+                          {secondaryText}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bloque Derecho */}
+                    <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 justify-end appointment-menu-container relative">
+                      {(apt.status === 'PENDING' || apt.status === 'CONFIRMED' || apt.status === 'WAITING_ROOM') && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartConsultation(apt)}
+                          className="flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
+                        >
+                          <Stethoscope className="w-3.5 h-3.5" />
+                          <span>Iniciar consulta</span>
+                        </button>
+                      )}
+
+                      {apt.status === 'IN_CONSULTATION' && (
+                        <button
+                          type="button"
+                          onClick={() => handleContinueConsultation(apt)}
+                          className="flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
+                        >
+                          <Stethoscope className="w-3.5 h-3.5" />
+                          <span>Continuar consulta</span>
+                        </button>
+                      )}
+
+                      {apt.status === 'ATTENDED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleViewConsultation(apt)}
+                          className="flex items-center gap-1.5 py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Ver consulta</span>
+                        </button>
+                      )}
+
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(isMenuOpen ? null : apt.id);
+                          }}
+                          className={`p-1.5 rounded-xl border transition ${
+                            isMenuOpen
+                              ? 'bg-slate-200 border-slate-300 text-slate-800'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
+                          }`}
+                          title="Opciones de la cita"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {isMenuOpen && (
+                          <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(apt)}
+                              className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Editar cita</span>
+                            </button>
+
+                            {(apt.status === 'CANCELLED' || apt.status === 'PENDING') && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(apt)}
+                                className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                              >
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Reprogramar</span>
+                              </button>
+                            )}
+
+                            <div className="my-1 border-t border-slate-100" />
+                            <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                              Cambiar estado
+                            </div>
+
+                            {apt.status !== 'WAITING_ROOM' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChangeFromMenu(apt, 'WAITING_ROOM')}
+                                className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-2"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                                <span>A sala de espera</span>
+                              </button>
+                            )}
+
+                            {apt.status !== 'IN_CONSULTATION' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChangeFromMenu(apt, 'IN_CONSULTATION')}
+                                className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                                <span>En consulta</span>
+                              </button>
+                            )}
+
+                            {apt.status !== 'ATTENDED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChangeFromMenu(apt, 'ATTENDED')}
+                                className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>Marcar atendida</span>
+                              </button>
+                            )}
+
+                            {apt.status !== 'PENDING' && apt.status !== 'CONFIRMED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChangeFromMenu(apt, 'PENDING')}
+                                className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-700 flex items-center gap-2"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                <span>Mover a pendiente</span>
+                              </button>
+                            )}
+
+                            {apt.status !== 'CANCELLED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChangeFromMenu(apt, 'CANCELLED')}
+                                className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                              >
+                                <X className="w-3.5 h-3.5 text-rose-500" />
+                                <span>Cancelar cita</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ========================================================= */}
+      {/* VISTA 2: CALENDARIO MENSUAL                               */}
+      {/* ========================================================= */}
+      {viewMode === 'CALENDAR' && (
+        <div className="space-y-4">
+          {/* Cabecera del Mes */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 capitalize">
+                {formatMonthYear(calendarMonth)}
+              </h2>
+              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                • Seleccione un día para ver sus consultas
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => shiftMonth(-1)}
+                  className="p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition shadow-xs"
+                  title="Mes anterior"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={jumpToCurrentMonth}
+                  className="px-3 py-1 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-white rounded-lg transition shadow-xs"
+                >
+                  Mes Actual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => shiftMonth(1)}
+                  className="p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition shadow-xs"
+                  title="Mes siguiente"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Grilla de 7 Columnas */}
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+            {/* Días de la semana */}
+            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center py-2.5 text-[11px] font-black uppercase tracking-wider text-slate-600">
+              <div>Lun</div>
+              <div>Mar</div>
+              <div>Mié</div>
+              <div>Jue</div>
+              <div>Vie</div>
+              <div>Sáb</div>
+              <div>Dom</div>
+            </div>
+
+            {/* Celdas del calendario (42 celdas) */}
+            <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 bg-slate-50/30">
+              {calendarDays.map((day, idx) => {
+                const isSelected = day.isSelected;
+                const hasApts = day.appointments.length > 0;
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedDate(day.dateStr)}
+                    className={`min-h-[90px] sm:min-h-[110px] p-1.5 sm:p-2 transition cursor-pointer flex flex-col justify-between ${
+                      day.isCurrentMonth ? 'bg-white' : 'bg-slate-50/60 text-slate-400'
+                    } ${
+                      isSelected
+                        ? 'ring-2 ring-inset ring-sky-500 bg-sky-50/40 z-10'
+                        : 'hover:bg-sky-50/20'
+                    }`}
+                  >
+                    {/* Cabecera de celda: Número de día */}
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className={`inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full ${
+                          day.isToday
+                            ? 'bg-sky-600 text-white shadow-xs'
+                            : isSelected
+                            ? 'bg-sky-100 text-sky-800 font-black'
+                            : day.isCurrentMonth
+                            ? 'text-slate-800'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {day.dayNumber}
+                      </span>
+                      {hasApts && (
+                        <span className="text-[10px] font-extrabold text-slate-400 px-1">
+                          {day.appointments.length}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Chips de citas en la celda */}
+                    <div className="space-y-1 flex-1 overflow-hidden">
+                      {day.appointments.slice(0, 2).map((apt) => {
+                        const pat = patientMap.get(apt.patientId);
+                        const statusDotColor =
+                          apt.status === 'ATTENDED'
+                            ? 'bg-emerald-500'
+                            : apt.status === 'IN_CONSULTATION'
+                            ? 'bg-sky-500'
+                            : apt.status === 'WAITING_ROOM'
+                            ? 'bg-orange-500'
+                            : apt.status === 'CANCELLED' || apt.status === 'NO_SHOW'
+                            ? 'bg-rose-400'
+                            : 'bg-amber-500';
+
+                        return (
+                          <div
+                            key={apt.id}
+                            className="text-[10px] leading-tight px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 truncate flex items-center gap-1 font-medium"
+                            title={`${apt.startTime} - ${pat?.name || 'Paciente'} (${apt.reason})`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDotColor}`} />
+                            <span className="font-bold shrink-0">{apt.startTime}</span>
+                            <span className="truncate">{pat?.name ? pat.name.split(' ')[0] : 'Pac.'}</span>
+                          </div>
+                        );
+                      })}
+
+                      {day.appointments.length > 2 && (
+                        <div className="text-[9px] font-bold text-sky-600 text-center py-0.5">
+                          +{day.appointments.length - 2} más
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Panel de detalle del día seleccionado dentro del Calendario */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900">
+                  Citas para el {formatHumanDate(selectedDate)}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {dayAppointments.length} consulta(s) agendada(s) para esta fecha
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenNewModal}
+                className="inline-flex items-center gap-1.5 py-1.5 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Agendar para esta fecha</span>
+              </button>
+            </div>
+
+            {dayAppointments.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400 font-medium">
+                No hay citas programadas para el {formatHumanDate(selectedDate)}.
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1">
+                {dayAppointments.map((apt) => {
+                  const patient = patientMap.get(apt.patientId);
+                  const statusCfg = STATUS_CONFIG[apt.status] || STATUS_CONFIG.PENDING;
+                  const typeLabel = TYPE_CONFIG[apt.type] || 'Consulta';
+
+                  return (
+                    <div
+                      key={apt.id}
+                      className="border border-slate-200 rounded-xl p-3 hover:border-slate-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/40"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 py-1 bg-white rounded-lg border border-slate-200 text-center">
+                          <span className="text-xs font-black text-slate-900">{apt.startTime}</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900">
+                              {patient ? patient.name : `Paciente #${apt.patientId}`}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.2 text-[10px] font-bold rounded-full border ${statusCfg.badgeClass}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dotClass}`} />
+                              <span>{statusCfg.label}</span>
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 font-medium mt-0.5">
+                            {apt.reason} · <span className="text-slate-400">{typeLabel}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        {(apt.status === 'PENDING' || apt.status === 'CONFIRMED' || apt.status === 'WAITING_ROOM') && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartConsultation(apt)}
+                            className="py-1 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                          >
+                            Iniciar consulta
+                          </button>
+                        )}
+                        {apt.status === 'IN_CONSULTATION' && (
+                          <button
+                            type="button"
+                            onClick={() => handleContinueConsultation(apt)}
+                            className="py-1 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                          >
+                            Continuar
+                          </button>
+                        )}
+                        {apt.status === 'ATTENDED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleViewConsultation(apt)}
+                            className="py-1 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                          >
+                            Ver consulta
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(apt)}
+                          className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* VISTA 3: PRÓXIMAS CONSULTAS Y ACTIVIDADES                 */}
+      {/* ========================================================= */}
+      {viewMode === 'UPCOMING' && (
+        <div className="space-y-4">
+          <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <CalendarDays className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-sky-950">
+                  Próximas Consultas Programadas
+                </h2>
+                <p className="text-xs text-sky-800">
+                  Se muestran todas las citas activas desde hoy en adelante en orden cronológico.
+                </p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleOpenNewModal}
-              className="mt-3 inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition"
+              className="hidden sm:inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition"
             >
               <Plus className="w-4 h-4" />
               <span>Nueva Cita</span>
             </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filteredAppointments.map((apt) => {
-            const patient = patientMap.get(apt.patientId);
-            const statusCfg = STATUS_CONFIG[apt.status] || STATUS_CONFIG.PENDING;
-            const typeLabel = TYPE_CONFIG[apt.type] || 'Consulta';
+          </div>
 
-            // Línea secundaria discreta separada por puntos medios (·)
-            const secondaryParts = [
-              apt.endTime ? `${apt.startTime} - ${apt.endTime}` : apt.startTime,
-              apt.room || null,
-              typeLabel,
-            ].filter(Boolean);
-            const secondaryText = secondaryParts.join(' · ');
-
-            const isMenuOpen = activeMenuId === apt.id;
-
-            return (
-              <div
-                key={apt.id}
-                className="bg-white border border-slate-200 rounded-2xl py-3 px-4 sm:px-5 shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3"
+          {upcomingAppointmentsGrouped.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-xs">
+              <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <CalendarDays className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800">
+                No hay citas futuras programadas
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                No se registran citas para los próximos días o semanas.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenNewModal}
+                className="mt-3 inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition"
               >
-                {/* Bloque Izquierdo: Hora, Paciente, Motivo y Datos Secundarios */}
-                <div className="flex items-start gap-4 min-w-0 flex-1">
-                  {/* 1. HORA DESTACADA */}
-                  <div className="flex items-center justify-center w-16 py-1.5 bg-slate-50 rounded-xl border border-slate-200 shrink-0">
-                    <span className="text-base font-black text-slate-900 tracking-tight">
-                      {apt.startTime}
-                    </span>
-                  </div>
+                <Plus className="w-4 h-4" />
+                <span>Programar Cita</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {upcomingAppointmentsGrouped.map(([dateStr, apts]) => {
+                const isDateToday = dateStr === getToday();
 
-                  {/* 2. INFORMACIÓN PRINCIPAL Y SECUNDARIA */}
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    {/* Fila: Nombre del Paciente + Badge de Estado ÚNICO */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onSelectPatient && onSelectPatient(apt.patientId)}
-                        className="text-sm font-extrabold text-slate-900 hover:text-sky-600 transition text-left truncate"
-                        title="Ver expediente del paciente"
-                      >
-                        {patient ? patient.name : `Paciente #${apt.patientId}`}
-                      </button>
-
-                      {/* Badge de Estado Único */}
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-bold rounded-full border ${statusCfg.badgeClass}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dotClass}`} />
-                        <span>{statusCfg.label}</span>
+                return (
+                  <div key={dateStr} className="space-y-2">
+                    <div className="flex items-center gap-2 px-1">
+                      <div className="w-2 h-2 rounded-full bg-sky-500" />
+                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                        {formatHumanDate(dateStr)}
+                      </h3>
+                      {isDateToday && (
+                        <span className="px-2 py-0.2 text-[10px] font-extrabold uppercase tracking-wide bg-sky-100 text-sky-700 rounded-full border border-sky-200">
+                          Hoy
+                        </span>
+                      )}
+                      <span className="text-[11px] font-bold text-slate-400 ml-auto">
+                        {apts.length} cita(s)
                       </span>
                     </div>
 
-                    {/* 3. MOTIVO (Visible directamente, sin etiqueta redundant MOTIVO:) */}
-                    <p className="text-xs font-semibold text-slate-700 truncate">
-                      {apt.reason}
-                    </p>
+                    <div className="space-y-2">
+                      {apts.map((apt) => {
+                        const patient = patientMap.get(apt.patientId);
+                        const statusCfg = STATUS_CONFIG[apt.status] || STATUS_CONFIG.PENDING;
+                        const typeLabel = TYPE_CONFIG[apt.type] || 'Consulta';
 
-                    {/* 4. INFORMACIÓN SECUNDARIA DISCRETA */}
-                    <p className="text-[11px] font-medium text-slate-400 truncate">
-                      {secondaryText}
-                    </p>
+                        return (
+                          <div
+                            key={apt.id}
+                            className="bg-white border border-slate-200 rounded-2xl py-3 px-4 sm:px-5 shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3"
+                          >
+                            <div className="flex items-start gap-4 min-w-0 flex-1">
+                              <div className="flex items-center justify-center w-16 py-1.5 bg-slate-50 rounded-xl border border-slate-200 shrink-0">
+                                <span className="text-base font-black text-slate-900 tracking-tight">
+                                  {apt.startTime}
+                                </span>
+                              </div>
+
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectPatient && onSelectPatient(apt.patientId)}
+                                    className="text-sm font-extrabold text-slate-900 hover:text-sky-600 transition text-left truncate"
+                                  >
+                                    {patient ? patient.name : `Paciente #${apt.patientId}`}
+                                  </button>
+
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-bold rounded-full border ${statusCfg.badgeClass}`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dotClass}`} />
+                                    <span>{statusCfg.label}</span>
+                                  </span>
+                                </div>
+
+                                <p className="text-xs font-semibold text-slate-700 truncate">
+                                  {apt.reason}
+                                </p>
+
+                                <p className="text-[11px] font-medium text-slate-400 truncate">
+                                  {apt.endTime ? `${apt.startTime} - ${apt.endTime}` : apt.startTime} · {typeLabel} {apt.room ? `· ${apt.room}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 justify-end">
+                              {(apt.status === 'PENDING' || apt.status === 'CONFIRMED' || apt.status === 'WAITING_ROOM') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartConsultation(apt)}
+                                  className="flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
+                                >
+                                  <Stethoscope className="w-3.5 h-3.5" />
+                                  <span>Iniciar consulta</span>
+                                </button>
+                              )}
+
+                              {apt.status === 'IN_CONSULTATION' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleContinueConsultation(apt)}
+                                  className="flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
+                                >
+                                  <Stethoscope className="w-3.5 h-3.5" />
+                                  <span>Continuar</span>
+                                </button>
+                              )}
+
+                              {apt.status === 'ATTENDED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewConsultation(apt)}
+                                  className="flex items-center gap-1.5 py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>Ver consulta</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(apt)}
+                                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 border border-slate-200 transition"
+                                title="Editar"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-
-                {/* Bloque Derecho: Acción Principal según Estado + Menú [ ⋯ ] */}
-                <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 justify-end appointment-menu-container relative">
-                  {/* ACCIÓN PRINCIPAL POR ESTADO */}
-                  {(apt.status === 'PENDING' || apt.status === 'CONFIRMED' || apt.status === 'WAITING_ROOM') && (
-                    <button
-                      type="button"
-                      onClick={() => handleStartConsultation(apt)}
-                      className="flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
-                    >
-                      <Stethoscope className="w-3.5 h-3.5" />
-                      <span>Iniciar consulta</span>
-                    </button>
-                  )}
-
-                  {apt.status === 'IN_CONSULTATION' && (
-                    <button
-                      type="button"
-                      onClick={() => handleContinueConsultation(apt)}
-                      className="flex items-center gap-1.5 py-1.5 px-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
-                    >
-                      <Stethoscope className="w-3.5 h-3.5" />
-                      <span>Continuar consulta</span>
-                    </button>
-                  )}
-
-                  {apt.status === 'ATTENDED' && (
-                    <button
-                      type="button"
-                      onClick={() => handleViewConsultation(apt)}
-                      className="flex items-center gap-1.5 py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Ver consulta</span>
-                    </button>
-                  )}
-
-                  {/* CANCELLED: NO muestra acción de iniciar consulta */}
-
-                  {/* BOTÓN MENÚ CONTEXTUAL [ ⋯ ] */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuId(isMenuOpen ? null : apt.id);
-                      }}
-                      className={`p-1.5 rounded-xl border transition ${
-                        isMenuOpen
-                          ? 'bg-slate-200 border-slate-300 text-slate-800'
-                          : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
-                      }`}
-                      title="Opciones de la cita"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-
-                    {/* Desplegable Contextual */}
-                    {isMenuOpen && (
-                      <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-                        {/* Editar Cita */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(apt)}
-                          className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <Edit2 className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Editar cita</span>
-                        </button>
-
-                        {/* Reprogramar */}
-                        {(apt.status === 'CANCELLED' || apt.status === 'PENDING') && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(apt)}
-                            className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                          >
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Reprogramar</span>
-                          </button>
-                        )}
-
-                        <div className="my-1 border-t border-slate-100" />
-                        <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                          Cambiar estado
-                        </div>
-
-                        {apt.status !== 'WAITING_ROOM' && (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChangeFromMenu(apt, 'WAITING_ROOM')}
-                            className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-2"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                            <span>A sala de espera</span>
-                          </button>
-                        )}
-
-                        {apt.status !== 'IN_CONSULTATION' && (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChangeFromMenu(apt, 'IN_CONSULTATION')}
-                            className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                            <span>En consulta</span>
-                          </button>
-                        )}
-
-                        {apt.status !== 'ATTENDED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChangeFromMenu(apt, 'ATTENDED')}
-                            className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span>Marcar atendida</span>
-                          </button>
-                        )}
-
-                        {apt.status !== 'PENDING' && apt.status !== 'CONFIRMED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChangeFromMenu(apt, 'PENDING')}
-                            className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-700 flex items-center gap-2"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <span>Mover a pendiente</span>
-                          </button>
-                        )}
-
-                        {apt.status !== 'CANCELLED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChangeFromMenu(apt, 'CANCELLED')}
-                            className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
-                          >
-                            <X className="w-3.5 h-3.5 text-rose-500" />
-                            <span>Cancelar cita</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -826,8 +1412,12 @@ export const AdvancedAgenda: React.FC<AdvancedAgendaProps> = ({
                   </label>
                   <input
                     type="date"
+                    min={getToday()}
                     value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
+                    onChange={(e) => {
+                      setNewError(null);
+                      setNewDate(e.target.value);
+                    }}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
                     required
                   />

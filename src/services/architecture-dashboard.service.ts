@@ -1,5 +1,5 @@
 import { db } from "../lib/db";
-import { Prisma } from "@prisma/client";
+import { aggregateArchitectureProjectFinancials } from "./architecture-financial.service";
 
 export interface ArchitectureDashboardData {
   metrics: {
@@ -45,6 +45,8 @@ export interface ArchitectureDashboardData {
     totalApproved: number;
     approvedBudgetsCount: number;
     draftBudgetsCount: number;
+    estimatedProjectsCount: number;
+    ambiguousProjectsCount: number;
   };
   nextAction?: {
     type: "urgent_task" | "upcoming_meeting" | "pending_deliverable" | "info";
@@ -90,47 +92,7 @@ export class ArchitectureDashboardService {
     );
     const activeProjectsCount = activeProjects.length;
 
-    // Calcular montos de presupuestos con Decimal
-    let totalApprovedDecimal = new Prisma.Decimal(0);
-    let totalEstimatedDecimal = new Prisma.Decimal(0);
-    let approvedBudgetsCount = 0;
-    let draftBudgetsCount = 0;
-
-    for (const project of projects) {
-      const budgets = project.budgets || [];
-      let projectApprovedBudget = new Prisma.Decimal(0);
-      let projectLatestBudget = new Prisma.Decimal(0);
-
-      for (const b of budgets) {
-        if (b.status === "Aprobado") {
-          approvedBudgetsCount++;
-          let bTotal = new Prisma.Decimal(0);
-          for (const item of b.items || []) {
-            const q = new Prisma.Decimal(item.quantity ?? 1);
-            const p = new Prisma.Decimal(item.unitPrice ?? 0);
-            bTotal = bTotal.add(q.mul(p));
-          }
-          projectApprovedBudget = projectApprovedBudget.add(bTotal);
-        } else if (b.status === "Borrador") {
-          draftBudgetsCount++;
-        }
-      }
-
-      // Si no hay aprobado, tomar el último presupuesto para estimated
-      if (projectApprovedBudget.gt(0)) {
-        totalApprovedDecimal = totalApprovedDecimal.add(projectApprovedBudget);
-        totalEstimatedDecimal = totalEstimatedDecimal.add(projectApprovedBudget);
-      } else if (budgets.length > 0) {
-        const lastB = budgets[budgets.length - 1];
-        let lastTotal = new Prisma.Decimal(0);
-        for (const item of lastB.items || []) {
-          const q = new Prisma.Decimal(item.quantity ?? 1);
-          const p = new Prisma.Decimal(item.unitPrice ?? 0);
-          lastTotal = lastTotal.add(q.mul(p));
-        }
-        totalEstimatedDecimal = totalEstimatedDecimal.add(lastTotal);
-      }
-    }
+    const financials = aggregateArchitectureProjectFinancials(projects);
 
     // 2. Tareas
     const tasks = await client.architectureTask.findMany({
@@ -260,8 +222,8 @@ export class ArchitectureDashboardService {
       metrics: {
         activeProjectsCount,
         totalProjectsCount,
-        totalBudgetApproved: Number(totalApprovedDecimal.toFixed(2)),
-        totalBudgetEstimated: Number(totalEstimatedDecimal.toFixed(2)),
+        totalBudgetApproved: financials.totalApproved,
+        totalBudgetEstimated: financials.totalEstimated,
         pendingTasksCount,
         urgentTasksCount,
         pendingDeliverablesCount,
@@ -271,10 +233,12 @@ export class ArchitectureDashboardService {
       urgentTasks,
       upcomingMeetings: mappedUpcomingMeetings,
       budgetSummary: {
-        totalEstimated: Number(totalEstimatedDecimal.toFixed(2)),
-        totalApproved: Number(totalApprovedDecimal.toFixed(2)),
-        approvedBudgetsCount,
-        draftBudgetsCount,
+        totalEstimated: financials.totalEstimated,
+        totalApproved: financials.totalApproved,
+        approvedBudgetsCount: financials.approvedBudgetsCount,
+        draftBudgetsCount: financials.draftBudgetsCount,
+        estimatedProjectsCount: financials.estimatedProjectsCount,
+        ambiguousProjectsCount: financials.ambiguousProjectsCount,
       },
       nextAction,
     };

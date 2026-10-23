@@ -37,7 +37,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const orgId = dentalService.getOrganizationId() || 11;
+  const orgId = dentalService.getOrganizationId();
   const numPatientId = parseInt(patientId, 10);
 
   useEffect(() => {
@@ -57,6 +57,8 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
       setTreatmentPlanId(null);
       setTreatmentItemId(null);
     }
+
+    if (!orgId) return;
 
     // Cargar plantillas activas
     setIsLoadingTemplates(true);
@@ -88,6 +90,10 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!orgId) {
+      setError('Organización no identificada en la sesión.');
+      return;
+    }
     if (!title.trim() || !content.trim()) {
       setError('El título y el contenido son obligatorios.');
       return;

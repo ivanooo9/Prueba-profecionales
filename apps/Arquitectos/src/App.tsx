@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import type { ArchitectNavTab } from './components/layout/Sidebar';
 import { TopHeader } from './components/layout/TopHeader';
@@ -23,8 +23,10 @@ import { DeliverableFormModal } from './components/deliverables/DeliverableFormM
 import { DocumentFormModal } from './components/documents/DocumentFormModal';
 import { DocumentVersionModal } from './components/documents/DocumentVersionModal';
 import { BudgetFormModal } from './components/budgets/BudgetFormModal';
+import { OrganizationModal } from './components/organization/OrganizationModal';
+import { Compass, Plus } from 'lucide-react';
 
-import { architectureService } from './services/architectureService';
+import { architectureService, hasActiveArchitectureModule } from './services/architectureService';
 import { architectureApi } from './services/api/architectureApi';
 import type {
   Project,
@@ -35,6 +37,10 @@ import type {
   DocumentMetadata,
   Budget,
   Stage,
+  ArchitectureOrganization,
+  ArchitectureAssignableUser,
+  DashboardData,
+  ReportsSummary,
 } from './types';
 
 export const App: React.FC = () => {
@@ -50,6 +56,14 @@ export const App: React.FC = () => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<ArchitectureAssignableUser[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [reportsSummary, setReportsSummary] = useState<ReportsSummary | null>(null);
+  const [organizations, setOrganizations] = useState<ArchitectureOrganization[]>([]);
+  const [activeOrganization, setActiveOrganization] = useState<ArchitectureOrganization | null>(null);
+  const [organizationNotice, setOrganizationNotice] = useState<string | null>(null);
+  const [isOrganizationLoading, setIsOrganizationLoading] = useState(true);
+  const organizationRequestRef = useRef(0);
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -58,6 +72,7 @@ export const App: React.FC = () => {
   const [isDeliverableModalOpen, setIsDeliverableModalOpen] = useState(false);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [isCreateOrgModalOpen, setIsCreateOrgModalOpen] = useState(false);
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -68,6 +83,7 @@ export const App: React.FC = () => {
   const [versionModalDoc, setVersionModalDoc] = useState<DocumentMetadata | null>(null);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [isBudgetSaving, setIsBudgetSaving] = useState(false);
 
   const [defaultTaskProjectId, setDefaultTaskProjectId] = useState<string>();
   const [defaultMeetingProjectId, setDefaultMeetingProjectId] = useState<string>();
@@ -99,12 +115,150 @@ export const App: React.FC = () => {
     const unsubscribe = architectureService.subscribe(() => {
       loadAllData();
     });
-    architectureService.syncFromApi().catch((err) => {
-      console.error('Error sincronizando con API Core:', err);
-    });
-    loadAllData();
-    return unsubscribe;
+
+    let cancelled = false;
+    const initializationId = ++organizationRequestRef.current;
+    const initializeOrganization = async () => {
+      await architectureService.setOrganizationId(null);
+      if (cancelled || organizationRequestRef.current !== initializationId) return;
+      setIsOrganizationLoading(true);
+      setOrganizationNotice(null);
+
+      try {
+        const availableOrganizations = await architectureApi.getUserOrganizations();
+        if (cancelled) return;
+        setOrganizations(availableOrganizations);
+
+        if (availableOrganizations.length === 0) {
+          setActiveOrganization(null);
+          setOrganizationNotice('Tu usuario no tiene una organización activa. Solicita acceso a una organización para registrar clientes.');
+          return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const requestedId = params.get('orgId') || params.get('organizationId');
+        const savedId = localStorage.getItem('arquitectos_org_id');
+        const requestedOrganization = [...availableOrganizations].find(
+          (organization) => String(organization.id) === requestedId
+        );
+        const savedOrganization = availableOrganizations.find(
+          (organization) => String(organization.id) === savedId
+        );
+        const selectedOrganization = requestedOrganization || savedOrganization ||
+          (availableOrganizations.length === 1 ? availableOrganizations[0] : null);
+
+        if (savedId && !savedOrganization && !requestedOrganization) {
+          localStorage.removeItem('arquitectos_org_id');
+        }
+
+        if (!selectedOrganization) {
+          setActiveOrganization(null);
+          setOrganizationNotice('Selecciona la organización del estudio en el encabezado para continuar.');
+          return;
+        }
+
+        await activateOrganization(selectedOrganization);
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[Arquitectos App] Error inicializando organización:', error);
+        setActiveOrganization(null);
+        setOrganizations([]);
+        setOrganizationNotice(error instanceof Error ? error.message : 'No se pudieron cargar las organizaciones. Verifica tu sesión y la conexión con el Core.');
+      } finally {
+        if (!cancelled) setIsOrganizationLoading(false);
+      }
+    };
+
+    void initializeOrganization();
+    return () => {
+      cancelled = true;
+      organizationRequestRef.current += 1;
+      unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!activeOrganization || isOrganizationLoading) {
+      setDashboardData(null);
+      setReportsSummary(null);
+      setAssignableUsers([]);
+      return;
+    }
+
+    let current = true;
+    Promise.all([architectureService.getDashboard(), architectureService.getReports()])
+      .then(([dashboard, reports]) => {
+        if (!current) return;
+        setDashboardData(dashboard);
+        setReportsSummary(reports);
+      })
+      .catch((error) => {
+        if (!current) return;
+        console.error('[Arquitectos App] Error cargando resúmenes financieros:', error);
+        setDashboardData(null);
+        setReportsSummary(null);
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [activeOrganization, isOrganizationLoading, projects, budgets]);
+
+  useEffect(() => {
+    if (!activeOrganization || isOrganizationLoading) {
+      setAssignableUsers([]);
+      return;
+    }
+
+    let current = true;
+    architectureApi.getAssignableUsers(activeOrganization.id)
+      .then((users) => {
+        if (current) setAssignableUsers(users);
+      })
+      .catch((error) => {
+        if (!current) return;
+        console.error('[Arquitectos App] Error cargando responsables disponibles:', error);
+        setAssignableUsers([]);
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [activeOrganization, isOrganizationLoading]);
+
+  const activateOrganization = async (organization: ArchitectureOrganization) => {
+    const requestId = ++organizationRequestRef.current;
+    setActiveOrganization(organization);
+    setOrganizationNotice(null);
+    setIsOrganizationLoading(true);
+    await architectureService.setOrganizationId(null);
+    if (requestId !== organizationRequestRef.current) return;
+
+    try {
+      const modules = await architectureApi.getOrganizationModules(organization.id);
+      if (requestId !== organizationRequestRef.current) return;
+      if (!hasActiveArchitectureModule(modules)) {
+        setOrganizationNotice('El módulo de Arquitectura no está habilitado para esta organización. Solicita a un propietario o administrador que lo active.');
+        return;
+      }
+
+      await architectureService.setOrganizationId(organization.id);
+    } catch (error) {
+      if (requestId !== organizationRequestRef.current) return;
+      console.error('[Arquitectos App] Error validando módulo:', error);
+      setOrganizationNotice(error instanceof Error ? error.message : 'No se pudo validar el módulo de Arquitectura.');
+    } finally {
+      if (requestId === organizationRequestRef.current) {
+        setIsOrganizationLoading(false);
+      }
+    }
+  };
+
+  const handleOrganizationCreated = async (newOrg: ArchitectureOrganization) => {
+    setOrganizations((prev) => [newOrg, ...prev.filter((item) => item.id !== newOrg.id)]);
+    localStorage.setItem('arquitectos_org_id', String(newOrg.id));
+    await activateOrganization(newOrg);
+  };
 
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
@@ -171,15 +325,51 @@ export const App: React.FC = () => {
           onOpenMobileNav={() => setIsSidebarOpen(true)}
           notifications={[]}
           onSelectProject={handleSelectProject}
+          organizations={organizations}
+          activeOrganizationId={activeOrganization?.id ?? null}
+          isOrganizationLoading={isOrganizationLoading}
+          onSelectOrganization={(organizationId) => {
+            const organization = organizations.find((item) => item.id === organizationId);
+            if (organization) void activateOrganization(organization);
+          }}
+          onCreateOrganization={() => setIsCreateOrgModalOpen(true)}
         />
 
         <main className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
+          {organizationNotice && (
+            <div role="status" className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:p-5 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-700">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm font-bold text-amber-950">{organizationNotice}</p>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    {organizations.length === 0
+                      ? 'Crea tu primer estudio de arquitectura para comenzar a registrar proyectos, obras y clientes.'
+                      : 'Selecciona tu estudio en el encabezado para cargar la información.'}
+                  </p>
+                </div>
+              </div>
+              {organizations.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOrgModalOpen(true)}
+                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400 text-slate-950 font-bold text-xs hover:bg-amber-300 transition cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Crear mi primer estudio</span>
+                </button>
+              )}
+            </div>
+          )}
           {currentView === 'dashboard' && (
             <DashboardView
               projects={projects}
               tasks={tasks}
               deliverables={deliverables}
               meetings={meetings}
+              dashboardData={dashboardData}
               onSelectProject={handleSelectProject}
               onNavigateToProjects={() => setCurrentView('projects')}
               onNavigateToAgenda={() => setCurrentView('agenda')}
@@ -207,11 +397,18 @@ export const App: React.FC = () => {
                     alert(err?.message || 'Error al actualizar etapa');
                   }
                 }}
+                onCreateStage={async (projectId, stageData) => {
+                  await architectureService.createProjectStage(projectId, stageData);
+                  loadAllData();
+                }}
+                onDeleteStage={async (projectId, stageId) => {
+                  await architectureService.deleteProjectStage(projectId, stageId);
+                  loadAllData();
+                }}
                 tasks={tasks}
                 deliverables={deliverables}
                 meetings={meetings}
                 documents={documents}
-                budget={budgets.find((budget) => budget.projectId === selectedProject.id)}
                 onToggleTask={async (taskId) => {
                   try {
                     await architectureService.toggleTaskStatus(taskId);
@@ -381,6 +578,7 @@ export const App: React.FC = () => {
           {currentView === 'budgets' && (
             <BudgetList
               budgets={budgets}
+              financialSummary={dashboardData?.budgetSummary}
               projects={projects}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -407,7 +605,7 @@ export const App: React.FC = () => {
               clients={clients}
               tasks={tasks}
               deliverables={deliverables}
-              budgets={budgets}
+              summary={reportsSummary}
             />
           )}
         </main>
@@ -421,6 +619,7 @@ export const App: React.FC = () => {
             setEditingProject(null);
           }}
           clients={clients}
+          assignableUsers={assignableUsers}
           initialData={editingProject}
           onSave={async (project) => {
             try {
@@ -444,6 +643,7 @@ export const App: React.FC = () => {
             setDefaultTaskProjectId(undefined);
           }}
           projects={projects}
+          assignableUsers={assignableUsers}
           defaultProjectId={defaultTaskProjectId}
           initialData={editingTask}
           onSave={async (task) => {
@@ -470,6 +670,7 @@ export const App: React.FC = () => {
           }}
           projects={projects}
           clients={clients}
+          assignableUsers={assignableUsers}
           defaultProjectId={defaultMeetingProjectId}
           initialData={editingMeeting}
           onSave={async (meeting) => {
@@ -515,6 +716,7 @@ export const App: React.FC = () => {
             setDefaultDeliverableProjectId(undefined);
           }}
           projects={projects}
+          assignableUsers={assignableUsers}
           defaultProjectId={defaultDeliverableProjectId}
           initialData={editingDeliverable}
           onSave={async (deliverable) => {
@@ -580,20 +782,35 @@ export const App: React.FC = () => {
           projects={projects}
           defaultProjectId={defaultBudgetProjectId}
           initialData={editingBudget}
+          isSubmitting={isBudgetSaving}
           onSave={async (budgetData) => {
+            if (isBudgetSaving) return;
+            setIsBudgetSaving(true);
+
             try {
               if (editingBudget?.id) {
-                await architectureService.updateBudget(editingBudget.id, budgetData);
+                await architectureService.updateBudgetWithItems(editingBudget.id, budgetData);
               } else {
                 await architectureService.createBudget(budgetData);
               }
               loadAllData();
+              setIsBudgetModalOpen(false);
+              setEditingBudget(null);
+              setDefaultBudgetProjectId(undefined);
             } catch (err: any) {
-              alert(err.message || 'Error al guardar presupuesto');
+              alert(err?.message || 'Error al guardar presupuesto');
+            } finally {
+              setIsBudgetSaving(false);
             }
           }}
         />
       )}
+
+      <OrganizationModal
+        isOpen={isCreateOrgModalOpen}
+        onClose={() => setIsCreateOrgModalOpen(false)}
+        onCreated={handleOrganizationCreated}
+      />
     </div>
   );
 };

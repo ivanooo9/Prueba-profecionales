@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Patient, PatientAnamnesis } from '../../types';
 import { dentalService } from '../../services/dentalService';
+import { validarCedulaEcuador, validarPasaporte } from '../../utils/ecuadorValidators';
 import { ChevronDown, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 
 interface PatientFormModalProps {
@@ -23,6 +24,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
   const [fullName, setFullName] = useState('');
   const [names, setNames] = useState('');
   const [surnames, setSurnames] = useState('');
+  const [docType, setDocType] = useState<'CEDULA' | 'PASAPORTE'>('CEDULA');
   const [identification, setIdentification] = useState('');
   const [birthDate, setBirthDate] = useState('1995-01-01');
   const [gender, setGender] = useState<'Femenino' | 'Masculino' | 'Otro'>('Femenino');
@@ -47,7 +49,10 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       setNames(patientToEdit.names);
       setSurnames(patientToEdit.surnames);
       setFullName(`${patientToEdit.names} ${patientToEdit.surnames}`.trim());
-      setIdentification(patientToEdit.identification);
+      const id = patientToEdit.identification || '';
+      setIdentification(id);
+      const isCedula = id.length === 10 && /^\d{10}$/.test(id) && validarCedulaEcuador(id);
+      setDocType(patientToEdit.idType || (isCedula ? 'CEDULA' : (id ? 'PASAPORTE' : 'CEDULA')));
       setBirthDate(patientToEdit.birthDate);
       setGender(patientToEdit.gender || 'Otro');
       setPhone(patientToEdit.phone);
@@ -61,6 +66,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       setFullName('');
       setNames('');
       setSurnames('');
+      setDocType('CEDULA');
       setIdentification('');
       setBirthDate('');
       setGender('Femenino');
@@ -114,10 +120,21 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
     const errs: Record<string, string> = {};
     if (!fullName.trim()) errs.fullName = 'El nombre completo es obligatorio';
     if (!identification.trim()) {
-      errs.identification = 'La cédula es obligatoria';
-    } else if (!/^\d+$/.test(identification.trim())) {
-      errs.identification = 'La cédula debe contener solo números';
+      errs.identification = docType === 'CEDULA' ? 'La cédula es obligatoria' : 'El pasaporte es obligatorio';
+    } else if (docType === 'CEDULA') {
+      if (!/^\d+$/.test(identification.trim())) {
+        errs.identification = 'La cédula debe contener solo números';
+      } else if (identification.trim().length !== 10) {
+        errs.identification = 'La cédula ecuatoriana debe tener exactamente 10 dígitos';
+      } else if (!validarCedulaEcuador(identification.trim())) {
+        errs.identification = 'Cédula inválida según el Registro Civil de Ecuador (dígito verificador incorrecto)';
+      }
+    } else if (docType === 'PASAPORTE') {
+      if (!validarPasaporte(identification.trim())) {
+        errs.identification = 'El pasaporte debe tener entre 6 y 20 caracteres alfanuméricos válidos';
+      }
     }
+
     if (!phone.trim()) {
       errs.phone = 'El teléfono es obligatorio';
     } else if (!/^\d+$/.test(phone.trim())) {
@@ -143,6 +160,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
           Object.assign(updates, {
             ...nameParts,
             identification,
+            idType: docType,
             birthDate,
             gender,
             phone,
@@ -169,6 +187,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
         const created = await dentalService.addPatient({
           ...nameParts,
           identification,
+          idType: docType,
           birthDate,
           gender,
           phone,
@@ -232,22 +251,49 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
           </div>
         </div>
 
-        {/* Cédula, Fecha Nacimiento, Género */}
+        {/* Tipo de Documento e Identificación */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Identificación (Cédula/CI) *</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Tipo de Documento</label>
+            <select
+              value={docType}
+              onChange={(e) => {
+                const newType = e.target.value as 'CEDULA' | 'PASAPORTE';
+                setDocType(newType);
+                setErrors(prev => ({ ...prev, identification: '' }));
+              }}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 bg-white"
+            >
+              <option value="CEDULA">Cédula de Identidad (EC)</option>
+              <option value="PASAPORTE">Pasaporte (Extranjero)</option>
+            </select>
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              {docType === 'CEDULA' ? 'Identificación (Cédula/CI) *' : 'Número de Pasaporte *'}
+            </label>
             <input
               type="text"
               value={identification}
-              onChange={(e) => setIdentification(e.target.value.replace(/\D/g, ''))}
-              placeholder="Ej: 1104829104"
+              onChange={(e) => {
+                if (docType === 'CEDULA') {
+                  setIdentification(e.target.value.replace(/\D/g, '').slice(0, 10));
+                } else {
+                  setIdentification(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20));
+                }
+              }}
+              placeholder={docType === 'CEDULA' ? 'Ej: 1104829104 (10 dígitos)' : 'Ej: A12345678 o PAS-987654'}
               className={`w-full px-3 py-2 border font-mono rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 ${
                 errors.identification ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
               }`}
             />
             {errors.identification && <span className="text-[10px] text-rose-500 mt-0.5 block">{errors.identification}</span>}
           </div>
+        </div>
 
+        {/* Fecha Nacimiento, Género */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Fecha de Nacimiento</label>
             <input

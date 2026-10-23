@@ -21,6 +21,16 @@ import {
   ArchiveCaseInput,
 } from '../../types';
 
+function assertValidOrgId(organizationId: number | string | null | undefined, method: string): number {
+  const parsed = Number(organizationId);
+  if (!organizationId || isNaN(parsed) || parsed <= 0) {
+    throw new Error(
+      `[legalApi.${method}] Identificador de organización inválido o no provisto: ${organizationId}`
+    );
+  }
+  return parsed;
+}
+
 export const legalApi = {
   // --- CLIENTES JURÍDICOS ---
   async getClients(
@@ -629,11 +639,28 @@ export const legalApi = {
     organizationId: number,
     caseId: string | number,
     agreementId: string | number,
-    data: { amount: number; paymentMethod?: string; reference?: string; notes?: string; paidAt?: string }
-  ): Promise<{ payment: LegalPayment; financialSummary: any }> {
+    data: {
+      amount: number;
+      paymentMethod?: string;
+      method?: string;
+      reference?: string;
+      notes?: string;
+      paidAt?: string;
+      idempotencyKey?: string;
+    }
+  ): Promise<{ payment: LegalPayment; financialSummary: any; idempotentReplay?: boolean }> {
+    const payload = {
+      ...data,
+      paymentMethod: data.paymentMethod || data.method,
+    };
+    const headers: Record<string, string> = {};
+    if (data.idempotencyKey) {
+      headers['X-Idempotency-Key'] = data.idempotencyKey;
+    }
     const res = await apiClient.post<any>(
       `/api/organizations/${organizationId}/legal/cases/${caseId}/fee-agreements/${agreementId}/payments`,
-      data
+      payload,
+      Object.keys(headers).length > 0 ? headers : undefined
     );
     if (!res.data) throw new Error(res.error || 'Error al registrar pago de honorarios');
     return res.data;
@@ -802,27 +829,31 @@ export const legalApi = {
 
   // --- DASHBOARD Y REPORTES (FASE 7) ---
   async getDashboard(organizationId: number): Promise<LegalDashboardDTO> {
+    const validOrgId = assertValidOrgId(organizationId, 'getDashboard');
     const res = await apiClient.get<LegalDashboardDTO>(
-      `/api/organizations/${organizationId}/legal/dashboard`
+      `/api/organizations/${validOrgId}/legal/dashboard`
     );
-    if (!res.data) throw new Error(res.error || 'Error al obtener dashboard jurídico');
-    return res.data;
+    const data = (res as any)?.data !== undefined ? (res as any).data : res;
+    if (!data) throw new Error(res.error || 'Error al obtener dashboard jurídico');
+    return data;
   },
 
   async getReports(
     organizationId: number,
     filters?: { from?: string; to?: string }
   ): Promise<LegalReportsDTO> {
+    const validOrgId = assertValidOrgId(organizationId, 'getReports');
     const params = new URLSearchParams();
     if (filters?.from) params.set('from', filters.from);
     if (filters?.to) params.set('to', filters.to);
 
     const query = params.toString() ? `?${params.toString()}` : '';
     const res = await apiClient.get<LegalReportsDTO>(
-      `/api/organizations/${organizationId}/legal/reports${query}`
+      `/api/organizations/${validOrgId}/legal/reports${query}`
     );
-    if (!res.data) throw new Error(res.error || 'Error al obtener reportes jurídicos');
-    return res.data;
+    const data = (res as any)?.data !== undefined ? (res as any).data : res;
+    if (!data) throw new Error(res.error || 'Error al obtener reportes jurídicos');
+    return data;
   },
 
   // --- CIERRE FORMAL Y ARCHIVADO (FASE 8) ---
@@ -861,6 +892,16 @@ export const legalApi = {
     );
     if (!res.data && !res.success) throw new Error(res.error || 'Error al archivar el expediente');
     return res.data || res;
+  },
+
+  // --- MIEMBROS DE LA ORGANIZACIÓN ---
+  async getMembers(
+    organizationId: number
+  ): Promise<Array<{ id: number; userId: number; name: string; email: string; role: string }>> {
+    const res = await apiClient.get<Array<{ id: number; userId: number; name: string; email: string; role: string }>>(
+      `/api/organizations/${organizationId}/members`
+    );
+    return res.data || [];
   },
 };
 

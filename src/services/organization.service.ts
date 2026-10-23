@@ -8,11 +8,17 @@ import {
   VALID_ORGANIZATION_TYPES,
   OrganizationType,
 } from "../constants/organization.constants";
+import {
+  PROFESSIONAL_MODULE_STATUS,
+  ORGANIZATION_MODULE_STATUS,
+} from "../constants/professional-module.constants";
 
 export interface CreateOrganizationInput {
   userId: number;
   name: string;
   type?: OrganizationType;
+  moduleCode?: string;
+  moduleCodes?: string[];
 }
 
 export class OrganizationService {
@@ -44,7 +50,7 @@ export class OrganizationService {
    * Enforces that global role allows organization creation (e.g. PROFESSIONAL or ADMIN).
    */
   public static async createOrganization(input: CreateOrganizationInput, client?: any) {
-    const { userId, name, type = ORGANIZATION_TYPE.INDIVIDUAL } = input;
+    const { userId, name, type = ORGANIZATION_TYPE.INDIVIDUAL, moduleCode, moduleCodes } = input;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       throw new Error("El nombre de la organización es obligatorio.");
@@ -95,6 +101,33 @@ export class OrganizationService {
           status: ORGANIZATION_MEMBER_STATUS.ACTIVE,
         },
       });
+
+      // Módulos a habilitar: los solicitados o, por defecto, todos los activos
+      const explicitCodes = (moduleCodes || (moduleCode ? [moduleCode] : []))
+        .map((c) => (typeof c === "string" ? c.trim().toUpperCase() : ""))
+        .filter(Boolean);
+
+      const modulesToAttach = explicitCodes.length > 0
+        ? await tx.professionalModule.findMany({
+            where: {
+              code: { in: explicitCodes },
+              status: PROFESSIONAL_MODULE_STATUS.ACTIVE,
+            },
+          })
+        : await tx.professionalModule.findMany({
+            where: { status: PROFESSIONAL_MODULE_STATUS.ACTIVE },
+          });
+
+      if (modulesToAttach && modulesToAttach.length > 0) {
+        await tx.organizationModule.createMany({
+          data: modulesToAttach.map((mod: any) => ({
+            organizationId: organization.id,
+            moduleId: mod.id,
+            status: ORGANIZATION_MODULE_STATUS.ACTIVE,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       return {
         organization,
@@ -164,19 +197,45 @@ export class OrganizationService {
   }
 
   /**
-   * Lists all active organizations to which the user belongs.
+   * Lists all active organizations to which the user belongs, optionally filtered by professional module.
    */
-  public static async getUserOrganizations(userId: number) {
+  public static async getUserOrganizations(userId: number, moduleCode?: string) {
+    const normalizedModuleCode = moduleCode?.trim().toUpperCase();
+
     return await db.organizationMember.findMany({
       where: {
         userId,
         status: ORGANIZATION_MEMBER_STATUS.ACTIVE,
         organization: {
           status: ORGANIZATION_STATUS.ACTIVE,
+          ...(normalizedModuleCode
+            ? {
+                modules: {
+                  some: {
+                    status: ORGANIZATION_MODULE_STATUS.ACTIVE,
+                    module: {
+                      code: normalizedModuleCode,
+                      status: PROFESSIONAL_MODULE_STATUS.ACTIVE,
+                    },
+                  },
+                },
+              }
+            : {}),
         },
       },
       include: {
-        organization: true,
+        organization: {
+          include: {
+            modules: {
+              where: {
+                status: ORGANIZATION_MODULE_STATUS.ACTIVE,
+              },
+              include: {
+                module: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -230,5 +289,29 @@ export class OrganizationService {
     }
 
     return { isMember: true, membership };
+  }
+
+  /**
+   * Lists all active members in an organization with their user profiles.
+   */
+  public static async getOrganizationMembers(organizationId: number) {
+    return await db.organizationMember.findMany({
+      where: {
+        organizationId,
+        status: ORGANIZATION_MEMBER_STATUS.ACTIVE,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
   }
 }

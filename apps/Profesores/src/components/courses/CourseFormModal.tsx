@@ -11,9 +11,15 @@ interface CourseFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (course: CourseFormData) => Promise<void>;
+  initialCourse?: { id: string; name: string; level: string; classroom?: string } | null;
 }
 
-export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClose, onSave }) => {
+export const CourseFormModal: React.FC<CourseFormModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  initialCourse,
+}) => {
   const [name, setName] = useState('');
   const [level, setLevel] = useState('');
   const [classroom, setClassroom] = useState('');
@@ -22,15 +28,23 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
 
   useEffect(() => {
     if (isOpen) {
-      setName('');
-      setLevel('');
-      setClassroom('');
+      if (initialCourse) {
+        setName(initialCourse.name || '');
+        setLevel(initialCourse.level || '');
+        setClassroom(initialCourse.classroom || '');
+      } else {
+        setName('');
+        setLevel('');
+        setClassroom('');
+      }
       setErrorMessage(null);
       setIsSubmitting(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialCourse]);
 
   if (!isOpen) return null;
+
+  const isEditing = Boolean(initialCourse);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,8 +82,12 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <h2 id="course-form-title" className="text-base font-bold text-slate-900">Registrar curso</h2>
-              <p className="text-xs text-slate-500">Ingresa los datos del curso o paralelo.</p>
+              <h2 id="course-form-title" className="text-base font-bold text-slate-900">
+                {isEditing ? 'Editar curso' : 'Registrar curso'}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {isEditing ? 'Actualiza los datos del curso o paralelo.' : 'Ingresa los datos del nuevo curso o paralelo.'}
+              </p>
             </div>
           </div>
           <button

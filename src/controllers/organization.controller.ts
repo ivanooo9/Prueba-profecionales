@@ -17,7 +17,7 @@ export class OrganizationController {
         });
       }
 
-      const { name, type } = req.body;
+      const { name, type, moduleCode, module, moduleCodes } = req.body;
 
       if (!name || typeof name !== "string" || !name.trim()) {
         return res.status(400).json({
@@ -33,10 +33,14 @@ export class OrganizationController {
         });
       }
 
+      const selectedModuleCode = moduleCode || module;
+
       const result = await OrganizationService.createOrganization({
         userId: user.id,
         name: name.trim(),
         type: type as OrganizationType,
+        moduleCode: selectedModuleCode,
+        moduleCodes: Array.isArray(moduleCodes) ? moduleCodes : undefined,
       });
 
       return res.status(201).json({
@@ -57,6 +61,7 @@ export class OrganizationController {
   /**
    * GET /api/organizations
    * Lists all organizations where the authenticated user is an active member.
+   * Supports optional filtering by module code: ?module=ARCHITECTURE
    */
   public static async listUserOrganizations(req: Request, res: Response) {
     try {
@@ -68,7 +73,13 @@ export class OrganizationController {
         });
       }
 
-      const memberships = await OrganizationService.getUserOrganizations(user.id);
+      const moduleFilter = typeof req.query.module === "string"
+        ? req.query.module
+        : typeof req.query.moduleCode === "string"
+        ? req.query.moduleCode
+        : undefined;
+
+      const memberships = await OrganizationService.getUserOrganizations(user.id, moduleFilter);
 
       return res.json({
         success: true,
@@ -126,6 +137,43 @@ export class OrganizationController {
       return res.status(500).json({
         success: false,
         error: "Error al obtener los detalles de la organización.",
+      });
+    }
+  }
+
+  /**
+   * GET /api/organizations/:id/members
+   * Lists all active members of the organization.
+   */
+  public static async getMembers(req: Request, res: Response) {
+    try {
+      const orgId = (req as any).organization?.id || Number(req.params.id || req.params.organizationId);
+      if (!orgId) {
+        return res.status(400).json({
+          success: false,
+          error: "Identificador de organización requerido.",
+        });
+      }
+
+      const members = await OrganizationService.getOrganizationMembers(orgId);
+
+      return res.json({
+        success: true,
+        data: members.map((m) => ({
+          id: m.id,
+          userId: m.userId,
+          name: m.user.name,
+          email: m.user.email,
+          role: m.role,
+          status: m.status,
+          joinedAt: m.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error("[OrganizationController.getMembers] Error:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Error al obtener los miembros de la organización.",
       });
     }
   }

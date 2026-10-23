@@ -71,75 +71,85 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const typeQuery = selectedTypeFilter !== 'ALL' ? selectedTypeFilter : undefined;
       const data = await legalService.getCalendar({ from, to, type: typeQuery });
 
+      // Construir proyección local a partir de props
+      const localEntries: LegalCalendarEntry[] = [];
+      if (selectedTypeFilter === 'ALL' || selectedTypeFilter === 'DEADLINE') {
+        for (const d of deadlines) {
+          if (!d.dueDate) continue;
+          localEntries.push({
+            id: `DEADLINE-${d.id}`,
+            sourceType: 'DEADLINE',
+            sourceId: Number(d.id) || 0,
+            title: d.description,
+            description: d.notes || d.description,
+            startAt: `${d.dueDate}T23:59:00.000Z`,
+            allDay: false,
+            status: d.status,
+            priority: d.priority,
+            legalCaseId: Number(d.caseId) || 0,
+            legalCaseTitle: d.caseTitle || '',
+            clientId: 0,
+            clientName: '',
+            isOverdue: d.status !== 'Cumplido' && new Date(d.dueDate).getTime() < Date.now(),
+          });
+        }
+      }
+      if (selectedTypeFilter === 'ALL' || selectedTypeFilter === 'HEARING') {
+        for (const h of hearings) {
+          if (!h.date) continue;
+          localEntries.push({
+            id: `HEARING-${h.id}`,
+            sourceType: 'HEARING',
+            sourceId: Number(h.id) || 0,
+            title: h.title,
+            description: h.notes || h.type,
+            startAt: `${h.date}T${h.time || '10:00'}:00.000Z`,
+            allDay: false,
+            status: h.status,
+            priority: 'Alta',
+            legalCaseId: Number(h.caseId) || 0,
+            legalCaseTitle: h.caseTitle || '',
+            clientId: 0,
+            clientName: h.clientName || '',
+            location: h.location,
+            isOverdue: false,
+          });
+        }
+      }
+      if (selectedTypeFilter === 'ALL' || selectedTypeFilter === 'TASK') {
+        for (const t of tasks) {
+          if (!t.dueDate) continue;
+          localEntries.push({
+            id: `TASK-${t.id}`,
+            sourceType: 'TASK',
+            sourceId: Number(t.id) || 0,
+            title: t.title,
+            description: t.description,
+            startAt: `${t.dueDate}T09:00:00.000Z`,
+            allDay: true,
+            status: t.status,
+            priority: t.priority,
+            legalCaseId: Number(t.caseId) || 0,
+            legalCaseTitle: '',
+            clientId: 0,
+            clientName: '',
+            isOverdue: t.status !== 'Completada' && new Date(t.dueDate).getTime() < Date.now(),
+          });
+        }
+      }
+
       if (data && data.length > 0) {
-        setEntries(data);
+        const merged = [...data];
+        for (const loc of localEntries) {
+          const exists = merged.some(
+            (item) => item.id === loc.id || (item.sourceType === loc.sourceType && String(item.sourceId) === String(loc.sourceId))
+          );
+          if (!exists) {
+            merged.push(loc);
+          }
+        }
+        setEntries(merged);
       } else {
-        // Si el backend no devolvió eventos pero existen props locales, proyectarlos
-        const localEntries: LegalCalendarEntry[] = [];
-        if (selectedTypeFilter === 'ALL' || selectedTypeFilter === 'DEADLINE') {
-          for (const d of deadlines) {
-            if (!d.dueDate) continue;
-            localEntries.push({
-              id: `DEADLINE-${d.id}`,
-              sourceType: 'DEADLINE',
-              sourceId: Number(d.id) || 0,
-              title: d.description,
-              description: d.notes || d.description,
-              startAt: `${d.dueDate}T23:59:00.000Z`,
-              allDay: false,
-              status: d.status,
-              priority: d.priority,
-              legalCaseId: Number(d.caseId) || 0,
-              legalCaseTitle: d.caseTitle || '',
-              clientId: 0,
-              clientName: '',
-              isOverdue: d.status !== 'Cumplido' && new Date(d.dueDate).getTime() < Date.now(),
-            });
-          }
-        }
-        if (selectedTypeFilter === 'ALL' || selectedTypeFilter === 'HEARING') {
-          for (const h of hearings) {
-            if (!h.date) continue;
-            localEntries.push({
-              id: `HEARING-${h.id}`,
-              sourceType: 'HEARING',
-              sourceId: Number(h.id) || 0,
-              title: h.title,
-              description: h.notes || h.type,
-              startAt: `${h.date}T${h.time || '10:00'}:00.000Z`,
-              allDay: false,
-              status: h.status,
-              priority: 'Alta',
-              legalCaseId: Number(h.caseId) || 0,
-              legalCaseTitle: h.caseTitle || '',
-              clientId: 0,
-              clientName: h.clientName || '',
-              location: h.location,
-              isOverdue: false,
-            });
-          }
-        }
-        if (selectedTypeFilter === 'ALL' || selectedTypeFilter === 'TASK') {
-          for (const t of tasks) {
-            if (!t.dueDate) continue;
-            localEntries.push({
-              id: `TASK-${t.id}`,
-              sourceType: 'TASK',
-              sourceId: Number(t.id) || 0,
-              title: t.title,
-              description: t.description,
-              startAt: `${t.dueDate}T09:00:00.000Z`,
-              allDay: true,
-              status: t.status,
-              priority: t.priority,
-              legalCaseId: Number(t.caseId) || 0,
-              legalCaseTitle: '',
-              clientId: 0,
-              clientName: '',
-              isOverdue: t.status !== 'Completada' && new Date(t.dueDate).getTime() < Date.now(),
-            });
-          }
-        }
         setEntries(localEntries);
       }
 

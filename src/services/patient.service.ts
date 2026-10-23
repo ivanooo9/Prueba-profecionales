@@ -1,4 +1,5 @@
 import { db } from "../lib/db";
+import { validarCedulaEcuador, validarPasaporte } from "../lib/ecuador-validators";
 
 export interface EmergencyContactInput {
   name?: string;
@@ -9,6 +10,7 @@ export interface EmergencyContactInput {
 export interface CreatePatientInput {
   name: string;
   idNumber?: string | null;
+  idType?: "CEDULA" | "PASAPORTE" | string | null;
   birthDate?: string | Date | null;
   gender?: string | null;
   bloodType?: string | null;
@@ -23,6 +25,7 @@ export interface CreatePatientInput {
 export interface UpdatePatientInput {
   name?: string;
   idNumber?: string | null;
+  idType?: "CEDULA" | "PASAPORTE" | string | null;
   birthDate?: string | Date | null;
   gender?: string | null;
   bloodType?: string | null;
@@ -136,16 +139,35 @@ export class PatientService {
     }
 
     if (data.idNumber && data.idNumber.trim() !== "") {
+      const cleanId = data.idNumber.trim();
+      const detectedType =
+        data.idType ||
+        (cleanId.length === 10 && /^\d{10}$/.test(cleanId) ? "CEDULA" : "PASAPORTE");
+
+      if (detectedType === "CEDULA") {
+        if (!validarCedulaEcuador(cleanId)) {
+          throw new Error(
+            "La identificación de 10 dígitos proporcionada no es una cédula ecuatoriana válida según el Registro Civil."
+          );
+        }
+      } else if (detectedType === "PASAPORTE") {
+        if (!validarPasaporte(cleanId)) {
+          throw new Error(
+            "El número de pasaporte proporcionado no es válido (debe contener entre 6 y 20 caracteres alfanuméricos)."
+          );
+        }
+      }
+
       const existing = await client.patient.findFirst({
         where: {
           organizationId,
-          idNumber: data.idNumber.trim(),
+          idNumber: cleanId,
         },
       });
 
       if (existing) {
         throw new Error(
-          `Ya existe un paciente registrado con la identificación '${data.idNumber.trim()}' en esta organización.`
+          `Ya existe un paciente registrado con la identificación '${cleanId}' en esta organización.`
         );
       }
     }
@@ -189,17 +211,36 @@ export class PatientService {
     }
 
     if (data.idNumber && data.idNumber.trim() !== patient.idNumber) {
+      const cleanId = data.idNumber.trim();
+      const detectedType =
+        data.idType ||
+        (cleanId.length === 10 && /^\d{10}$/.test(cleanId) ? "CEDULA" : "PASAPORTE");
+
+      if (detectedType === "CEDULA") {
+        if (!validarCedulaEcuador(cleanId)) {
+          throw new Error(
+            "La identificación de 10 dígitos proporcionada no es una cédula ecuatoriana válida según el Registro Civil."
+          );
+        }
+      } else if (detectedType === "PASAPORTE") {
+        if (!validarPasaporte(cleanId)) {
+          throw new Error(
+            "El número de pasaporte proporcionado no es válido (debe contener entre 6 y 20 caracteres alfanuméricos)."
+          );
+        }
+      }
+
       const existing = await client.patient.findFirst({
         where: {
           organizationId,
-          idNumber: data.idNumber.trim(),
+          idNumber: cleanId,
           NOT: { id: patientId },
         },
       });
 
       if (existing) {
         throw new Error(
-          `Ya existe otro paciente con la identificación '${data.idNumber.trim()}' en esta organización.`
+          `Ya existe otro paciente con la identificación '${cleanId}' en esta organización.`
         );
       }
     }

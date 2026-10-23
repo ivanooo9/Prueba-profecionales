@@ -5,13 +5,13 @@ import {
   Deliverable,
   Meeting,
   DocumentMetadata,
-  Budget,
   Stage,
   StageStatus
 } from '../../types';
 import { StatusBadge } from '../ui/StatusBadge';
 import { PriorityBadge } from '../ui/PriorityBadge';
 import { ProgressBar } from '../ui/ProgressBar';
+import { Modal } from '../ui/Modal';
 import {
   ArrowLeft,
   Calendar,
@@ -26,6 +26,7 @@ import {
   FileText,
   Clock,
   Plus,
+  Trash2,
   CheckCircle2,
   Circle,
   FileSpreadsheet
@@ -35,12 +36,13 @@ interface ProjectDetailViewProps {
   project: Project;
   onBack: () => void;
   onEditProject: (project: Project) => void;
-  onUpdateStage: (projectId: string | number, stageId: string | number, updates: Partial<Stage>) => void;
+  onUpdateStage: (projectId: string | number, stageId: string | number, updates: Partial<Stage>) => void | Promise<void>;
+  onCreateStage?: (projectId: string | number, stageData: { name: string }) => Promise<void>;
+  onDeleteStage?: (projectId: string | number, stageId: string | number) => Promise<void>;
   tasks: Task[];
   deliverables: Deliverable[];
   meetings: Meeting[];
   documents: DocumentMetadata[];
-  budget?: Budget;
   onToggleTask: (taskId: string | number) => void;
   onOpenNewTask: (projectId: string | number) => void;
   onOpenNewDeliverable: (projectId: string | number) => void;
@@ -63,11 +65,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onBack,
   onEditProject,
   onUpdateStage,
+  onCreateStage,
+  onDeleteStage,
   tasks,
   deliverables,
   meetings,
   documents,
-  budget,
   onToggleTask,
   onOpenNewTask,
   onOpenNewDeliverable,
@@ -75,11 +78,33 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onOpenNewDocument
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('resumen');
+  const [isCreateStageModalOpen, setIsCreateStageModalOpen] = useState(false);
+  const [newStageName, setNewStageName] = useState('');
+  const [isSubmittingStage, setIsSubmittingStage] = useState(false);
+  const [createStageError, setCreateStageError] = useState<string | null>(null);
+
+  const [stageToDelete, setStageToDelete] = useState<Stage | null>(null);
+  const [isDeletingStage, setIsDeletingStage] = useState(false);
+  const [deleteStageError, setDeleteStageError] = useState<string | null>(null);
 
   const projectTasks = tasks.filter((t) => String(t.projectId) === String(project.id));
   const projectDeliverables = deliverables.filter((d) => String(d.projectId) === String(project.id));
   const projectMeetings = meetings.filter((m) => String(m.projectId) === String(project.id));
   const projectDocs = documents.filter((doc) => String(doc.projectId) === String(project.id));
+  const financialStatus = project.financialStatus || (project.estimatedBudget === null ? 'none' : 'not_approved');
+  const financialStatusLabel = {
+    none: 'Sin presupuesto',
+    draft: 'Borrador',
+    not_approved: 'No aprobado',
+    approved: 'Aprobado',
+    ambiguous: 'Criterio pendiente',
+  }[financialStatus];
+  const estimatedBudgetDisplay = project.estimatedBudget === null
+    ? financialStatus === 'ambiguous' ? 'Varios presupuestos sin criterio principal' : 'Sin presupuesto registrado'
+    : `$${project.estimatedBudget.toLocaleString()} USD`;
+  const approvedBudgetDisplay = project.approvedBudget === null
+    ? financialStatus === 'ambiguous' ? 'No definido' : 'Sin aprobación'
+    : `$${project.approvedBudget.toLocaleString()} USD`;
 
   const tabs: { id: TabType; label: string; count?: number }[] = [
     { id: 'resumen', label: 'Resumen' },
@@ -157,7 +182,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <div>
               <p className="text-slate-500 font-medium">Presupuesto Estimado</p>
               <p className="text-base font-bold font-mono text-slate-900">
-                ${project.estimatedBudget.toLocaleString()}
+                {project.estimatedBudget === null ? 'Sin presupuesto' : `$${project.estimatedBudget.toLocaleString()}`}
               </p>
             </div>
             <DollarSign className="w-5 h-5 text-slate-400" />
@@ -167,7 +192,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <div>
               <p className="text-slate-500 font-medium">Presupuesto Aprobado</p>
               <p className="text-base font-bold font-mono text-emerald-700">
-                ${project.approvedBudget.toLocaleString()}
+                {project.approvedBudget === null ? 'Sin aprobación' : `$${project.approvedBudget.toLocaleString()}`}
               </p>
             </div>
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -306,74 +331,117 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       {/* 2. ETAPAS DEL PROYECTO */}
       {activeTab === 'etapas' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-bold text-slate-900">Etapas del Proyecto Arquitectónico</h3>
               <p className="text-xs text-slate-500">
                 Ajuste el progreso y estado de cada etapa para actualizar el avance global
               </p>
             </div>
+            <button
+              onClick={() => {
+                setNewStageName('');
+                setCreateStageError(null);
+                setIsCreateStageModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-arch-600 hover:bg-arch-700 rounded-lg shadow-2xs transition-colors self-start sm:self-auto cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva etapa
+            </button>
           </div>
 
-          <div className="space-y-4">
-            {project.stages.map((stage, idx) => (
-              <div
-                key={stage.id}
-                className="p-4 bg-slate-50/70 rounded-xl border border-slate-200 space-y-3"
+          {project.stages.length === 0 ? (
+            <div className="py-12 px-4 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <Layers className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-800">Este proyecto todavía no tiene etapas.</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Crea una etapa para comenzar a organizar el proyecto.
+              </p>
+              <button
+                onClick={() => {
+                  setNewStageName('');
+                  setCreateStageError(null);
+                  setIsCreateStageModalOpen(true);
+                }}
+                className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-arch-600 hover:bg-arch-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-mono text-xs flex items-center justify-center font-bold">
-                      {idx + 1}
-                    </span>
-                    <h4 className="text-sm font-bold text-slate-800">{stage.name}</h4>
-                    <StatusBadge status={stage.status} size="sm" />
+                <Plus className="w-4 h-4" />
+                Nueva etapa
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {project.stages.map((stage, idx) => (
+                <div
+                  key={stage.id}
+                  className="p-4 bg-slate-50/70 rounded-xl border border-slate-200 space-y-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-mono text-xs flex items-center justify-center font-bold">
+                        {idx + 1}
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-800">{stage.name}</h4>
+                      <StatusBadge status={stage.status} size="sm" />
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs">
+                      <select
+                        value={stage.status}
+                        onChange={(e) =>
+                          onUpdateStage(project.id, stage.id, {
+                            status: e.target.value as StageStatus,
+                            progress: e.target.value === 'Completada' ? 100 : stage.progress
+                          })
+                        }
+                        className="px-2.5 py-1 bg-white border border-slate-300 rounded-md text-xs font-medium"
+                      >
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="En progreso">En progreso</option>
+                        <option value="Completada">Completada</option>
+                      </select>
+
+                      <span className="text-slate-400 font-mono text-xs hidden sm:inline">
+                        {stage.startDate || 'Inicio'} → {stage.dueDate || 'Fin'}
+                      </span>
+
+                      <button
+                        onClick={() => {
+                          setDeleteStageError(null);
+                          setStageToDelete(stage);
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer ml-1"
+                        title={`Eliminar etapa ${stage.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs">
-                    <select
-                      value={stage.status}
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Avance de la Etapa</span>
+                      <span className="font-mono font-bold text-slate-700">{stage.progress}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={stage.progress}
                       onChange={(e) =>
                         onUpdateStage(project.id, stage.id, {
-                          status: e.target.value as StageStatus,
-                          progress: e.target.value === 'Completada' ? 100 : stage.progress
+                          progress: Number(e.target.value),
+                          status: Number(e.target.value) === 100 ? 'Completada' : 'En progreso'
                         })
                       }
-                      className="px-2.5 py-1 bg-white border border-slate-300 rounded-md text-xs font-medium"
-                    >
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="En progreso">En progreso</option>
-                      <option value="Completada">Completada</option>
-                    </select>
-
-                    <span className="text-slate-400 font-mono text-xs hidden sm:inline">
-                      {stage.startDate || 'Inicio'} → {stage.dueDate || 'Fin'}
-                    </span>
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-arch-600"
+                    />
                   </div>
                 </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500">Avance de la Etapa</span>
-                    <span className="font-mono font-bold text-slate-700">{stage.progress}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={stage.progress}
-                    onChange={(e) =>
-                      onUpdateStage(project.id, stage.id, {
-                        progress: Number(e.target.value),
-                        status: Number(e.target.value) === 100 ? 'Completada' : 'En progreso'
-                      })
-                    }
-                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-arch-600"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -560,7 +628,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <h3 className="text-sm font-bold text-slate-900">Estado Presupuestario</h3>
-            <StatusBadge status={project.approvedBudget > 0 ? 'Aprobado' : 'Pendiente'} />
+            <StatusBadge status={financialStatusLabel} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -569,7 +637,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 Presupuesto Estimado
               </span>
               <p className="text-2xl font-bold font-mono text-slate-900">
-                ${project.estimatedBudget.toLocaleString()} USD
+                {estimatedBudgetDisplay}
               </p>
               <p className="text-xs text-slate-500">Valor proyectado inicial de diseño y consultoría</p>
             </div>
@@ -579,7 +647,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 Presupuesto Aprobado
               </span>
               <p className="text-2xl font-bold font-mono text-emerald-700">
-                ${project.approvedBudget.toLocaleString()} USD
+                {approvedBudgetDisplay}
               </p>
               <p className="text-xs text-emerald-700">Monto pactado formalmente con el cliente</p>
             </div>
@@ -619,6 +687,150 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL CREAR ETAPA */}
+      <Modal
+        isOpen={isCreateStageModalOpen}
+        onClose={() => {
+          if (!isSubmittingStage) {
+            setIsCreateStageModalOpen(false);
+            setCreateStageError(null);
+          }
+        }}
+        title="Nueva Etapa"
+        subtitle={`Agregar una etapa a ${project.name}`}
+        maxWidth="md"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newStageName.trim() || isSubmittingStage) return;
+            setIsSubmittingStage(true);
+            setCreateStageError(null);
+            try {
+              if (onCreateStage) {
+                await onCreateStage(project.id, { name: newStageName.trim() });
+              }
+              setIsCreateStageModalOpen(false);
+              setNewStageName('');
+            } catch (err: any) {
+              setCreateStageError(err?.message || 'Error al crear la etapa.');
+            } finally {
+              setIsSubmittingStage(false);
+            }
+          }}
+          className="space-y-4"
+        >
+          {createStageError && (
+            <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-lg">
+              {createStageError}
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Nombre de la etapa <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={newStageName}
+              onChange={(e) => setNewStageName(e.target.value)}
+              placeholder="Ej. Permisos Municipales"
+              disabled={isSubmittingStage}
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-arch-500 focus:border-transparent disabled:bg-slate-100"
+              autoFocus
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              disabled={isSubmittingStage}
+              onClick={() => {
+                setIsCreateStageModalOpen(false);
+                setCreateStageError(null);
+              }}
+              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmittingStage || !newStageName.trim()}
+              className="px-4 py-2 text-xs font-semibold text-white bg-arch-600 hover:bg-arch-700 rounded-lg shadow-2xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+            >
+              {isSubmittingStage ? 'Creando...' : 'Crear etapa'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL ELIMINAR ETAPA */}
+      <Modal
+        isOpen={Boolean(stageToDelete)}
+        onClose={() => {
+          if (!isDeletingStage) {
+            setStageToDelete(null);
+            setDeleteStageError(null);
+          }
+        }}
+        title="Eliminar etapa"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          {deleteStageError ? (
+            <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-lg">
+              {deleteStageError}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-800">
+                ¿Deseas eliminar la etapa <strong className="font-semibold">&quot;{stageToDelete?.name}&quot;</strong>?
+              </p>
+              <p className="text-xs text-slate-500">
+                Esta acción eliminará la etapa del proyecto.
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              disabled={isDeletingStage}
+              onClick={() => {
+                setStageToDelete(null);
+                setDeleteStageError(null);
+              }}
+              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {deleteStageError ? 'Cerrar' : 'Cancelar'}
+            </button>
+            {!deleteStageError && (
+              <button
+                type="button"
+                disabled={isDeletingStage}
+                onClick={async () => {
+                  if (!stageToDelete || isDeletingStage) return;
+                  setIsDeletingStage(true);
+                  setDeleteStageError(null);
+                  try {
+                    if (onDeleteStage) {
+                      await onDeleteStage(project.id, stageToDelete.id);
+                    }
+                    setStageToDelete(null);
+                  } catch (err: any) {
+                    setDeleteStageError(err?.message || 'Error al eliminar la etapa.');
+                  } finally {
+                    setIsDeletingStage(false);
+                  }
+                }}
+                className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-2xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {isDeletingStage ? 'Eliminando...' : 'Eliminar etapa'}
+              </button>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

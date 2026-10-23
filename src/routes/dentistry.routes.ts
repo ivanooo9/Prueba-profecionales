@@ -6,12 +6,16 @@ import { DentistryTreatmentController } from "../controllers/dentistry-treatment
 import { DentistryBudgetController } from "../controllers/dentistry-budget.controller";
 import { DentistryExecutionController } from "../controllers/dentistry-execution.controller";
 import { DentistryPrescriptionController } from "../controllers/dentistry-prescription.controller";
-import { DentistryDocumentController } from "../controllers/dentistry-document.controller";
+import {
+  DentistryDocumentController,
+  dentistryUploadMiddleware,
+} from "../controllers/dentistry-document.controller";
 import { DentistryAppointmentController } from "../controllers/dentistry-appointment.controller";
 import { DentistryConsentController } from "../controllers/dentistry-consent.controller";
 import {
   requireOrganization,
   requireOrganizationModule,
+  requireOrganizationRole,
 } from "../lib/organization.middleware";
 
 const router = express.Router();
@@ -32,6 +36,18 @@ const requireDentistryModule = [
   requireAuth,
   requireOrganization,
   requireOrganizationModule("DENTISTRY"),
+];
+
+// Middleware para operaciones clínicas y prescripción médica (RBAC)
+const requireClinicalRole = [
+  ...requireDentistryModule,
+  requireOrganizationRole(["OWNER", "ADMIN", "PROFESSIONAL"]),
+];
+
+// Middleware para gestión financiera y presupuestos (RBAC)
+const requireFinancialRole = [
+  ...requireDentistryModule,
+  requireOrganizationRole(["OWNER", "ADMIN", "PROFESSIONAL", "BILLING"]),
 ];
 
 // -------------------------------------------------------------
@@ -87,12 +103,12 @@ router.get(
 // Crear o actualizar expediente odontológico del paciente
 router.put(
   "/api/organizations/:id/dentistry/patients/:patientId/record",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryRecordController.upsertDentalRecord
 );
 router.patch(
   "/api/organizations/:id/dentistry/patients/:patientId/record",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryRecordController.upsertDentalRecord
 );
 
@@ -111,7 +127,7 @@ router.get(
 // Guardar o actualizar condición clínica de una pieza dental
 router.put(
   "/api/organizations/:id/dentistry/patients/:patientId/odontogram/teeth/:toothNumber",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryOdontogramController.saveTooth
 );
 
@@ -148,20 +164,34 @@ router.get(
 // Crear nuevo procedimiento en el catálogo
 router.post(
   "/api/organizations/:id/dentistry/procedures",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryTreatmentController.createProcedure
+);
+
+// Precargar arancel odontológico estándar de Ecuador
+router.post(
+  "/api/organizations/:id/dentistry/procedures/seed",
+  requireClinicalRole,
+  DentistryTreatmentController.seedDefaultProcedures
 );
 
 // Actualizar procedimiento existente en el catálogo
 router.put(
   "/api/organizations/:id/dentistry/procedures/:procedureId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryTreatmentController.updateProcedure
 );
 
 // -------------------------------------------------------------
 // PLANES DE TRATAMIENTO ODONTOLÓGICO (DentalTreatmentPlan)
 // -------------------------------------------------------------
+
+// Listar todos los planes de tratamiento de la organización (para vistas globales y reportes)
+router.get(
+  "/api/organizations/:id/dentistry/treatment-plans",
+  requireDentistryModule,
+  DentistryTreatmentController.getAllTreatmentPlans
+);
 
 // Listar planes de tratamiento del paciente
 router.get(
@@ -180,14 +210,14 @@ router.get(
 // Crear plan de tratamiento para el paciente
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/treatment-plans",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryTreatmentController.createTreatmentPlan
 );
 
 // Actualizar plan de tratamiento
 router.put(
   "/api/organizations/:id/dentistry/patients/:patientId/treatment-plans/:planId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryTreatmentController.updateTreatmentPlan
 );
 
@@ -198,27 +228,34 @@ router.put(
 // Agregar procedimiento / item al plan de tratamiento
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/treatment-plans/:planId/items",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryTreatmentController.addTreatmentItem
 );
 
 // Actualizar item del plan de tratamiento
 router.put(
   "/api/organizations/:id/dentistry/patients/:patientId/treatment-plans/:planId/items/:itemId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryTreatmentController.updateTreatmentItem
 );
 
 // Eliminar item del plan de tratamiento
 router.delete(
   "/api/organizations/:id/dentistry/patients/:patientId/treatment-plans/:planId/items/:itemId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryTreatmentController.deleteTreatmentItem
 );
 
 // -------------------------------------------------------------
 // PRESUPUESTOS FORMALES (DentalBudget)
 // -------------------------------------------------------------
+
+// Listar todos los presupuestos formales de la organización (para vistas globales y reportes)
+router.get(
+  "/api/organizations/:id/dentistry/budgets",
+  requireDentistryModule,
+  DentistryBudgetController.getOrganizationBudgets
+);
 
 // Listar presupuestos formales del paciente (READ-ONLY)
 router.get(
@@ -237,14 +274,14 @@ router.get(
 // Generar presupuesto formal a partir de un plan de tratamiento
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/treatment-plans/:planId/budgets",
-  requireDentistryModule,
+  requireFinancialRole,
   DentistryBudgetController.createBudgetFromPlan
 );
 
 // Actualizar estado o notas de un presupuesto
 router.put(
   "/api/organizations/:id/dentistry/patients/:patientId/budgets/:budgetId",
-  requireDentistryModule,
+  requireFinancialRole,
   DentistryBudgetController.updateBudget
 );
 
@@ -256,7 +293,7 @@ router.put(
 // Registrar un pago o abono a un presupuesto
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/budgets/:budgetId/payments",
-  requireDentistryModule,
+  requireFinancialRole,
   DentistryBudgetController.recordPayment
 );
 
@@ -282,7 +319,7 @@ router.get(
 // Registrar una nueva ejecución clínica atómica para un ítem
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/treatment-plans/:planId/items/:itemId/executions",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryExecutionController.createItemExecution
 );
 
@@ -315,28 +352,28 @@ router.get(
 // Crear nueva receta odontológica (DRAFT o ISSUED)
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/prescriptions",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryPrescriptionController.createPrescription
 );
 
 // Actualizar receta odontológica en borrador (DRAFT)
 router.put(
   "/api/organizations/:id/dentistry/patients/:patientId/prescriptions/:prescriptionId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryPrescriptionController.updatePrescription
 );
 
 // Emitir formalmente una receta (DRAFT -> ISSUED)
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/prescriptions/:prescriptionId/issue",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryPrescriptionController.issuePrescription
 );
 
 // Anular una receta emitida (CANCELLED) con motivo
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/prescriptions/:prescriptionId/cancel",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryPrescriptionController.cancelPrescription
 );
 
@@ -366,10 +403,18 @@ router.get(
   DentistryDocumentController.getDocumentById
 );
 
-// Registrar nueva ficha de documento para un paciente
+// Descargar archivo físico de documento odontológico
+router.get(
+  "/api/organizations/:id/dentistry/documents/:documentId/download",
+  requireDentistryModule,
+  DentistryDocumentController.downloadDocument
+);
+
+// Registrar nueva ficha de documento para un paciente (soporta multipart con archivo físico y JSON)
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/documents",
   requireDentistryModule,
+  dentistryUploadMiddleware.single("file"),
   DentistryDocumentController.createDocument
 );
 
@@ -462,21 +507,21 @@ router.get(
 // Crear nueva plantilla de consentimiento
 router.post(
   "/api/organizations/:id/dentistry/consent-templates",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.createTemplate
 );
 
 // Actualizar plantilla (in-place si no fue usada, o crea nueva versión v_n+1 si ya fue usada)
 router.put(
   "/api/organizations/:id/dentistry/consent-templates/:templateId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.updateTemplate
 );
 
 // Desactivar plantilla (soft deactivation)
 router.patch(
   "/api/organizations/:id/dentistry/consent-templates/:templateId/deactivate",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.deactivateTemplate
 );
 
@@ -508,42 +553,42 @@ router.get(
 // Registrar nuevo consentimiento en borrador (DRAFT)
 router.post(
   "/api/organizations/:id/dentistry/consents",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.createConsent
 );
 
 // Registrar nuevo consentimiento en borrador para un paciente (DRAFT)
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/consents",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.createConsent
 );
 
 // Modificar consentimiento en borrador (solo permitido en DRAFT)
 router.put(
   "/api/organizations/:id/dentistry/consents/:consentId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.updateConsentDraft
 );
 
 // Emitir formalmente el consentimiento (DRAFT -> ISSUED) con bloqueo de concurrencia
 router.post(
   "/api/organizations/:id/dentistry/consents/:consentId/issue",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.issueConsent
 );
 
 // Registrar firma del consentimiento (ISSUED -> SIGNED) con bloqueo de concurrencia
 router.post(
   "/api/organizations/:id/dentistry/consents/:consentId/sign",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.signConsent
 );
 
 // Cancelar formalmente el consentimiento con motivo obligatorio
 router.post(
   "/api/organizations/:id/dentistry/consents/:consentId/cancel",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryConsentController.cancelConsent
 );
 

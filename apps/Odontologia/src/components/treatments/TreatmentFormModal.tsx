@@ -14,18 +14,25 @@ export const TreatmentFormModal: React.FC<TreatmentFormModalProps> = ({
   onClose,
   defaultPatientId
 }) => {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const [error, setError] = useState<string | null>(null);
   const patients = dentalService.getPatients();
   const [patientId, setPatientId] = useState(defaultPatientId || patients[0]?.id || '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [piecesInput, setPiecesInput] = useState('');
   const [estimatedCost, setEstimatedCost] = useState('85.00');
-  const [targetDate, setTargetDate] = useState('2026-09-15');
+  const [targetDate, setTargetDate] = useState(todayStr);
   const [dentist, setDentist] = useState('Dra. Sofía Mendoza');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !patientId) return;
+    if (targetDate && targetDate < todayStr) {
+      setError('La fecha estimada no puede ser anterior a hoy.');
+      return;
+    }
+    setError(null);
 
     const patient = dentalService.getPatientById(patientId);
     const pieces = piecesInput
@@ -39,7 +46,7 @@ export const TreatmentFormModal: React.FC<TreatmentFormModalProps> = ({
       title,
       description,
       pieceNumbers: pieces.length > 0 ? pieces : undefined,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: new Date().toLocaleDateString('en-CA'),
       targetDate,
       progress: 0,
       status: 'En progreso',
@@ -62,6 +69,11 @@ export const TreatmentFormModal: React.FC<TreatmentFormModalProps> = ({
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+            {error}
+          </div>
+        )}
         {/* Paciente */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">Paciente *</label>
@@ -132,8 +144,12 @@ export const TreatmentFormModal: React.FC<TreatmentFormModalProps> = ({
             <label className="block text-xs font-semibold text-slate-700 mb-1">Fecha Estimada Fin</label>
             <input
               type="date"
+              min={todayStr}
               value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
+              onChange={(e) => {
+                setError(null);
+                setTargetDate(e.target.value);
+              }}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
             />
           </div>

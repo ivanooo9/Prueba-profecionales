@@ -1,5 +1,9 @@
 import { db } from "../lib/db";
 import { Prisma } from "@prisma/client";
+import {
+  aggregateArchitectureProjectFinancials,
+  calculateArchitectureProjectFinancials,
+} from "./architecture-financial.service";
 
 export interface ArchitectureReportsSummary {
   projectsByStatus: Record<string, number>;
@@ -11,6 +15,8 @@ export interface ArchitectureReportsSummary {
     totalEstimated: number;
     totalApproved: number;
     approvedProjectsCount: number;
+    estimatedProjectsCount: number;
+    ambiguousProjectsCount: number;
     averageBudgetPerProject: number;
   };
   topProjectsByBudget: Array<{
@@ -47,9 +53,7 @@ export class ArchitectureReportsService {
     const projectsByStatus: Record<string, number> = {};
     const projectsByType: Record<string, number> = {};
 
-    let totalEstimatedDecimal = new Prisma.Decimal(0);
-    let totalApprovedDecimal = new Prisma.Decimal(0);
-    let approvedProjectsCount = 0;
+    const financials = aggregateArchitectureProjectFinancials(projects);
 
     const projectBudgetRankings: Array<{
       id: number;
@@ -58,6 +62,7 @@ export class ArchitectureReportsService {
       status: string;
       approvedBudget: number;
       estimatedBudget: number;
+      hasApprovedBudget: boolean;
     }> = [];
 
     for (const p of projects) {
@@ -69,58 +74,30 @@ export class ArchitectureReportsService {
       projectsByType[pType] = (projectsByType[pType] || 0) + 1;
 
       // Presupuestos del proyecto
-      let projApprovedDec = new Prisma.Decimal(0);
-      let projEstimatedDec = new Prisma.Decimal(0);
-
-      for (const b of p.budgets || []) {
-        let bTotal = new Prisma.Decimal(0);
-        for (const item of b.items || []) {
-          const q = new Prisma.Decimal(item.quantity ?? 1);
-          const pr = new Prisma.Decimal(item.unitPrice ?? 0);
-          bTotal = bTotal.add(q.mul(pr));
-        }
-
-        if (b.status === "Aprobado") {
-          projApprovedDec = projApprovedDec.add(bTotal);
-        }
+      const projectFinancials = calculateArchitectureProjectFinancials(p.budgets || []);
+      if (projectFinancials.status !== "ambiguous" && projectFinancials.status !== "none") {
+        projectBudgetRankings.push({
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          status: p.status,
+          approvedBudget: projectFinancials.approvedAmount ?? 0,
+          estimatedBudget: projectFinancials.estimatedAmount ?? 0,
+          hasApprovedBudget: projectFinancials.approvedAmount !== null,
+        });
       }
-
-      if (projApprovedDec.gt(0)) {
-        approvedProjectsCount++;
-        projEstimatedDec = projApprovedDec;
-      } else if (p.budgets && p.budgets.length > 0) {
-        // Tomar último presupuesto como estimado
-        const lastB = p.budgets[p.budgets.length - 1];
-        let lastTotal = new Prisma.Decimal(0);
-        for (const item of lastB.items || []) {
-          const q = new Prisma.Decimal(item.quantity ?? 1);
-          const pr = new Prisma.Decimal(item.unitPrice ?? 0);
-          lastTotal = lastTotal.add(q.mul(pr));
-        }
-        projEstimatedDec = lastTotal;
-      }
-
-      totalApprovedDecimal = totalApprovedDecimal.add(projApprovedDec);
-      totalEstimatedDecimal = totalEstimatedDecimal.add(projEstimatedDec);
-
-      projectBudgetRankings.push({
-        id: p.id,
-        code: p.code,
-        name: p.name,
-        status: p.status,
-        approvedBudget: Number(projApprovedDec.toFixed(2)),
-        estimatedBudget: Number(projEstimatedDec.toFixed(2)),
-      });
     }
 
     // Ordenar proyectos por presupuesto aprobado (o estimado si no hay aprobado) desc
     projectBudgetRankings.sort((a, b) => {
-      const valA = a.approvedBudget > 0 ? a.approvedBudget : a.estimatedBudget;
-      const valB = b.approvedBudget > 0 ? b.approvedBudget : b.estimatedBudget;
+      const valA = a.hasApprovedBudget ? a.approvedBudget : a.estimatedBudget;
+      const valB = b.hasApprovedBudget ? b.approvedBudget : b.estimatedBudget;
       return valB - valA;
     });
 
-    const topProjectsByBudget = projectBudgetRankings.slice(0, 5);
+    const topProjectsByBudget = projectBudgetRankings
+      .slice(0, 5)
+      .map(({ hasApprovedBudget, ...project }) => project);
 
     // 2. Presupuestos por estado
     const allBudgets = await client.architectureBudget.findMany({
@@ -174,10 +151,12 @@ export class ArchitectureReportsService {
       deliverablesByStatus[d.status] = (deliverablesByStatus[d.status] || 0) + 1;
     }
 
-    const totalApproved = Number(totalApprovedDecimal.toFixed(2));
-    const totalEstimated = Number(totalEstimatedDecimal.toFixed(2));
+    const totalApproved = financials.totalApproved;
+    const totalEstimated = financials.totalEstimated;
     const averageBudgetPerProject =
-      projects.length > 0 ? Number((totalEstimated / projects.length).toFixed(2)) : 0;
+      financials.estimatedProjectsCount > 0
+        ? Number((totalEstimated / financials.estimatedProjectsCount).toFixed(2))
+        : 0;
 
     return {
       projectsByStatus,
@@ -188,7 +167,9 @@ export class ArchitectureReportsService {
       financialOverview: {
         totalEstimated,
         totalApproved,
-        approvedProjectsCount,
+        approvedProjectsCount: financials.approvedProjectsCount,
+        estimatedProjectsCount: financials.estimatedProjectsCount,
+        ambiguousProjectsCount: financials.ambiguousProjectsCount,
         averageBudgetPerProject,
       },
       topProjectsByBudget,

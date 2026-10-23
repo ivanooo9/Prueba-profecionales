@@ -49,9 +49,11 @@ export interface UpdateFeeAgreementInput {
 export interface RecordLegalPaymentInput {
   amount: number;
   paymentMethod?: string;
+  method?: string;
   reference?: string | null;
   notes?: string | null;
   paidAt?: string | Date | null;
+  idempotencyKey?: string | null;
 }
 
 export class LegalFinanceService {
@@ -90,8 +92,13 @@ export class LegalFinanceService {
       throw new Error("El título o concepto del acuerdo de honorarios es obligatorio.");
     }
 
-    // 1. Validar existencia del caso en la organización
-    await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    // 1. Validar existencia del caso en la organización y estado
+    const legalCase = await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    if (legalCase.status === "Cerrado" || legalCase.status === "Archivado") {
+      throw new Error(
+        `No se pueden crear acuerdos de honorarios en un expediente con estado '${legalCase.status}'.`
+      );
+    }
 
     // 2. Procesar y validar conceptos / items
     const rawItems = Array.isArray(data.items) && data.items.length > 0 ? data.items : [];
@@ -286,7 +293,10 @@ export class LegalFinanceService {
     agreementId: number,
     data: UpdateFeeAgreementInput
   ) {
-    await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    const legalCase = await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    if (legalCase.status === "Archivado") {
+      throw new Error("No se pueden modificar acuerdos de honorarios en un expediente archivado.");
+    }
 
     const existing = await db.legalFeeAgreement.findFirst({
       where: {
@@ -468,8 +478,11 @@ export class LegalFinanceService {
       throw new Error("El monto del pago debe ser mayor a 0.");
     }
 
-    // 2. Validar caso en la organización
-    await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    // 2. Validar caso en la organización y estado
+    const legalCase = await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    if (legalCase.status === "Archivado") {
+      throw new Error("No se pueden registrar pagos en un expediente archivado.");
+    }
 
     // 3. Transacción con Bloqueo Pesimista (FOR UPDATE)
     return await db.$transaction(async (tx) => {
@@ -515,13 +528,77 @@ export class LegalFinanceService {
         );
       }
 
-      // Método de pago válido
-      const validMethods = ["Efectivo", "Transferencia", "Depósito", "Tarjeta", "Otro"];
-      let paymentMethod = "Transferencia";
-      if (data.paymentMethod && typeof data.paymentMethod === "string" && data.paymentMethod.trim()) {
-        const found = validMethods.find((m) => m.toLowerCase() === data.paymentMethod!.trim().toLowerCase());
-        paymentMethod = found || data.paymentMethod.trim();
+      // 3.1 Idempotencia: Verificar si ya existe un pago con esta clave en la organización
+      const cleanIdempotencyKey =
+        data.idempotencyKey && typeof data.idempotencyKey === "string" && data.idempotencyKey.trim()
+          ? data.idempotencyKey.trim()
+          : null;
+
+      if (cleanIdempotencyKey) {
+        const existingPayment = await tx.legalPayment.findFirst({
+          where: {
+            organizationId,
+            idempotencyKey: cleanIdempotencyKey,
+          },
+          include: {
+            registeredByUser: {
+              select: { id: true, name: true, email: true },
+            },
+          },
+        });
+
+        if (existingPayment) {
+          // Si existe, verificar compatibilidad estricta de acuerdo e importe
+          const amountDiff = Math.abs(existingPayment.amount - paymentAmount);
+          if (existingPayment.feeAgreementId !== agreementRow.id || amountDiff > 0.001) {
+            throw new Error(
+              `Conflicto de idempotencia: La clave '${cleanIdempotencyKey}' ya fue utilizada previamente con un acuerdo o monto diferente ($${existingPayment.amount.toFixed(2)} vs $${paymentAmount.toFixed(2)}).`
+            );
+          }
+
+          // Reintento válido: Devolver el pago previamente creado y el resumen financiero sin volver a descontar
+          return {
+            payment: existingPayment,
+            financialSummary: {
+              agreementId: agreementRow.id,
+              total: agreementRow.total,
+              paidAmount: currentPaid,
+              balance: currentBalance,
+              paymentStatus: deriveLegalPaymentStatus(agreementRow.total, currentPaid),
+            },
+            idempotentReplay: true,
+          };
+        }
       }
+
+      // Método de pago: Validación estricta sin conversión silenciosa
+      const rawMethod = (data.paymentMethod || data.method || "").trim();
+      if (!rawMethod) {
+        throw new Error("El método de pago es obligatorio.");
+      }
+
+      const validMethodsMap: Record<string, string> = {
+        efectivo: "Efectivo",
+        transferencia: "Transferencia",
+        deposito: "Depósito",
+        "depósito": "Depósito",
+        tarjeta: "Tarjeta",
+        cheque: "Cheque",
+        otro: "Otro",
+      };
+
+      const normalizedKey = rawMethod
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+      const matchedMethod = validMethodsMap[normalizedKey] || validMethodsMap[rawMethod.toLowerCase()];
+      if (!matchedMethod) {
+        throw new Error(
+          `Método de pago no admitido: '${rawMethod}'. Métodos permitidos: Efectivo, Transferencia, Depósito, Tarjeta, Cheque, Otro.`
+        );
+      }
+      const paymentMethod = matchedMethod;
 
       let paidAt = new Date();
       if (data.paidAt) {
@@ -540,6 +617,7 @@ export class LegalFinanceService {
           paymentMethod,
           reference: data.reference ? data.reference.trim() : null,
           notes: data.notes ? data.notes.trim() : null,
+          idempotencyKey: cleanIdempotencyKey,
           status: "COMPLETED",
           paidAt,
           registeredByUserId: authUserId || null,

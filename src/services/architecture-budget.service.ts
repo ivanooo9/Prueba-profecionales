@@ -100,6 +100,43 @@ export class ArchitectureBudgetService {
   }
 
   /**
+   * Valida que un presupuesto no esté aprobado antes de permitir mutaciones.
+   */
+  private static assertBudgetMutable(budget: any, action: string = "modificar") {
+    if (budget?.status === "Aprobado") {
+      const err: any = new Error(`No se puede ${action} un presupuesto aprobado.`);
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  /**
+   * Adquiere el bloqueo transaccional del presupuesto para coordinar aprobación y edición.
+   */
+  private static async withBudgetLock(
+    organizationId: number,
+    budgetId: number,
+    operation: (tx: any) => Promise<any>,
+    client: any = db
+  ) {
+    if (typeof client.$transaction !== "function") {
+      return operation(client);
+    }
+
+    return client.$transaction(async (tx: any) => {
+      if (tx && typeof tx.$executeRawUnsafe === "function") {
+        await tx.$executeRawUnsafe(
+          `SELECT pg_advisory_xact_lock(hashtext('arch_budget_mut_' || $1::text || '_' || $2::text))`,
+          organizationId,
+          budgetId
+        );
+      }
+
+      return operation(tx);
+    });
+  }
+
+  /**
    * Valida que el proyecto pertenezca a la organización y no esté archivado.
    */
   private static async assertProjectActive(
@@ -260,6 +297,210 @@ export class ArchitectureBudgetService {
   }
 
   /**
+   * Actualiza metadata, partidas existentes y nuevas partidas bajo una sola transacción.
+   */
+  public static async updateBudgetWithItems(
+    organizationId: number,
+    userId: number,
+    budgetId: number,
+    data: UpdateArchitectureBudgetInput & {
+      items?: Array<
+        (CreateArchitectureBudgetItemInput | UpdateArchitectureBudgetItemInput) & {
+          id?: number | string | null;
+        }
+      >;
+    },
+    client: any = db
+  ) {
+    return ArchitectureBudgetService.withBudgetLock(organizationId, budgetId, async (tx: any) => {
+      const existing = await tx.architectureBudget.findUnique({
+        where: { id: budgetId },
+        include: { project: true, items: { orderBy: { order: "asc" } } },
+      });
+
+      if (!existing || existing.organizationId !== organizationId) {
+        const err: any = new Error(`Presupuesto con ID ${budgetId} no encontrado en la organización.`);
+        err.statusCode = 404;
+        throw err;
+      }
+
+      await ArchitectureBudgetService.assertProjectActive(organizationId, existing.projectId, tx);
+
+      if (existing.status === "Aprobado") {
+        ArchitectureBudgetService.assertBudgetMutable(existing, "modificar");
+      }
+
+      if (data.status === "Aprobado" && existing.status !== "Aprobado") {
+        const alreadyApproved = await tx.architectureBudget.findFirst({
+          where: {
+            organizationId,
+            projectId: existing.projectId,
+            status: "Aprobado",
+            id: { not: budgetId },
+          },
+        });
+
+        if (alreadyApproved) {
+          const err: any = new Error("Ya existe un presupuesto aprobado para este proyecto.");
+          err.statusCode = 409;
+          throw err;
+        }
+
+        const approved = await tx.architectureBudget.update({
+          where: { id: budgetId },
+          data: {
+            status: "Aprobado",
+            approvedAt: new Date(),
+            approvedByUserId: userId,
+          },
+          include: {
+            items: { orderBy: { order: "asc" } },
+            project: { select: { id: true, name: true, code: true, status: true, archivedAt: true } },
+            createdByUser: { select: { id: true, name: true, email: true } },
+            approvedByUser: { select: { id: true, name: true, email: true } },
+          },
+        });
+
+        return ArchitectureBudgetService.mapBudgetDTO(approved);
+      }
+
+      const updateData: any = {};
+      if (data.name !== undefined) {
+        if (!data.name.trim()) {
+          const err: any = new Error("El nombre del presupuesto no puede estar vacío.");
+          err.statusCode = 400;
+          throw err;
+        }
+        updateData.name = data.name.trim();
+      }
+      if (data.description !== undefined) {
+        updateData.description = data.description?.trim() || null;
+      }
+      if (data.status !== undefined && data.status !== "Aprobado") {
+        updateData.status = data.status;
+      }
+      if (data.notes !== undefined) {
+        updateData.notes = data.notes?.trim() || null;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await tx.architectureBudget.update({
+          where: { id: budgetId },
+          data: updateData,
+        });
+      }
+
+      if (Array.isArray(data.items)) {
+        for (const item of data.items) {
+          const hasItemId = item && item.id !== undefined && item.id !== null && item.id !== "";
+          const itemId = hasItemId ? Number(item.id) : null;
+
+          if (hasItemId) {
+            const existingItem = await tx.architectureBudgetItem.findUnique({ where: { id: itemId } });
+            if (!existingItem || existingItem.organizationId !== organizationId || existingItem.budgetId !== budgetId) {
+              const err: any = new Error(`Rubro con ID ${itemId} no encontrado en el presupuesto especificado.`);
+              err.statusCode = 404;
+              throw err;
+            }
+
+            const itemUpdate: any = {};
+            if (item.description !== undefined) {
+              if (!String(item.description).trim()) {
+                const err: any = new Error("La descripción del rubro no puede estar vacía.");
+                err.statusCode = 400;
+                throw err;
+              }
+              itemUpdate.description = String(item.description).trim();
+            }
+            if (item.category !== undefined) {
+              itemUpdate.category = item.category?.trim() || "General";
+            }
+            if (item.quantity !== undefined) {
+              const q = new Prisma.Decimal(item.quantity);
+              if (q.lt(0)) {
+                const err: any = new Error("La cantidad no puede ser negativa.");
+                err.statusCode = 400;
+                throw err;
+              }
+              itemUpdate.quantity = q;
+            }
+            if (item.unitPrice !== undefined) {
+              const p = new Prisma.Decimal(item.unitPrice);
+              if (p.lt(0)) {
+                const err: any = new Error("El precio unitario no puede ser negativo.");
+                err.statusCode = 400;
+                throw err;
+              }
+              itemUpdate.unitPrice = p;
+            }
+            if (item.order !== undefined) {
+              itemUpdate.order = item.order;
+            }
+
+            if (Object.keys(itemUpdate).length > 0) {
+              await tx.architectureBudgetItem.update({
+                where: { id: itemId },
+                data: itemUpdate,
+              });
+            }
+          } else {
+            if (!item.description?.trim()) {
+              const err: any = new Error("La descripción del rubro es obligatoria.");
+              err.statusCode = 400;
+              throw err;
+            }
+
+            const qty = new Prisma.Decimal(item.quantity ?? 1);
+            const unitPrice = new Prisma.Decimal(item.unitPrice ?? 0);
+
+            if (qty.lt(0)) {
+              const err: any = new Error("La cantidad no puede ser negativa.");
+              err.statusCode = 400;
+              throw err;
+            }
+
+            if (unitPrice.lt(0)) {
+              const err: any = new Error("El precio unitario no puede ser negativo.");
+              err.statusCode = 400;
+              throw err;
+            }
+
+            const maxOrderResult = await tx.architectureBudgetItem.aggregate({
+              where: { budgetId },
+              _max: { order: true },
+            });
+            const nextOrder = item.order !== undefined ? item.order : ((maxOrderResult._max.order ?? -1) + 1);
+
+            await tx.architectureBudgetItem.create({
+              data: {
+                organizationId,
+                budgetId,
+                description: String(item.description).trim(),
+                category: item.category?.trim() || "General",
+                quantity: qty,
+                unitPrice,
+                order: nextOrder,
+              },
+            });
+          }
+        }
+      }
+
+      const refreshed = await tx.architectureBudget.findUnique({
+        where: { id: budgetId },
+        include: {
+          items: { orderBy: { order: "asc" } },
+          project: { select: { id: true, name: true, code: true, status: true, archivedAt: true } },
+          createdByUser: { select: { id: true, name: true, email: true } },
+          approvedByUser: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      return ArchitectureBudgetService.mapBudgetDTO(refreshed);
+    }, client);
+  }
+
+  /**
    * Actualiza los datos de un presupuesto.
    */
   public static async updateBudget(
@@ -278,6 +519,10 @@ export class ArchitectureBudgetService {
       const err: any = new Error(`Presupuesto con ID ${budgetId} no encontrado en la organización.`);
       err.statusCode = 404;
       throw err;
+    }
+
+    if (existing.status === "Aprobado") {
+      ArchitectureBudgetService.assertBudgetMutable(existing, "modificar");
     }
 
     await ArchitectureBudgetService.assertProjectActive(organizationId, existing.projectId, client);
@@ -333,28 +578,20 @@ export class ArchitectureBudgetService {
     budgetId: number,
     client: any = db
   ) {
-    const existing = await client.architectureBudget.findUnique({
-      where: { id: budgetId },
-      include: { project: true },
-    });
+    return ArchitectureBudgetService.withBudgetLock(organizationId, budgetId, async (tx: any) => {
+      const existing = await tx.architectureBudget.findUnique({
+        where: { id: budgetId },
+        include: { project: true },
+      });
 
-    if (!existing || existing.organizationId !== organizationId) {
-      const err: any = new Error(`Presupuesto con ID ${budgetId} no encontrado en la organización.`);
-      err.statusCode = 404;
-      throw err;
-    }
+      if (!existing || existing.organizationId !== organizationId) {
+        const err: any = new Error(`Presupuesto con ID ${budgetId} no encontrado en la organización.`);
+        err.statusCode = 404;
+        throw err;
+      }
 
-    await ArchitectureBudgetService.assertProjectActive(organizationId, existing.projectId, client);
+      await ArchitectureBudgetService.assertProjectActive(organizationId, existing.projectId, tx);
 
-    return client.$transaction(async (tx: any) => {
-      // Advisory transaction lock exclusivo por (organizationId, projectId)
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('arch_proj_budget_appr_' || $1::text || '_' || $2::text))`,
-        organizationId,
-        existing.projectId
-      );
-
-      // Verificar si ya existe otro presupuesto aprobado para el proyecto
       const alreadyApproved = await tx.architectureBudget.findFirst({
         where: {
           organizationId,
@@ -386,7 +623,7 @@ export class ArchitectureBudgetService {
       });
 
       return ArchitectureBudgetService.mapBudgetDTO(approved);
-    });
+    }, client);
   }
 
   /**
@@ -399,59 +636,62 @@ export class ArchitectureBudgetService {
     data: CreateArchitectureBudgetItemInput,
     client: any = db
   ) {
-    const budget = await client.architectureBudget.findUnique({
-      where: { id: budgetId },
-      include: { project: true },
-    });
+    return ArchitectureBudgetService.withBudgetLock(organizationId, budgetId, async (tx: any) => {
+      const budget = await tx.architectureBudget.findUnique({
+        where: { id: budgetId },
+        include: { project: true },
+      });
 
-    if (!budget || budget.organizationId !== organizationId) {
-      const err: any = new Error(`Presupuesto con ID ${budgetId} no encontrado en la organización.`);
-      err.statusCode = 404;
-      throw err;
-    }
+      if (!budget || budget.organizationId !== organizationId) {
+        const err: any = new Error(`Presupuesto con ID ${budgetId} no encontrado en la organización.`);
+        err.statusCode = 404;
+        throw err;
+      }
 
-    await ArchitectureBudgetService.assertProjectActive(organizationId, budget.projectId, client);
+      ArchitectureBudgetService.assertBudgetMutable(budget, "agregar rubros a");
+      await ArchitectureBudgetService.assertProjectActive(organizationId, budget.projectId, tx);
 
-    if (!data.description?.trim()) {
-      const err: any = new Error("La descripción del rubro es obligatoria.");
-      err.statusCode = 400;
-      throw err;
-    }
+      if (!data.description?.trim()) {
+        const err: any = new Error("La descripción del rubro es obligatoria.");
+        err.statusCode = 400;
+        throw err;
+      }
 
-    const qty = new Prisma.Decimal(data.quantity ?? 1);
-    const unitPrice = new Prisma.Decimal(data.unitPrice ?? 0);
+      const qty = new Prisma.Decimal(data.quantity ?? 1);
+      const unitPrice = new Prisma.Decimal(data.unitPrice ?? 0);
 
-    if (qty.lt(0)) {
-      const err: any = new Error("La cantidad no puede ser negativa.");
-      err.statusCode = 400;
-      throw err;
-    }
+      if (qty.lt(0)) {
+        const err: any = new Error("La cantidad no puede ser negativa.");
+        err.statusCode = 400;
+        throw err;
+      }
 
-    if (unitPrice.lt(0)) {
-      const err: any = new Error("El precio unitario no puede ser negativo.");
-      err.statusCode = 400;
-      throw err;
-    }
+      if (unitPrice.lt(0)) {
+        const err: any = new Error("El precio unitario no puede ser negativo.");
+        err.statusCode = 400;
+        throw err;
+      }
 
-    const maxOrderResult = await client.architectureBudgetItem.aggregate({
-      where: { budgetId },
-      _max: { order: true },
-    });
-    const nextOrder = data.order !== undefined ? data.order : ((maxOrderResult._max.order ?? -1) + 1);
+      const maxOrderResult = await tx.architectureBudgetItem.aggregate({
+        where: { budgetId },
+        _max: { order: true },
+      });
+      const nextOrder = data.order !== undefined ? data.order : ((maxOrderResult._max.order ?? -1) + 1);
 
-    const item = await client.architectureBudgetItem.create({
-      data: {
-        organizationId,
-        budgetId,
-        description: data.description.trim(),
-        category: data.category?.trim() || "General",
-        quantity: qty,
-        unitPrice: unitPrice,
-        order: nextOrder,
-      },
-    });
+      const item = await tx.architectureBudgetItem.create({
+        data: {
+          organizationId,
+          budgetId,
+          description: data.description.trim(),
+          category: data.category?.trim() || "General",
+          quantity: qty,
+          unitPrice: unitPrice,
+          order: nextOrder,
+        },
+      });
 
-    return ArchitectureBudgetService.mapBudgetItemDTO(item);
+      return ArchitectureBudgetService.mapBudgetItemDTO(item);
+    }, client);
   }
 
   /**
@@ -465,58 +705,61 @@ export class ArchitectureBudgetService {
     data: UpdateArchitectureBudgetItemInput,
     client: any = db
   ) {
-    const item = await client.architectureBudgetItem.findUnique({
-      where: { id: itemId },
-      include: { budget: { include: { project: true } } },
-    });
+    return ArchitectureBudgetService.withBudgetLock(organizationId, budgetId, async (tx: any) => {
+      const item = await tx.architectureBudgetItem.findUnique({
+        where: { id: itemId },
+        include: { budget: { include: { project: true } } },
+      });
 
-    if (!item || item.organizationId !== organizationId || item.budgetId !== budgetId) {
-      const err: any = new Error(`Rubro con ID ${itemId} no encontrado en el presupuesto especificado.`);
-      err.statusCode = 404;
-      throw err;
-    }
-
-    await ArchitectureBudgetService.assertProjectActive(organizationId, item.budget.projectId, client);
-
-    const updateData: any = {};
-    if (data.description !== undefined) {
-      if (!data.description.trim()) {
-        const err: any = new Error("La descripción del rubro no puede estar vacía.");
-        err.statusCode = 400;
+      if (!item || item.organizationId !== organizationId || item.budgetId !== budgetId) {
+        const err: any = new Error(`Rubro con ID ${itemId} no encontrado en el presupuesto especificado.`);
+        err.statusCode = 404;
         throw err;
       }
-      updateData.description = data.description.trim();
-    }
-    if (data.category !== undefined) {
-      updateData.category = data.category?.trim() || "General";
-    }
-    if (data.quantity !== undefined) {
-      const q = new Prisma.Decimal(data.quantity);
-      if (q.lt(0)) {
-        const err: any = new Error("La cantidad no puede ser negativa.");
-        err.statusCode = 400;
-        throw err;
-      }
-      updateData.quantity = q;
-    }
-    if (data.unitPrice !== undefined) {
-      const p = new Prisma.Decimal(data.unitPrice);
-      if (p.lt(0)) {
-        const err: any = new Error("El precio unitario no puede ser negativo.");
-        err.statusCode = 400;
-        throw err;
-      }
-      updateData.unitPrice = p;
-    }
-    if (data.order !== undefined) {
-      updateData.order = data.order;
-    }
 
-    const updated = await client.architectureBudgetItem.update({
-      where: { id: itemId },
-      data: updateData,
-    });
+      ArchitectureBudgetService.assertBudgetMutable(item.budget, "actualizar rubros de");
+      await ArchitectureBudgetService.assertProjectActive(organizationId, item.budget.projectId, tx);
 
-    return ArchitectureBudgetService.mapBudgetItemDTO(updated);
+      const updateData: any = {};
+      if (data.description !== undefined) {
+        if (!data.description.trim()) {
+          const err: any = new Error("La descripción del rubro no puede estar vacía.");
+          err.statusCode = 400;
+          throw err;
+        }
+        updateData.description = data.description.trim();
+      }
+      if (data.category !== undefined) {
+        updateData.category = data.category?.trim() || "General";
+      }
+      if (data.quantity !== undefined) {
+        const q = new Prisma.Decimal(data.quantity);
+        if (q.lt(0)) {
+          const err: any = new Error("La cantidad no puede ser negativa.");
+          err.statusCode = 400;
+          throw err;
+        }
+        updateData.quantity = q;
+      }
+      if (data.unitPrice !== undefined) {
+        const p = new Prisma.Decimal(data.unitPrice);
+        if (p.lt(0)) {
+          const err: any = new Error("El precio unitario no puede ser negativo.");
+          err.statusCode = 400;
+          throw err;
+        }
+        updateData.unitPrice = p;
+      }
+      if (data.order !== undefined) {
+        updateData.order = data.order;
+      }
+
+      const updated = await tx.architectureBudgetItem.update({
+        where: { id: itemId },
+        data: updateData,
+      });
+
+      return ArchitectureBudgetService.mapBudgetItemDTO(updated);
+    }, client);
   }
 }

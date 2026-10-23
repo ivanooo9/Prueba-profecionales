@@ -1,10 +1,39 @@
 import { Request, Response } from "express";
-import { AcademicService } from "../services/academic.service";
+import { AcademicService, AcademicAccessContext } from "../services/academic.service";
 
 function parseParamId(raw: string | string[] | undefined): number {
   if (!raw) return NaN;
   const val = Array.isArray(raw) ? raw[0] : raw;
   return parseInt(String(val), 10);
+}
+
+function parseOptionalPositiveInt(raw: any, paramName: string): number | undefined {
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  const str = String(Array.isArray(raw) ? raw[0] : raw).trim();
+  if (!/^\d+$/.test(str)) {
+    const err: any = new Error(`El parámetro '${paramName}' debe ser un número entero positivo.`);
+    err.statusCode = 400;
+    throw err;
+  }
+  const num = parseInt(str, 10);
+  if (num <= 0) {
+    const err: any = new Error(`El parámetro '${paramName}' debe ser un número entero positivo.`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return num;
+}
+
+function parseOptionalDateString(raw: any, paramName: string): string | undefined {
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  const str = String(Array.isArray(raw) ? raw[0] : raw).trim();
+  const d = new Date(str);
+  if (isNaN(d.getTime())) {
+    const err: any = new Error(`El parámetro '${paramName}' debe tener un formato de fecha válido (YYYY-MM-DD).`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return str;
 }
 
 function getOrgId(req: Request): number {
@@ -13,6 +42,70 @@ function getOrgId(req: Request): number {
     throw new Error("Identificador de organización inválido.");
   }
   return orgId;
+}
+
+function getAccessContext(req: Request, res: Response): AcademicAccessContext {
+  const user = (req as any).user || res.locals?.user;
+  const isGlobalAdmin = user?.role?.name === "ADMIN";
+  const member = (req as any).organizationMember || res.locals?.organizationMember;
+  const isOrgAdmin = member && (member.role === "OWNER" || member.role === "ADMIN");
+  const isAcademicAdmin = Boolean(isGlobalAdmin || isOrgAdmin);
+  const userId = user?.id ? Number(user.id) : undefined;
+  return {
+    userId,
+    isAcademicAdmin,
+  };
+}
+
+function getErrorStatus(error: any, defaultStatus = 400): number {
+  if (error?.statusCode && typeof error.statusCode === "number") {
+    return error.statusCode;
+  }
+  const msg = String(error?.message || "");
+  const code = String(error?.code || "");
+  if (
+    code === "ACADEMIC_PERIOD_NOT_STARTED" ||
+    code === "ACADEMIC_ATTENDANCE_DAY_CLOSED" ||
+    code === "ACADEMIC_ATTENDANCE_FUTURE_DATE" ||
+    code === "ACADEMIC_SUBJECT_NOT_SCHEDULED_TODAY" ||
+    code === "ACADEMIC_SCHEDULE_COURSE_CONFLICT" ||
+    code === "ACADEMIC_SCHEDULE_TEACHER_CONFLICT" ||
+    code === "COURSE_HAS_DEPENDENCIES" ||
+    msg.includes("ACADEMIC_PERIOD_NOT_STARTED") ||
+    msg.includes("ACADEMIC_ATTENDANCE_DAY_CLOSED") ||
+    msg.includes("ACADEMIC_ATTENDANCE_FUTURE_DATE") ||
+    msg.includes("ACADEMIC_SUBJECT_NOT_SCHEDULED_TODAY") ||
+    msg.includes("ACADEMIC_SCHEDULE_COURSE_CONFLICT") ||
+    msg.includes("ACADEMIC_SCHEDULE_TEACHER_CONFLICT") ||
+    msg.includes("Conflicto de horario") ||
+    msg.includes("no tiene horario de clases programado") ||
+    msg.includes("aún no ha iniciado") ||
+    msg.includes("está cerrada")
+  ) {
+    return 409;
+  }
+  if (
+    code === "ACADEMIC_UNAUTHORIZED_SCHEDULE" ||
+    code === "ACADEMIC_FORBIDDEN" ||
+    msg.includes("No tienes permisos") ||
+    msg.includes("permisos administrativos") ||
+    msg.includes("Acceso denegado") ||
+    msg.includes("no autorizado") ||
+    msg.includes("no pertenece")
+  ) {
+    return 403;
+  }
+  if (
+    msg.includes("no encontrado") ||
+    msg.includes("no encontrada") ||
+    msg.includes("no existe")
+  ) {
+    return 404;
+  }
+  if (msg.includes("Ya existe") || msg.includes("duplicado")) {
+    return 409;
+  }
+  return defaultStatus;
 }
 
 export class AcademicController {
@@ -37,7 +130,7 @@ export class AcademicController {
         data: course,
       });
     } catch (error: any) {
-      const status = error.message?.includes("Ya existe") ? 409 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al crear el curso.",
@@ -53,14 +146,15 @@ export class AcademicController {
       const courses = await AcademicService.getCourses(organizationId, {
         status: status as string | undefined,
         search: search as string | undefined,
-      });
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: courses,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al listar cursos.",
       });
@@ -75,13 +169,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de curso inválido." });
       }
 
-      const course = await AcademicService.getCourseById(organizationId, courseId);
+      const course = await AcademicService.getCourseById(organizationId, courseId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: course,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al obtener el curso.",
@@ -111,11 +205,7 @@ export class AcademicController {
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado")
-        ? 404
-        : error.message?.includes("Ya existe")
-        ? 409
-        : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar el curso.",
@@ -137,10 +227,79 @@ export class AcademicController {
         data: archived,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al archivar el curso.",
+      });
+    }
+  }
+
+  static async reactivateCourse(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const courseId = parseParamId(req.params.courseId);
+      if (isNaN(courseId) || courseId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de curso inválido." });
+      }
+
+      const reactivated = await AcademicService.reactivateCourse(organizationId, courseId);
+      return res.status(200).json({
+        success: true,
+        data: reactivated,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al reactivar el curso.",
+      });
+    }
+  }
+
+  static async getCourseDependencies(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const courseId = parseParamId(req.params.courseId);
+      if (isNaN(courseId) || courseId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de curso inválido." });
+      }
+
+      const deps = await AcademicService.getCourseDependencies(organizationId, courseId);
+      return res.status(200).json({
+        success: true,
+        data: deps,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al consultar dependencias del curso.",
+      });
+    }
+  }
+
+  static async deleteCourse(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const courseId = parseParamId(req.params.courseId);
+      if (isNaN(courseId) || courseId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de curso inválido." });
+      }
+
+      const deleted = await AcademicService.deleteCourse(organizationId, courseId);
+      return res.status(200).json({
+        success: true,
+        data: deleted,
+        message: "Curso eliminado definitivamente.",
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al eliminar el curso.",
+        code: error.code,
+        dependencies: error.dependencies,
       });
     }
   }
@@ -157,13 +316,17 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de curso inválido." });
       }
 
-      const { name, code, hoursPerWeek, teacherUserId } = req.body;
+      const { name, code, hoursPerWeek, teacherUserId, academicYearId, effectiveFrom, schedule, scheduleSlots } = req.body;
 
       const subject = await AcademicService.createSubject(organizationId, courseId, {
         name,
         code,
         hoursPerWeek: hoursPerWeek !== undefined && hoursPerWeek !== null ? Number(hoursPerWeek) : null,
         teacherUserId: teacherUserId ? parseInt(teacherUserId, 10) : null,
+        academicYearId: academicYearId ? Number(academicYearId) : undefined,
+        effectiveFrom,
+        schedule,
+        scheduleSlots,
       });
 
       return res.status(201).json({
@@ -171,11 +334,7 @@ export class AcademicController {
         data: subject,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado")
-        ? 404
-        : error.message?.includes("Ya existe")
-        ? 409
-        : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al registrar la materia.",
@@ -191,13 +350,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de curso inválido." });
       }
 
-      const subjects = await AcademicService.getSubjectsByCourse(organizationId, courseId);
+      const subjects = await AcademicService.getSubjectsByCourse(organizationId, courseId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: subjects,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al obtener materias.",
@@ -213,13 +372,17 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de materia inválido." });
       }
 
-      const { name, code, hoursPerWeek, teacherUserId } = req.body;
+      const { name, code, hoursPerWeek, teacherUserId, academicYearId, effectiveFrom, schedule, scheduleSlots } = req.body;
 
       const updated = await AcademicService.updateSubject(organizationId, subjectId, {
         name,
         code,
         hoursPerWeek: hoursPerWeek !== undefined && hoursPerWeek !== null ? Number(hoursPerWeek) : undefined,
         teacherUserId: teacherUserId !== undefined ? (teacherUserId ? parseInt(teacherUserId, 10) : null) : undefined,
+        academicYearId: academicYearId ? Number(academicYearId) : undefined,
+        effectiveFrom,
+        schedule,
+        scheduleSlots,
       });
 
       return res.status(200).json({
@@ -227,11 +390,7 @@ export class AcademicController {
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada")
-        ? 404
-        : error.message?.includes("Ya existe")
-        ? 409
-        : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar la materia.",
@@ -253,10 +412,108 @@ export class AcademicController {
         data: inactivated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al inactivar la materia.",
+      });
+    }
+  }
+
+  // ============================================================================
+  // HORARIOS SEMANALES (FASE 11.2)
+  // ============================================================================
+
+  static async getSubjectSchedule(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const subjectId = parseParamId(req.params.subjectId);
+      if (isNaN(subjectId) || subjectId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de materia inválido." });
+      }
+
+      const includeHistory = req.query.includeHistory === "true" || req.query.history === "true";
+      const effectiveDate = req.query.effectiveDate ? String(req.query.effectiveDate) : undefined;
+
+      const schedule = await AcademicService.getSubjectSchedule(organizationId, subjectId, {
+        effectiveDate,
+        includeHistory,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: schedule,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al consultar el horario de la materia.",
+      });
+    }
+  }
+
+  static async saveSubjectSchedule(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const subjectId = parseParamId(req.params.subjectId);
+      if (isNaN(subjectId) || subjectId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de materia inválido." });
+      }
+
+      const accessContext = getAccessContext(req, res);
+      const { academicYearId, effectiveFrom, slots } = req.body;
+
+      const result = await AcademicService.saveSubjectSchedule(
+        organizationId,
+        subjectId,
+        {
+          academicYearId: Number(academicYearId),
+          effectiveFrom,
+          slots: slots || [],
+        },
+        accessContext.userId || 0,
+        Boolean(accessContext.isAcademicAdmin)
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al guardar el horario de la materia.",
+      });
+    }
+  }
+
+  static async getCourseSchedule(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const courseId = parseParamId(req.params.courseId);
+      if (isNaN(courseId) || courseId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de curso inválido." });
+      }
+
+      const academicYearId = req.query.academicYearId ? parseParamId(String(req.query.academicYearId)) : undefined;
+      const effectiveDate = req.query.effectiveDate ? String(req.query.effectiveDate) : undefined;
+
+      const schedule = await AcademicService.getCourseSchedule(organizationId, courseId, {
+        academicYearId: !isNaN(academicYearId || NaN) ? academicYearId : undefined,
+        effectiveDate,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: schedule,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al consultar el horario del curso.",
       });
     }
   }
@@ -283,7 +540,7 @@ export class AcademicController {
         data: student,
       });
     } catch (error: any) {
-      const status = error.message?.includes("Ya existe") ? 409 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al registrar el estudiante.",
@@ -300,14 +557,15 @@ export class AcademicController {
         status: status as string | undefined,
         courseId: courseId ? parseInt(courseId as string, 10) : undefined,
         search: search as string | undefined,
-      });
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: students,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al listar estudiantes.",
       });
@@ -322,13 +580,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de estudiante inválido." });
       }
 
-      const student = await AcademicService.getStudentById(organizationId, studentId);
+      const student = await AcademicService.getStudentById(organizationId, studentId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: student,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al obtener el estudiante.",
@@ -359,11 +617,7 @@ export class AcademicController {
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado")
-        ? 404
-        : error.message?.includes("Ya existe")
-        ? 409
-        : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar el estudiante.",
@@ -385,7 +639,7 @@ export class AcademicController {
         data: inactivated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al inactivar el estudiante.",
@@ -400,10 +654,14 @@ export class AcademicController {
   static async enrollStudent(req: Request, res: Response) {
     try {
       const organizationId = getOrgId(req);
-      const { studentId, courseId, period } = req.body;
+      const { studentId, courseId, period, academicYearId } = req.body;
 
       const parsedStudentId = parseInt(studentId, 10);
       const parsedCourseId = parseInt(courseId, 10);
+      const parsedAcademicYearId =
+        academicYearId !== undefined && academicYearId !== null
+          ? parseInt(String(academicYearId), 10)
+          : undefined;
 
       if (isNaN(parsedStudentId) || isNaN(parsedCourseId)) {
         return res.status(400).json({
@@ -412,10 +670,22 @@ export class AcademicController {
         });
       }
 
+      if (
+        parsedAcademicYearId === undefined ||
+        isNaN(parsedAcademicYearId) ||
+        parsedAcademicYearId <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "El identificador de año lectivo (academicYearId) es requerido y debe ser numérico.",
+        });
+      }
+
       const enrollment = await AcademicService.enrollStudent(organizationId, {
         studentId: parsedStudentId,
         courseId: parsedCourseId,
         period,
+        academicYearId: parsedAcademicYearId,
       });
 
       return res.status(201).json({
@@ -423,11 +693,15 @@ export class AcademicController {
         data: enrollment,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no existe")
-        ? 404
-        : error.message?.includes("ya se encuentra matriculado")
-        ? 409
-        : 400;
+      const isNotFound =
+        error.message?.includes("no existe") || error.message?.includes("no encontrado");
+      const isConflict =
+        error.message?.includes("ya se encuentra matriculado") ||
+        error.message?.includes("ya cuenta con una matrícula") ||
+        error.message?.includes("incompatible con este curso") ||
+        error.message?.includes("P2002");
+
+      const status = isNotFound ? 404 : isConflict ? 409 : 400;
       return res.status(status).json({
         success: false,
         error: error.message || "Error al procesar la matrícula.",
@@ -451,7 +725,8 @@ export class AcademicController {
         data: enrollments,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al consultar matrículas.",
       });
@@ -482,7 +757,7 @@ export class AcademicController {
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar estado de la matrícula.",
@@ -532,7 +807,7 @@ export class AcademicController {
         data: session,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al programar la sesión de clase.",
@@ -554,14 +829,15 @@ export class AcademicController {
         from: from as string | undefined,
         to: to as string | undefined,
         search: search as string | undefined,
-      });
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: sessions,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al listar sesiones de clase.",
       });
@@ -576,13 +852,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de sesión inválido." });
       }
 
-      const session = await AcademicService.getSessionById(organizationId, sessionId);
+      const session = await AcademicService.getSessionById(organizationId, sessionId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: session,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al obtener la sesión de clase.",
@@ -625,7 +901,7 @@ export class AcademicController {
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar la sesión de clase.",
@@ -652,7 +928,7 @@ export class AcademicController {
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar el estado de la sesión.",
@@ -674,7 +950,7 @@ export class AcademicController {
         data: cancelled,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al cancelar la sesión de clase.",
@@ -711,7 +987,8 @@ export class AcademicController {
       const saved = await AcademicService.saveAttendanceBatch(
         organizationId,
         sessionId,
-        sanitizedRecords
+        sanitizedRecords,
+        getAccessContext(req, res)
       );
 
       return res.status(200).json({
@@ -719,10 +996,63 @@ export class AcademicController {
         data: saved,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al guardar el registro de asistencia.",
+      });
+    }
+  }
+
+  static async rectifyAttendanceBatch(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const sessionId = parseParamId(req.params.sessionId || req.body.sessionId);
+      if (isNaN(sessionId) || sessionId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de sesión inválido." });
+      }
+
+      const { records, reason } = req.body;
+      if (!Array.isArray(records)) {
+        return res.status(400).json({
+          success: false,
+          error: "El campo 'records' debe ser una lista de registros de asistencia.",
+        });
+      }
+
+      if (!reason || typeof reason !== "string" || reason.trim().length < 10) {
+        return res.status(400).json({
+          success: false,
+          error: "Debe proporcionar un motivo de rectificación válido (mínimo 10 caracteres).",
+          code: "INVALID_RECTIFICATION_REASON",
+        });
+      }
+
+      const sanitizedRecords = records.map((r: any) => ({
+        studentId: parseInt(r.studentId, 10),
+        status: String(r.status || "").trim(),
+        observation: r.observation ? String(r.observation).trim() : null,
+      }));
+
+      const accessContext = getAccessContext(req, res);
+      const result = await AcademicService.rectifyAttendanceBatch(
+        organizationId,
+        sessionId,
+        sanitizedRecords,
+        reason,
+        accessContext
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al rectificar el registro de asistencia.",
+        code: error.code,
       });
     }
   }
@@ -735,13 +1065,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de sesión inválido." });
       }
 
-      const records = await AcademicService.getAttendanceBySession(organizationId, sessionId);
+      const records = await AcademicService.getAttendanceBySession(organizationId, sessionId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: records,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al obtener la asistencia de la sesión.",
@@ -760,14 +1090,15 @@ export class AcademicController {
         studentId: studentId ? parseInt(String(studentId), 10) : undefined,
         date: date as string | undefined,
         status: status as string | undefined,
-      });
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: history,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al consultar historial de asistencia.",
       });
@@ -787,14 +1118,14 @@ export class AcademicController {
       const updated = await AcademicService.updateAttendanceRecord(organizationId, attendanceId, {
         status: status ? String(status).trim() : undefined,
         observation: observation !== undefined ? (observation ? String(observation).trim() : null) : undefined,
-      });
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar registro de asistencia.",
@@ -814,7 +1145,18 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de curso inválido." });
       }
 
-      const { subjectId, name, description, type, dueDate, maxScore, teacherUserId } = req.body;
+      const {
+        subjectId,
+        name,
+        description,
+        type,
+        dueDate,
+        maxScore,
+        teacherUserId,
+        academicPeriodId,
+        evaluationSchemeId,
+        categoryId,
+      } = req.body;
 
       const parsedSubjectId = parseInt(String(subjectId), 10);
       if (isNaN(parsedSubjectId) || parsedSubjectId <= 0) {
@@ -833,17 +1175,21 @@ export class AcademicController {
         dueDate: dueDate || null,
         maxScore: Number(maxScore),
         teacherUserId: teacherUserId ? parseInt(String(teacherUserId), 10) : null,
-      });
+        academicPeriodId: academicPeriodId ? parseInt(String(academicPeriodId), 10) : null,
+        evaluationSchemeId: evaluationSchemeId ? parseInt(String(evaluationSchemeId), 10) : null,
+        categoryId: categoryId ? parseInt(String(categoryId), 10) : null,
+      }, getAccessContext(req, res));
 
       return res.status(201).json({
         success: true,
         data: created,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al registrar la actividad.",
+        code: error.code || undefined,
       });
     }
   }
@@ -861,14 +1207,15 @@ export class AcademicController {
         subjectId: subjectId ? parseInt(String(subjectId), 10) : undefined,
         type: type as string | undefined,
         search: search as string | undefined,
-      });
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: activities,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al consultar actividades.",
       });
@@ -883,13 +1230,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de actividad inválido." });
       }
 
-      const activity = await AcademicService.getActivityById(organizationId, activityId);
+      const activity = await AcademicService.getActivityById(organizationId, activityId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: activity,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al obtener detalle de la actividad.",
@@ -905,7 +1252,17 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de actividad inválido." });
       }
 
-      const { name, description, type, dueDate, maxScore, teacherUserId } = req.body;
+      const {
+        name,
+        description,
+        type,
+        dueDate,
+        maxScore,
+        teacherUserId,
+        academicPeriodId,
+        evaluationSchemeId,
+        categoryId,
+      } = req.body;
 
       if (maxScore !== undefined && (typeof maxScore !== "number" || isNaN(maxScore) || !isFinite(maxScore) || maxScore <= 0)) {
         return res.status(400).json({ success: false, error: "El campo maxScore debe ser un número finito mayor a 0." });
@@ -918,17 +1275,21 @@ export class AcademicController {
         dueDate: dueDate !== undefined ? (dueDate ? String(dueDate) : null) : undefined,
         maxScore: maxScore !== undefined ? Number(maxScore) : undefined,
         teacherUserId: teacherUserId !== undefined ? (teacherUserId ? parseInt(String(teacherUserId), 10) : null) : undefined,
-      });
+        academicPeriodId: academicPeriodId !== undefined ? (academicPeriodId ? parseInt(String(academicPeriodId), 10) : null) : undefined,
+        evaluationSchemeId: evaluationSchemeId !== undefined ? (evaluationSchemeId ? parseInt(String(evaluationSchemeId), 10) : null) : undefined,
+        categoryId: categoryId !== undefined ? (categoryId ? parseInt(String(categoryId), 10) : null) : undefined,
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar la actividad.",
+        code: error.code || undefined,
       });
     }
   }
@@ -945,7 +1306,7 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de actividad inválido." });
       }
 
-      const { grades } = req.body;
+      const { grades, reason } = req.body;
       if (!Array.isArray(grades) || grades.length === 0) {
         return res.status(400).json({
           success: false,
@@ -953,16 +1314,23 @@ export class AcademicController {
         });
       }
 
+      const changedByUserId = (req as any).user?.id ? Number((req as any).user.id) : null;
+
       const formattedGrades = grades.map((item: any) => ({
-        studentId: parseInt(String(item.studentId), 10),
-        score: item.score !== undefined && item.score !== null ? Number(item.score) : NaN,
+        studentId: item.studentId ? parseInt(String(item.studentId), 10) : undefined,
+        enrollmentId: item.enrollmentId ? parseInt(String(item.enrollmentId), 10) : undefined,
+        score: item.score !== undefined && item.score !== null ? Number(item.score) : (item.score === null ? null : undefined),
+        status: item.status ? (String(item.status).trim().toUpperCase() as any) : undefined,
         comments: item.comments ? String(item.comments) : null,
+        reason: item.reason ? String(item.reason) : undefined,
       }));
 
       const saved = await AcademicService.saveGradesBatch(
         organizationId,
         activityId,
-        formattedGrades
+        formattedGrades,
+        { reason: reason ? String(reason) : undefined, changedByUserId },
+        getAccessContext(req, res)
       );
 
       return res.status(200).json({
@@ -970,7 +1338,7 @@ export class AcademicController {
         data: saved,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al guardar el lote de calificaciones.",
@@ -986,13 +1354,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de actividad inválido." });
       }
 
-      const grades = await AcademicService.getGradesByActivity(organizationId, activityId);
+      const grades = await AcademicService.getGradesByActivity(organizationId, activityId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: grades,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al consultar las calificaciones de la actividad.",
@@ -1010,14 +1378,15 @@ export class AcademicController {
         subjectId: subjectId ? parseInt(String(subjectId), 10) : undefined,
         activityId: activityId ? parseInt(String(activityId), 10) : undefined,
         studentId: studentId ? parseInt(String(studentId), 10) : undefined,
-      });
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: history,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al consultar historial de calificaciones.",
       });
@@ -1032,13 +1401,13 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de estudiante inválido." });
       }
 
-      const grades = await AcademicService.getStudentGrades(organizationId, studentId);
+      const grades = await AcademicService.getStudentGrades(organizationId, studentId, getAccessContext(req, res));
       return res.status(200).json({
         success: true,
         data: grades,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al consultar calificaciones del estudiante.",
@@ -1054,15 +1423,138 @@ export class AcademicController {
         return res.status(400).json({ success: false, error: "ID de calificación inválido." });
       }
 
-      const { score, comments } = req.body;
+      const { score, status, comments, reason } = req.body;
 
-      if (score !== undefined && (typeof score !== "number" || isNaN(score) || !isFinite(score) || score < 0)) {
-        return res.status(400).json({ success: false, error: "El campo score debe ser un número no negativo válido." });
+      if (score !== undefined && score !== null && (typeof score !== "number" || isNaN(score) || !isFinite(score) || score < 0)) {
+        return res.status(400).json({ success: false, error: "El campo score debe ser un número no negativo válido o null." });
       }
 
+      const changedByUserId = (req as any).user?.id ? Number((req as any).user.id) : null;
+
       const updated = await AcademicService.updateGradeRecord(organizationId, gradeId, {
-        score: score !== undefined ? Number(score) : undefined,
+        score: score !== undefined ? (score === null ? null : Number(score)) : undefined,
+        status: status ? (String(status).trim().toUpperCase() as any) : undefined,
         comments: comments !== undefined ? (comments ? String(comments).trim() : null) : undefined,
+        reason: reason ? String(reason).trim() : undefined,
+        changedByUserId,
+      }, getAccessContext(req, res));
+
+      return res.status(200).json({
+        success: true,
+        data: updated,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al actualizar la calificación.",
+      });
+    }
+  }
+
+  // ============================================================================
+  // AÑOS LECTIVOS (AcademicYear - FASE 3/4)
+  // ============================================================================
+
+  static async createAcademicYear(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const { name, startDate, endDate, status } = req.body;
+
+      if (!name || !startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          error: "Los campos name, startDate y endDate son obligatorios.",
+        });
+      }
+
+      const year = await AcademicService.createAcademicYear(organizationId, {
+        name,
+        startDate,
+        endDate,
+        status,
+      });
+
+      return res.status(201).json({
+        success: true,
+        data: year,
+      });
+    } catch (error: any) {
+      const isConflict =
+        error.message?.includes("ACADEMIC_YEAR_ALREADY_ACTIVE") ||
+        error.message?.includes("Ya existe");
+      const status = isConflict ? 409 : 400;
+      const errorMsg = error.message?.includes("ACADEMIC_YEAR_ALREADY_ACTIVE")
+        ? "Ya existe un año lectivo activo en esta institución. Cierra o archiva el año actual antes de activar otro."
+        : error.message || "Error al crear el año lectivo.";
+
+      return res.status(status).json({
+        success: false,
+        error: errorMsg,
+      });
+    }
+  }
+
+  static async getAcademicYears(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const { status, search } = req.query;
+
+      const years = await AcademicService.getAcademicYears(organizationId, {
+        status: status as any,
+        search: search as string | undefined,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: years,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al consultar años lectivos.",
+      });
+    }
+  }
+
+  static async getAcademicYearById(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const yearId = parseParamId(req.params.yearId);
+      if (isNaN(yearId) || yearId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de año lectivo inválido." });
+      }
+
+      const year = await AcademicService.getAcademicYearById(organizationId, yearId);
+      return res.status(200).json({
+        success: true,
+        data: year,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al obtener el año lectivo.",
+      });
+    }
+  }
+
+  static async updateAcademicYear(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const yearId = parseParamId(req.params.yearId);
+      if (isNaN(yearId) || yearId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de año lectivo inválido." });
+      }
+
+      const { name, startDate, endDate, status } = req.body;
+
+      const updated = await AcademicService.updateAcademicYear(organizationId, yearId, {
+        name,
+        startDate,
+        endDate,
+        status,
       });
 
       return res.status(200).json({
@@ -1070,10 +1562,567 @@ export class AcademicController {
         data: updated,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrada") ? 404 : 400;
+      const isNotFound = error.message?.includes("no encontrado");
+      const isConflict =
+        error.message?.includes("ACADEMIC_YEAR_ALREADY_ACTIVE") ||
+        error.message?.includes("Ya existe");
+      const status = isNotFound ? 404 : isConflict ? 409 : 400;
+      const errorMsg = error.message?.includes("ACADEMIC_YEAR_ALREADY_ACTIVE")
+        ? "Ya existe un año lectivo activo en esta institución. Cierra o archiva el año actual antes de activar otro."
+        : error.message || "Error al actualizar el año lectivo.";
+
       return res.status(status).json({
         success: false,
-        error: error.message || "Error al actualizar la calificación.",
+        error: errorMsg,
+      });
+    }
+  }
+
+  static async changeAcademicYearStatus(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const yearId = parseParamId(req.params.yearId);
+      if (isNaN(yearId) || yearId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de año lectivo inválido." });
+      }
+
+      const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ success: false, error: "El campo status es obligatorio." });
+      }
+
+      const updated = await AcademicService.changeAcademicYearStatus(organizationId, yearId, status);
+      return res.status(200).json({
+        success: true,
+        data: updated,
+      });
+    } catch (error: any) {
+      const isNotFound = error.message?.includes("no encontrado");
+      const isConflict =
+        error.message?.includes("ACADEMIC_YEAR_ALREADY_ACTIVE") ||
+        error.message?.includes("Ya existe");
+      const status = isNotFound ? 404 : isConflict ? 409 : 400;
+      const errorMsg = error.message?.includes("ACADEMIC_YEAR_ALREADY_ACTIVE")
+        ? "Ya existe un año lectivo activo en esta institución. Cierra o archiva el año actual antes de activar otro."
+        : error.message || "Error al cambiar el estado del año lectivo.";
+
+      return res.status(status).json({
+        success: false,
+        error: errorMsg,
+      });
+    }
+  }
+
+  // ============================================================================
+  // PERIODOS ACADÉMICOS (AcademicPeriod - FASE 3/4)
+  // ============================================================================
+
+  static async createAcademicPeriod(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const { academicYearId, parentId, name, type, order, startDate, endDate, status } = req.body;
+
+      const parsedYearId = parseInt(String(academicYearId), 10);
+      if (isNaN(parsedYearId) || parsedYearId <= 0) {
+        return res.status(400).json({ success: false, error: "El campo academicYearId es obligatorio y debe ser numérico." });
+      }
+
+      if (!name || !type || !startDate || !endDate) {
+        return res.status(400).json({ success: false, error: "Los campos name, type, startDate y endDate son obligatorios." });
+      }
+
+      const period = await AcademicService.createAcademicPeriod(organizationId, {
+        academicYearId: parsedYearId,
+        parentId: parentId ? parseInt(String(parentId), 10) : null,
+        name,
+        type,
+        order: order !== undefined ? Number(order) : undefined,
+        startDate,
+        endDate,
+        status,
+      });
+
+      return res.status(201).json({
+        success: true,
+        data: period,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al registrar el periodo académico.",
+      });
+    }
+  }
+
+  static async getAcademicPeriods(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const { academicYearId, parentId, type, status } = req.query;
+
+      const periods = await AcademicService.getAcademicPeriods(organizationId, {
+        academicYearId: academicYearId ? parseInt(String(academicYearId), 10) : undefined,
+        parentId: parentId !== undefined ? (parentId === "null" || parentId === "" ? null : parseInt(String(parentId), 10)) : undefined,
+        type: type as any,
+        status: status as any,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: periods,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al consultar periodos académicos.",
+      });
+    }
+  }
+
+  static async getAcademicPeriodById(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const periodId = parseParamId(req.params.periodId);
+      if (isNaN(periodId) || periodId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de periodo inválido." });
+      }
+
+      const period = await AcademicService.getAcademicPeriodById(organizationId, periodId);
+      return res.status(200).json({
+        success: true,
+        data: period,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al obtener el periodo académico.",
+      });
+    }
+  }
+
+  static async updateAcademicPeriod(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const periodId = parseParamId(req.params.periodId);
+      if (isNaN(periodId) || periodId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de periodo inválido." });
+      }
+
+      const { name, type, order, startDate, endDate, parentId, status } = req.body;
+
+      const updated = await AcademicService.updateAcademicPeriod(organizationId, periodId, {
+        name,
+        type,
+        order: order !== undefined ? Number(order) : undefined,
+        startDate,
+        endDate,
+        parentId: parentId !== undefined ? (parentId === null ? null : parseInt(String(parentId), 10)) : undefined,
+        status,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: updated,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al actualizar el periodo académico.",
+      });
+    }
+  }
+
+  static async getPeriodClosureReadiness(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const periodId = parseParamId(req.params.periodId);
+      if (isNaN(periodId) || periodId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de periodo inválido." });
+      }
+
+      const readiness = await AcademicService.getPeriodClosureReadiness(organizationId, periodId);
+      return res.status(200).json({
+        success: true,
+        data: readiness,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al obtener la verificación de cierre del periodo.",
+      });
+    }
+  }
+
+  static async changeAcademicPeriodStatus(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const periodId = parseParamId(req.params.periodId);
+      if (isNaN(periodId) || periodId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de periodo inválido." });
+      }
+
+      const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ success: false, error: "El campo status es obligatorio." });
+      }
+
+      const updated = await AcademicService.changeAcademicPeriodStatus(organizationId, periodId, status);
+      return res.status(200).json({
+        success: true,
+        data: updated,
+      });
+    } catch (error: any) {
+      if (error.code === "ACADEMIC_PERIOD_NOT_READY_TO_CLOSE" || error.statusCode === 409) {
+        return res.status(409).json({
+          success: false,
+          error: error.message || "El periodo académico no cumple los requisitos para ser cerrado.",
+          code: "ACADEMIC_PERIOD_NOT_READY_TO_CLOSE",
+          blockers: error.blockers || [],
+          readiness: error.readiness || null,
+        });
+      }
+
+      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al cambiar el estado del periodo académico.",
+      });
+    }
+  }
+
+  // ============================================================================
+  // ESQUEMAS DE EVALUACIÓN (AcademicEvaluationScheme - FASE 3/4)
+  // ============================================================================
+
+  static async createEvaluationScheme(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const { courseId, subjectId, academicPeriodId, maxScale, minPassingScore, status } = req.body;
+
+      const parsedCourseId = parseInt(String(courseId), 10);
+      const parsedSubjectId = parseInt(String(subjectId), 10);
+      const parsedPeriodId = parseInt(String(academicPeriodId), 10);
+
+      if (isNaN(parsedCourseId) || isNaN(parsedSubjectId) || isNaN(parsedPeriodId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Los campos courseId, subjectId y academicPeriodId son obligatorios y numéricos.",
+        });
+      }
+
+      const scheme = await AcademicService.createEvaluationScheme(organizationId, {
+        courseId: parsedCourseId,
+        subjectId: parsedSubjectId,
+        academicPeriodId: parsedPeriodId,
+        maxScale: maxScale !== undefined ? Number(maxScale) : undefined,
+        minPassingScore: minPassingScore !== undefined ? Number(minPassingScore) : undefined,
+        status,
+      }, getAccessContext(req, res));
+
+      return res.status(201).json({
+        success: true,
+        data: scheme,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al crear el esquema de evaluación.",
+      });
+    }
+  }
+
+  static async getEvaluationSchemes(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const { academicPeriodId, courseId, subjectId, status } = req.query;
+
+      const schemes = await AcademicService.getEvaluationSchemes(organizationId, {
+        academicPeriodId: academicPeriodId ? parseInt(String(academicPeriodId), 10) : undefined,
+        courseId: courseId ? parseInt(String(courseId), 10) : undefined,
+        subjectId: subjectId ? parseInt(String(subjectId), 10) : undefined,
+        status: status as any,
+      }, getAccessContext(req, res));
+
+      return res.status(200).json({
+        success: true,
+        data: schemes,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al consultar esquemas de evaluación.",
+      });
+    }
+  }
+
+  static async getEvaluationSchemeById(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const schemeId = parseParamId(req.params.schemeId);
+      if (isNaN(schemeId) || schemeId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de esquema inválido." });
+      }
+
+      const scheme = await AcademicService.getEvaluationSchemeById(organizationId, schemeId, getAccessContext(req, res));
+      return res.status(200).json({
+        success: true,
+        data: scheme,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al obtener el esquema de evaluación.",
+      });
+    }
+  }
+
+  static async updateEvaluationScheme(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const schemeId = parseParamId(req.params.schemeId);
+      if (isNaN(schemeId) || schemeId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de esquema inválido." });
+      }
+
+      const { maxScale, minPassingScore, status } = req.body;
+
+      const updated = await AcademicService.updateEvaluationScheme(organizationId, schemeId, {
+        maxScale: maxScale !== undefined ? Number(maxScale) : undefined,
+        minPassingScore: minPassingScore !== undefined ? Number(minPassingScore) : undefined,
+        status,
+      }, getAccessContext(req, res));
+
+      return res.status(200).json({
+        success: true,
+        data: updated,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al actualizar el esquema de evaluación.",
+      });
+    }
+  }
+
+  static async validateEvaluationScheme(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const schemeId = parseParamId(req.params.schemeId);
+      if (isNaN(schemeId) || schemeId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de esquema inválido." });
+      }
+
+      const validated = await AcademicService.validateEvaluationScheme(organizationId, schemeId, getAccessContext(req, res));
+      return res.status(200).json({
+        success: true,
+        data: validated,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al validar el esquema de evaluación.",
+      });
+    }
+  }
+
+  static async lockEvaluationScheme(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const schemeId = parseParamId(req.params.schemeId);
+      if (isNaN(schemeId) || schemeId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de esquema inválido." });
+      }
+
+      const locked = await AcademicService.lockEvaluationScheme(organizationId, schemeId, getAccessContext(req, res));
+      return res.status(200).json({
+        success: true,
+        data: locked,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al bloquear el esquema de evaluación.",
+      });
+    }
+  }
+
+  static async closeEvaluationScheme(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const schemeId = parseParamId(req.params.schemeId);
+      if (isNaN(schemeId) || schemeId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de esquema inválido." });
+      }
+
+      const closed = await AcademicService.closeEvaluationScheme(organizationId, schemeId, getAccessContext(req, res));
+      return res.status(200).json({
+        success: true,
+        data: closed,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al cerrar el esquema de evaluación.",
+      });
+    }
+  }
+
+  // ============================================================================
+  // CATEGORÍAS DE EVALUACIÓN (AcademicEvaluationCategory - FASE 3/4)
+  // ============================================================================
+
+  static async createEvaluationCategory(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const schemeId = parseParamId(req.params.schemeId);
+      if (isNaN(schemeId) || schemeId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de esquema inválido." });
+      }
+
+      const { name, weightPercentage, order } = req.body;
+
+      if (!name || weightPercentage === undefined || weightPercentage === null) {
+        return res.status(400).json({
+          success: false,
+          error: "Los campos name y weightPercentage son obligatorios.",
+        });
+      }
+
+      const category = await AcademicService.createEvaluationCategory(organizationId, schemeId, {
+        name,
+        weightPercentage: Number(weightPercentage),
+        order: order !== undefined ? Number(order) : undefined,
+      }, getAccessContext(req, res));
+
+      return res.status(201).json({
+        success: true,
+        data: category,
+      });
+    } catch (error: any) {
+      const isNotFound = error.message?.includes("no encontrado");
+      const isConflict = error.message?.includes("EVALUATION_CATEGORY_DUPLICATE") || error.message?.includes("Ya existe");
+      const status = isNotFound ? 404 : isConflict ? 409 : 400;
+      const errorMsg = error.message?.includes("EVALUATION_CATEGORY_DUPLICATE")
+        ? "Ya existe una categoría con ese nombre en este esquema."
+        : error.message || "Error al registrar la categoría de evaluación.";
+
+      return res.status(status).json({
+        success: false,
+        error: errorMsg,
+      });
+    }
+  }
+
+  static async updateEvaluationCategory(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const categoryId = parseParamId(req.params.categoryId);
+      if (isNaN(categoryId) || categoryId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de categoría inválido." });
+      }
+
+      const { name, weightPercentage, order } = req.body;
+
+      const updated = await AcademicService.updateEvaluationCategory(organizationId, categoryId, {
+        name,
+        weightPercentage: weightPercentage !== undefined ? Number(weightPercentage) : undefined,
+        order: order !== undefined ? Number(order) : undefined,
+      }, getAccessContext(req, res));
+
+      return res.status(200).json({
+        success: true,
+        data: updated,
+      });
+    } catch (error: any) {
+      const isNotFound = error.message?.includes("no encontrada");
+      const isConflict = error.message?.includes("EVALUATION_CATEGORY_DUPLICATE") || error.message?.includes("Ya existe");
+      const status = isNotFound ? 404 : isConflict ? 409 : 400;
+      const errorMsg = error.message?.includes("EVALUATION_CATEGORY_DUPLICATE")
+        ? "Ya existe una categoría con ese nombre en este esquema."
+        : error.message || "Error al actualizar la categoría de evaluación.";
+
+      return res.status(status).json({
+        success: false,
+        error: errorMsg,
+      });
+    }
+  }
+
+  static async deleteEvaluationCategory(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const categoryId = parseParamId(req.params.categoryId);
+      if (isNaN(categoryId) || categoryId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de categoría inválido." });
+      }
+
+      const deleted = await AcademicService.deleteEvaluationCategory(organizationId, categoryId, getAccessContext(req, res));
+      return res.status(200).json({
+        success: true,
+        data: deleted,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al eliminar la categoría de evaluación.",
+      });
+    }
+  }
+
+  // ============================================================================
+  // SÁBANA / MATRIZ DE CALIFICACIONES (Grades Matrix - FASE 3/4)
+  // ============================================================================
+
+  static async getPeriodGradesMatrix(req: Request, res: Response) {
+    try {
+      const organizationId = getOrgId(req);
+      const { courseId, subjectId, academicPeriodId, periodId, studentId } = req.query;
+
+      const effectivePeriodId = academicPeriodId || periodId;
+
+      const parsedCourseId = parseInt(String(courseId), 10);
+      const parsedSubjectId = parseInt(String(subjectId), 10);
+      const parsedPeriodId = parseInt(String(effectivePeriodId), 10);
+
+      if (isNaN(parsedCourseId) || isNaN(parsedSubjectId) || isNaN(parsedPeriodId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Los parámetros de consulta courseId, subjectId y academicPeriodId son obligatorios y numéricos.",
+        });
+      }
+
+      const parsedStudentId = studentId ? parseInt(String(studentId), 10) : undefined;
+
+      const matrix = await AcademicService.calculatePeriodGradesMatrix(
+        organizationId,
+        parsedCourseId,
+        parsedSubjectId,
+        parsedPeriodId,
+        parsedStudentId,
+        getAccessContext(req, res)
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: matrix,
+      });
+    } catch (error: any) {
+      const status = getErrorStatus(error);
+      return res.status(status).json({
+        success: false,
+        error: error.message || "Error al calcular la matriz de calificaciones.",
       });
     }
   }
@@ -1085,16 +2134,15 @@ export class AcademicController {
   static async getDashboard(req: Request, res: Response) {
     try {
       const organizationId = getOrgId(req);
-      const currentUserId = (req as any).user?.id ? Number((req as any).user.id) : undefined;
-
-      const dashboard = await AcademicService.getDashboard(organizationId, currentUserId);
+      const dashboard = await AcademicService.getDashboard(organizationId, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: dashboard,
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const status = getErrorStatus(error, 400);
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al obtener el dashboard académico.",
       });
@@ -1108,19 +2156,20 @@ export class AcademicController {
   static async getRosterReport(req: Request, res: Response) {
     try {
       const organizationId = getOrgId(req);
-      const { courseId, status } = req.query;
+      const courseId = parseOptionalPositiveInt(req.query.courseId, "courseId");
+      const status = req.query.status ? String(req.query.status).trim() : undefined;
 
       const report = await AcademicService.getStudentRosterReport(organizationId, {
-        courseId: courseId ? parseInt(String(courseId), 10) : undefined,
-        status: status as string | undefined,
-      });
+        courseId,
+        status,
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: report,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al generar nómina de estudiantes.",
@@ -1131,22 +2180,37 @@ export class AcademicController {
   static async getAttendanceReport(req: Request, res: Response) {
     try {
       const organizationId = getOrgId(req);
-      const { courseId, subjectId, studentId, from, to } = req.query;
+      const courseId = parseOptionalPositiveInt(req.query.courseId, "courseId");
+      const subjectId = parseOptionalPositiveInt(req.query.subjectId, "subjectId");
+      const studentId = parseOptionalPositiveInt(req.query.studentId, "studentId");
+      const from = parseOptionalDateString(req.query.from, "from");
+      const to = parseOptionalDateString(req.query.to, "to");
+
+      if (from && to) {
+        const fromDate = new Date(from);
+        const toDate = new Date(to);
+        if (fromDate > toDate) {
+          return res.status(400).json({
+            success: false,
+            error: "Rango de fechas inválido: 'from' no puede ser posterior a 'to'.",
+          });
+        }
+      }
 
       const report = await AcademicService.getAttendanceReport(organizationId, {
-        courseId: courseId ? parseInt(String(courseId), 10) : undefined,
-        subjectId: subjectId ? parseInt(String(subjectId), 10) : undefined,
-        studentId: studentId ? parseInt(String(studentId), 10) : undefined,
-        from: from as string | undefined,
-        to: to as string | undefined,
-      });
+        courseId,
+        subjectId,
+        studentId,
+        from,
+        to,
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: report,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") || error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al generar reporte de asistencia.",
@@ -1157,19 +2221,20 @@ export class AcademicController {
   static async getGradeReport(req: Request, res: Response) {
     try {
       const organizationId = getOrgId(req);
-      const { courseId, subjectId } = req.query;
+      const courseId = parseOptionalPositiveInt(req.query.courseId, "courseId");
+      const subjectId = parseOptionalPositiveInt(req.query.subjectId, "subjectId");
 
       const report = await AcademicService.getGradeReport(organizationId, {
-        courseId: courseId ? parseInt(String(courseId), 10) : undefined,
-        subjectId: subjectId ? parseInt(String(subjectId), 10) : undefined,
-      });
+        courseId,
+        subjectId,
+      }, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: report,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") || error.message?.includes("no encontrada") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al generar boletín de calificaciones.",
@@ -1180,19 +2245,19 @@ export class AcademicController {
   static async getStudentReport(req: Request, res: Response) {
     try {
       const organizationId = getOrgId(req);
-      const studentId = parseParamId(req.params.studentId);
-      if (isNaN(studentId) || studentId <= 0) {
+      const studentId = parseOptionalPositiveInt(req.params.studentId, "studentId");
+      if (!studentId) {
         return res.status(400).json({ success: false, error: "ID de estudiante inválido." });
       }
 
-      const report = await AcademicService.getStudentReport(organizationId, studentId);
+      const report = await AcademicService.getStudentReport(organizationId, studentId, getAccessContext(req, res));
 
       return res.status(200).json({
         success: true,
         data: report,
       });
     } catch (error: any) {
-      const status = error.message?.includes("no encontrado") ? 404 : 400;
+      const status = getErrorStatus(error);
       return res.status(status).json({
         success: false,
         error: error.message || "Error al generar ficha individual del estudiante.",

@@ -21,10 +21,42 @@ const SECURE_JWT_SECRET = JWT_SECRET || "super-secret-key-professionals-ecuador-
 const SECURE_JWT_REFRESH_SECRET = JWT_REFRESH_SECRET || "super-secret-refresh-key-professionals-ecuador-2026";
 
 export const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-export const AUTH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  maxAge: AUTH_SESSION_MAX_AGE_MS,
-} as const;
+
+function getAuthCookiePolicy() {
+  const configuredSameSite = process.env.AUTH_COOKIE_SAME_SITE?.toLowerCase() || "lax";
+  if (!["strict", "lax", "none"].includes(configuredSameSite)) {
+    throw new Error("AUTH_COOKIE_SAME_SITE must be Strict, Lax, or None.");
+  }
+
+  const sameSite = configuredSameSite as "strict" | "lax" | "none";
+  return {
+    secure: process.env.NODE_ENV === "production" || sameSite === "none",
+    sameSite,
+  };
+}
+
+export function getAuthCookieOptions() {
+  return {
+    httpOnly: true,
+    maxAge: AUTH_SESSION_MAX_AGE_MS,
+    ...getAuthCookiePolicy(),
+  };
+}
+
+export function getAuthCookieClearOptions() {
+  return {
+    httpOnly: true,
+    ...getAuthCookiePolicy(),
+  };
+}
+
+export function getAuthCookieMetadataOptions() {
+  return {
+    httpOnly: false,
+    maxAge: AUTH_SESSION_MAX_AGE_MS,
+    ...getAuthCookiePolicy(),
+  };
+}
 
 const SESSION_REVOCATION_REASON = {
   CONCURRENT_LIMIT: "CONCURRENT_SESSION_LIMIT",
@@ -111,16 +143,6 @@ function getRequestIp(req?: ExpressRequest): string | null {
   if (!req) {
     return null;
   }
-
-  const forwardedFor = req.headers["x-forwarded-for"];
-  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
-    return forwardedFor.split(",")[0]?.trim() || null;
-  }
-
-  if (Array.isArray(forwardedFor) && forwardedFor[0]) {
-    return forwardedFor[0].split(",")[0]?.trim() || null;
-  }
-
   return req.ip || req.socket.remoteAddress || null;
 }
 

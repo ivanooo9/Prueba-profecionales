@@ -37,6 +37,130 @@ export function derivePaymentStatus(total: number, paidAmount: number): DentalPa
 
 export class DentistryBudgetService {
   /**
+   * Obtiene la lista de presupuestos formales de toda la organización con soporte de paginación y búsqueda.
+   */
+  public static async getOrganizationBudgets(
+    organizationId: number,
+    options?: {
+      status?: string;
+      patientId?: number;
+      search?: string;
+      page?: number;
+      limit?: number;
+      skip?: number;
+      take?: number;
+    },
+    client: any = db
+  ) {
+    const where: any = { organizationId };
+
+    if (options?.status) {
+      where.status = options.status;
+    }
+
+    if (options?.patientId) {
+      where.dentalRecord = { patientId: options.patientId };
+    }
+
+    if (options?.search && options.search.trim() !== "") {
+      const term = options.search.trim();
+      where.OR = [
+        { title: { contains: term, mode: "insensitive" } },
+        { dentalRecord: { patient: { name: { contains: term, mode: "insensitive" } } } },
+        { dentalRecord: { patient: { idNumber: { contains: term, mode: "insensitive" } } } },
+      ];
+    }
+
+    const page = options?.page && options.page > 0 ? options.page : 1;
+    const limit =
+      options?.limit && options.limit > 0
+        ? Math.min(options.limit, 100)
+        : options?.take
+        ? Math.min(options.take, 100)
+        : 50;
+    const skip = options?.skip !== undefined ? options.skip : (page - 1) * limit;
+
+    const [total, budgets] = await Promise.all([
+      client.dentalBudget.count({ where }),
+      client.dentalBudget.findMany({
+        where,
+        include: {
+          dentalRecord: {
+            include: {
+              patient: true,
+            },
+          },
+          items: {
+            orderBy: { createdAt: "asc" },
+          },
+          payments: {
+            orderBy: { paidAt: "asc" },
+          },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const mappedBudgets = budgets.map((b: any) => {
+      const paidAmount = Math.round(
+        b.payments.reduce((sum: number, p: any) => sum + (typeof p.amount === "number" ? p.amount : 0), 0) * 100
+      ) / 100;
+      const balance = Math.round(Math.max(0, b.total - paidAmount) * 100) / 100;
+      const paymentStatus = derivePaymentStatus(b.total, paidAmount);
+
+      return {
+        id: b.id,
+        organizationId: b.organizationId,
+        dentalRecordId: b.dentalRecordId,
+        treatmentPlanId: b.treatmentPlanId,
+        patientId: b.dentalRecord?.patientId,
+        patientName: b.dentalRecord?.patient?.name || "Paciente",
+        title: b.title || "Presupuesto Odontológico",
+        status: b.status,
+        subtotal: b.subtotal,
+        discount: b.discount,
+        total: b.total,
+        paidAmount,
+        balance,
+        paymentStatus,
+        notes: b.notes || undefined,
+        issuedAt: b.issuedAt.toISOString(),
+        createdAt: b.createdAt.toISOString(),
+        updatedAt: b.updatedAt.toISOString(),
+        items: b.items.map((it: any) => ({
+          id: it.id,
+          procedureName: it.procedureName,
+          toothNumber: it.toothNumber !== null ? it.toothNumber : undefined,
+          unitPrice: it.unitPrice,
+          treatmentItemId: it.treatmentItemId || undefined,
+          createdAt: it.createdAt.toISOString(),
+        })),
+        payments: b.payments.map((p: any) => ({
+          id: p.id,
+          amount: p.amount,
+          paymentMethod: p.paymentMethod || undefined,
+          reference: p.reference || undefined,
+          notes: p.notes || undefined,
+          paidAt: p.paidAt.toISOString(),
+          createdAt: p.createdAt.toISOString(),
+        })),
+      };
+    });
+
+    return {
+      budgets: mappedBudgets,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
    * Obtiene la lista de presupuestos formales del paciente (estrictamente READ-ONLY, sin efectos secundarios).
    */
   public static async getBudgets(

@@ -64,7 +64,11 @@ export const TreatmentCreateSchema = z.object({
 export const PreventiveCreateSchema = z.object({
   mascota: z.string().optional(),
   tipo: z.string().optional(),
-  proximaFecha: z.string().optional(),
+  proximaFecha: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const today = new Date().toLocaleDateString('en-CA');
+    return val >= today;
+  }, { message: "La fecha límite o próxima fecha no puede ser anterior a hoy" }),
   dosis: z.number().int().optional(),
   notas: z.string().max(5000).optional(),
   petId: z.string().optional(),
@@ -76,7 +80,11 @@ export const VaccinationCreateSchema = z.object({
   mascota: z.string().optional(),
   dosis: z.string().optional(),
   vacunaId: z.string().optional(),
-  proximaFecha: z.string().optional(),
+  proximaFecha: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const today = new Date().toLocaleDateString('en-CA');
+    return val >= today;
+  }, { message: "La fecha límite o próxima dosis no puede ser anterior a hoy" }),
   periodicidad: z.string().optional(),
   notas: z.string().max(5000).optional(),
   petId: z.string().optional(),

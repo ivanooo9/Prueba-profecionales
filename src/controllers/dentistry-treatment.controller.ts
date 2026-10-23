@@ -25,6 +25,28 @@ export class DentistryTreatmentController {
     }
   }
 
+  public static async seedDefaultProcedures(req: Request, res: Response) {
+    try {
+      const org = (req as any).organization || res.locals.organization;
+      if (!org?.id) {
+        return res.status(400).json({ success: false, error: "Organización no identificada." });
+      }
+
+      const result = await DentistryTreatmentService.seedDefaultProcedures(org.id);
+      return res.status(200).json({
+        success: true,
+        message: "Arancel odontológico ecuatoriano precargado exitosamente.",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("[DentistryTreatmentController.seedDefaultProcedures] Error:", error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Error al precargar arancel de procedimientos.",
+      });
+    }
+  }
+
   public static async createProcedure(req: Request, res: Response) {
     try {
       const org = (req as any).organization || res.locals.organization;
@@ -97,6 +119,39 @@ export class DentistryTreatmentController {
   // -------------------------------------------------------------
   // PLANES DE TRATAMIENTO (DentalTreatmentPlan)
   // -------------------------------------------------------------
+
+  public static async getAllTreatmentPlans(req: Request, res: Response) {
+    try {
+      const org = (req as any).organization || res.locals.organization;
+      if (!org?.id) {
+        return res.status(400).json({ success: false, error: "Organización no identificada." });
+      }
+
+      const { search, status, patientId, page, limit, skip, take } = req.query;
+      const result = await DentistryTreatmentService.getAllTreatmentPlans(org.id, {
+        search: typeof search === "string" ? search : undefined,
+        status: typeof status === "string" ? status : undefined,
+        patientId: patientId ? parseInt(String(patientId), 10) : undefined,
+        page: page ? parseInt(String(page), 10) : undefined,
+        limit: limit ? parseInt(String(limit), 10) : undefined,
+        skip: skip ? parseInt(String(skip), 10) : undefined,
+        take: take ? parseInt(String(take), 10) : undefined,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: result.plans,
+        pagination: result.pagination,
+        total: result.pagination.total,
+      });
+    } catch (error: any) {
+      console.error("[DentistryTreatmentController.getAllTreatmentPlans] Error:", error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Error al obtener planes de tratamiento de la organización.",
+      });
+    }
+  }
 
   public static async getTreatmentPlans(req: Request, res: Response) {
     try {

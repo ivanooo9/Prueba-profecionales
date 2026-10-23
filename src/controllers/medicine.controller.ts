@@ -161,13 +161,34 @@ export class MedicineController {
         return res.status(400).json({ success: false, error: "ID de paciente inválido." });
       }
 
+      const isSigning = req.body.status === "SIGNED";
+      let signerName: string | null = null;
+      let doctorUserId: number | null = null;
+
       const user = (req as any).user || res.locals.user;
-      const fallbackDoctor = user?.name || user?.email;
+
+      if (isSigning) {
+        if (!user?.id) {
+          return res.status(401).json({
+            success: false,
+            error: "No autenticado. Inicie sesión para firmar la consulta.",
+          });
+        }
+        const doctor = await MedicineService.validateMedicalSigner(org.id, user.id);
+        signerName = doctor.name;
+        doctorUserId = doctor.userId;
+      } else {
+        doctorUserId = user?.id || null;
+      }
+
+      // Desestructurar para prevenir inyección de professionalId o signedBy desde el cliente HTTP
+      const { professionalId: _ignoredProfId, signedBy: _ignoredSignedBy, ...cleanBody } = req.body;
 
       const consultation = await MedicineService.createConsultation(org.id, {
-        ...req.body,
+        ...cleanBody,
         patientId,
-        signedBy: req.body.status === "SIGNED" ? (req.body.signedBy || fallbackDoctor) : req.body.signedBy,
+        professionalId: doctorUserId,
+        signedBy: signerName,
       });
 
       return res.status(201).json({
@@ -177,7 +198,8 @@ export class MedicineController {
       });
     } catch (error: any) {
       console.error("[MedicineController.createConsultation] Error:", error);
-      return res.status(400).json({
+      const status = error.statusCode || 400;
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al registrar consulta.",
       });
@@ -244,12 +266,32 @@ export class MedicineController {
       }
 
       const user = (req as any).user || res.locals.user;
-      const fallbackDoctor = user?.name || user?.email;
+      const isSigning = req.body.status === "SIGNED";
+      let signerName: string | undefined = undefined;
 
-      const updated = await MedicineService.updateConsultation(org.id, consultationId, {
-        ...req.body,
-        signedBy: req.body.status === "SIGNED" ? (req.body.signedBy || fallbackDoctor) : req.body.signedBy,
-      });
+      if (isSigning) {
+        if (!user?.id) {
+          return res.status(401).json({
+            success: false,
+            error: "No autenticado. Inicie sesión para firmar la consulta.",
+          });
+        }
+        const doctor = await MedicineService.validateMedicalSigner(org.id, user.id);
+        signerName = doctor.name;
+      }
+
+      // Desestructurar para prevenir inyección o alteración de professionalId o signedBy arbitrario
+      const { professionalId: _ignoredProfId, signedBy: _ignoredSignedBy, ...cleanBody } = req.body;
+
+      const updated = await MedicineService.updateConsultation(
+        org.id,
+        consultationId,
+        {
+          ...cleanBody,
+          signedBy: signerName,
+        },
+        user?.id
+      );
       return res.status(200).json({
         success: true,
         message: "Consulta actualizada exitosamente.",
@@ -257,7 +299,8 @@ export class MedicineController {
       });
     } catch (error: any) {
       console.error("[MedicineController.updateConsultation] Error:", error);
-      return res.status(400).json({
+      const status = error.statusCode || 400;
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar consulta.",
       });
@@ -276,9 +319,38 @@ export class MedicineController {
         return res.status(400).json({ success: false, error: "ID de paciente inválido." });
       }
 
+      const isSigning = req.body.status === "SIGNED";
+      let signerName: string | null = null;
+
+      if (isSigning) {
+        const user = (req as any).user || res.locals.user;
+        if (!user?.id) {
+          return res.status(401).json({
+            success: false,
+            error: "No autenticado. Inicie sesión para emitir la receta médica.",
+          });
+        }
+        const doctor = await MedicineService.validateMedicalSigner(org.id, user.id);
+        signerName = doctor.name;
+      }
+
+      // Desestructurar para prevenir suplantación de signedBy desde el cliente HTTP
+      const { signedBy: _ignoredSignedBy, ...cleanBody } = req.body;
+
+      let parsedConsultationId: number | undefined = undefined;
+      if (cleanBody.consultationId !== undefined && cleanBody.consultationId !== null && cleanBody.consultationId !== "") {
+        const parsed = parseInt(String(cleanBody.consultationId), 10);
+        if (isNaN(parsed)) {
+          return res.status(400).json({ success: false, error: "ID de consulta asociado inválido." });
+        }
+        parsedConsultationId = parsed;
+      }
+
       const prescription = await MedicineService.createPrescription(org.id, {
-        ...req.body,
+        ...cleanBody,
         patientId,
+        consultationId: parsedConsultationId,
+        signedBy: signerName,
       });
 
       return res.status(201).json({
@@ -288,7 +360,8 @@ export class MedicineController {
       });
     } catch (error: any) {
       console.error("[MedicineController.createPrescription] Error:", error);
-      return res.status(400).json({
+      const status = error.statusCode || 400;
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al crear receta médica.",
       });
@@ -354,16 +427,32 @@ export class MedicineController {
         return res.status(400).json({ success: false, error: "ID de receta inválido." });
       }
 
-      const { status, signedBy } = req.body;
+      const { status } = req.body;
       if (!status) {
         return res.status(400).json({ success: false, error: "El estado es requerido." });
+      }
+
+      const user = (req as any).user || res.locals.user;
+      const isSigning = status === "SIGNED";
+      let signerName: string | undefined = undefined;
+
+      if (isSigning) {
+        if (!user?.id) {
+          return res.status(401).json({
+            success: false,
+            error: "No autenticado. Inicie sesión para firmar la receta médica.",
+          });
+        }
+        const doctor = await MedicineService.validateMedicalSigner(org.id, user.id);
+        signerName = doctor.name;
       }
 
       const updated = await MedicineService.updatePrescriptionStatus(
         org.id,
         prescriptionId,
         status,
-        signedBy
+        signerName,
+        user?.id
       );
 
       return res.status(200).json({
@@ -373,7 +462,8 @@ export class MedicineController {
       });
     } catch (error: any) {
       console.error("[MedicineController.updatePrescriptionStatus] Error:", error);
-      return res.status(400).json({
+      const status = error.statusCode || 400;
+      return res.status(status).json({
         success: false,
         error: error.message || "Error al actualizar estado de la receta.",
       });

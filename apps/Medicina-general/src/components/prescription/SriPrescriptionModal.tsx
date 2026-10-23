@@ -173,9 +173,14 @@ export const SriPrescriptionModal: React.FC<SriPrescriptionModalProps> = ({
       return;
     }
 
+    if (status === 'SIGNED' && !currentUser?.name) {
+      setErrorMessage('Se requiere una sesión activa con el nombre del profesional para emitir y firmar la receta.');
+      return;
+    }
+
     setIsSaving(true);
     const now = new Date().toISOString();
-    const doctorName = currentUser?.name || 'Dr. Roberto Silva';
+    const doctorName = currentUser?.name || 'Profesional Médico';
 
     try {
       if (savedPrescription) {

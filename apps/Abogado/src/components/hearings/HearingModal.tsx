@@ -17,6 +17,9 @@ export const HearingModal: React.FC<HearingModalProps> = ({
   cases,
   defaultCaseId,
 }) => {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const [error, setError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     caseId: '',
     caseNumber: '',
@@ -25,16 +28,17 @@ export const HearingModal: React.FC<HearingModalProps> = ({
     clientName: '',
     title: '',
     type: 'Audiencia de Juicio',
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toLocaleDateString('en-CA'),
     time: '10:00',
-    location: 'Sala 102 - Unidad Judicial Civil',
+    location: '',
     mode: 'Presencial' as HearingMode,
-    responsible: 'Dr. Alejandro Benítez',
+    responsible: '',
     status: 'Programada' as HearingStatus,
     notes: '',
   });
 
   useEffect(() => {
+    setError(null);
     if (cases.length > 0) {
       const selected = defaultCaseId
         ? cases.find((c) => c.id === defaultCaseId) || cases[0]
@@ -72,6 +76,11 @@ export const HearingModal: React.FC<HearingModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.caseId) return;
+    if (formData.date < todayStr) {
+      setError('La fecha de la audiencia no puede ser anterior a hoy.');
+      return;
+    }
+    setError(null);
     onSave(formData);
     onClose();
   };
@@ -85,6 +94,11 @@ export const HearingModal: React.FC<HearingModalProps> = ({
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+            {error}
+          </div>
+        )}
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">
             Expediente / Caso Asociado *
@@ -143,8 +157,12 @@ export const HearingModal: React.FC<HearingModalProps> = ({
             <input
               type="date"
               required
+              min={todayStr}
               value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              onChange={(e) => {
+                setError(null);
+                setFormData({ ...formData, date: e.target.value });
+              }}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono"
             />
           </div>

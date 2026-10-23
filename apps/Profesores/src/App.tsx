@@ -28,12 +28,15 @@ import {
   Student,
   Subject,
   AcademicDashboardDTO,
+  AcademicYear,
 } from './types/teacher';
 
 import { academicApi } from './services/api/academicApi';
+import { ApiError } from './services/api/apiClient';
 import { organizationApi, Organization, UserSession } from './services/api/organizationApi';
 import { getLocalDateString } from './utils/date';
-import { AlertCircle, AlertTriangle, Building2, Loader2, RefreshCw } from 'lucide-react';
+import { navigateToLogin } from './utils/auth';
+import { AlertCircle, AlertTriangle, Building2, Loader2, LogIn, Lock, RefreshCw } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
@@ -54,6 +57,7 @@ export function App() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [classSessions, setClassSessions] = useState<ClassSession[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -61,6 +65,8 @@ export function App() {
   const [dashboardData, setDashboardData] = useState<AcademicDashboardDTO | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [authExpired, setAuthExpired] = useState(false);
+  const [isForbidden, setIsForbidden] = useState(false);
 
   // Modales
   const [isQuickAttendanceOpen, setIsQuickAttendanceOpen] = useState(false);
@@ -68,15 +74,16 @@ export function App() {
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
 
   // Carga de datos académicos F1, F2, F3 y F4 desde el API
-  const loadAcademicData = useCallback(async (orgId: number) => {
+  const loadAcademicData = useCallback(async (orgId: number, silent = false) => {
     const requestId = ++academicRequestRef.current;
-    setIsDataLoading(true);
+    if (!silent) setIsDataLoading(true);
     setApiError(null);
     try {
       const [
         fetchedCourses,
         fetchedStudents,
         fetchedEnrollments,
+        fetchedYears,
         fetchedSessions,
         fetchedAttendanceHistory,
         fetchedActivities,
@@ -86,6 +93,7 @@ export function App() {
         academicApi.getCourses(orgId),
         academicApi.getStudents(orgId),
         academicApi.getEnrollments(orgId),
+        academicApi.getAcademicYears(orgId).catch(() => []),
         academicApi.getSessions(orgId),
         academicApi.getAttendanceHistory(orgId),
         academicApi.getActivities(orgId),
@@ -106,6 +114,7 @@ export function App() {
       setCourses(fetchedCourses);
       setStudents(fetchedStudents);
       setEnrollments(fetchedEnrollments);
+      setAcademicYears(fetchedYears);
       setSubjects(flattenedSubjects);
       setClassSessions(fetchedSessions);
       setAttendanceHistory(fetchedAttendanceHistory);
@@ -115,18 +124,29 @@ export function App() {
     } catch (err: any) {
       if (requestId !== academicRequestRef.current) return;
       console.error('[Academic Load Error]:', err);
-      setApiError(err.message || 'Error al conectar con la base de datos académica.');
-      setCourses([]);
-      setStudents([]);
-      setEnrollments([]);
-      setSubjects([]);
-      setClassSessions([]);
-      setAttendanceHistory([]);
-      setActivities([]);
-      setGrades([]);
-      setDashboardData(null);
+      if (err instanceof ApiError && err.status === 401) {
+        setAuthExpired(true);
+        setApiError('Tu sesión ha expirado o no es válida. Por favor, inicia sesión nuevamente.');
+      } else if (err instanceof ApiError && err.status === 403) {
+        setIsForbidden(true);
+        setApiError(err.message || 'No tienes permisos suficientes para acceder a los datos de esta institución.');
+      } else {
+        setApiError(err.message || 'Error al conectar con la base de datos académica.');
+      }
+      if (!silent) {
+        setCourses([]);
+        setStudents([]);
+        setEnrollments([]);
+        setAcademicYears([]);
+        setSubjects([]);
+        setClassSessions([]);
+        setAttendanceHistory([]);
+        setActivities([]);
+        setGrades([]);
+        setDashboardData(null);
+      }
     } finally {
-      if (requestId === academicRequestRef.current) setIsDataLoading(false);
+      if (requestId === academicRequestRef.current && !silent) setIsDataLoading(false);
     }
   }, []);
 
@@ -138,6 +158,8 @@ export function App() {
     academicRequestRef.current += 1;
     setIsAuthLoading(true);
     setApiError(null);
+    setAuthExpired(false);
+    setIsForbidden(false);
     try {
       const user = await organizationApi.getCurrentUser();
       if (requestId !== organizationRequestRef.current) return;
@@ -220,7 +242,15 @@ export function App() {
     } catch (err) {
       console.error('[Init Auth Error]:', err);
       if (requestId === organizationRequestRef.current) {
-        setApiError(err instanceof Error ? err.message : 'No se pudo inicializar la sesión académica.');
+        if (err instanceof ApiError && err.status === 401) {
+          setAuthExpired(true);
+          setApiError('Tu sesión ha expirado o no es válida. Inicia sesión para continuar.');
+        } else if (err instanceof ApiError && err.status === 403) {
+          setIsForbidden(true);
+          setApiError(err.message || 'Acceso restringido: no tienes permisos para consultar esta información.');
+        } else {
+          setApiError(err instanceof Error ? err.message : 'No se pudo inicializar la sesión académica.');
+        }
       }
     } finally {
       if (requestId === organizationRequestRef.current) setIsAuthLoading(false);
@@ -241,6 +271,8 @@ export function App() {
     setActiveOrganization(selected);
     setIsTeachingEnabled(false);
     setApiError(null);
+    setAuthExpired(false);
+    setIsForbidden(false);
     setIsDataLoading(true);
     localStorage.setItem('profesores_active_org_id', String(orgId));
     setCourses([]);
@@ -311,6 +343,59 @@ export function App() {
     );
   };
 
+  const handleUpdateCourse = async (
+    courseId: string,
+    updated: { name: string; level: string; classroom?: string }
+  ) => {
+    if (!activeOrganization) throw new Error('Selecciona una institución.');
+    const saved = await academicApi.updateCourse(activeOrganization.id, courseId, updated);
+    setCourses((prev) => prev.map((c) => (c.id === courseId ? saved : c)));
+  };
+
+  const handleArchiveCourse = async (courseId: string) => {
+    if (!activeOrganization) throw new Error('Selecciona una institución.');
+    await academicApi.archiveCourse(activeOrganization.id, courseId);
+    setCourses((prev) =>
+      prev.map((c) => (c.id === courseId ? { ...c, status: 'archived' as const } : c))
+    );
+    setDashboardData((prev) =>
+      prev
+        ? {
+            ...prev,
+            activeCoursesCount: Math.max(0, prev.activeCoursesCount - 1),
+          }
+        : prev
+    );
+  };
+
+  const handleReactivateCourse = async (courseId: string) => {
+    if (!activeOrganization) throw new Error('Selecciona una institución.');
+    const reactivated = await academicApi.reactivateCourse(activeOrganization.id, courseId);
+    setCourses((prev) => prev.map((c) => (c.id === courseId ? reactivated : c)));
+    setDashboardData((prev) =>
+      prev
+        ? {
+            ...prev,
+            activeCoursesCount: prev.activeCoursesCount + 1,
+          }
+        : prev
+    );
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!activeOrganization) throw new Error('Selecciona una institución.');
+    await academicApi.deleteCourse(activeOrganization.id, courseId);
+    setCourses((prev) => prev.filter((c) => c.id !== courseId));
+    setDashboardData((prev) =>
+      prev
+        ? {
+            ...prev,
+            totalCoursesCount: Math.max(0, prev.totalCoursesCount - 1),
+          }
+        : prev
+    );
+  };
+
   const handleAddSubject = async (courseId: string, newSubject: SubjectFormData) => {
     if (!activeOrganization) {
       throw new Error('Selecciona una institución antes de registrar una materia.');
@@ -367,30 +452,85 @@ export function App() {
     }
   };
 
-  const handleAddEnrollment = async (studentId: string, courseId: string) => {
+  const handleAddEnrollment = async (
+    studentIds: string[] | string,
+    courseId: string,
+    academicYearId?: string | null
+  ) => {
     if (!activeOrganization) {
       throw new Error('Selecciona una institución antes de matricular.');
     }
-    try {
-      const newEnrollment = await academicApi.enrollStudent(
-        activeOrganization.id,
-        studentId,
-        courseId
-      );
-      setEnrollments((prev) => [newEnrollment, ...prev]);
+    const ids = Array.isArray(studentIds) ? studentIds : [studentIds];
+    if (ids.length === 0) {
+      throw new Error('Selecciona al menos un estudiante para matricular.');
+    }
 
-      const [coursesResult, studentsResult] = await Promise.allSettled([
-        academicApi.getCourses(activeOrganization.id),
-        academicApi.getStudents(activeOrganization.id),
+    const orgId = activeOrganization.id;
+    const errors: { studentId: string; identification?: string; name?: string; error: string }[] = [];
+    const failedStudentIds: string[] = [];
+
+    const results = await Promise.allSettled(
+      ids.map(async (sId) => {
+        const studentObj = students.find((s) => s.id === sId);
+        try {
+          const res = await academicApi.enrollStudent(
+            orgId,
+            sId,
+            courseId,
+            undefined,
+            academicYearId
+          );
+          return { studentId: sId, res };
+        } catch (err: any) {
+          const errMsg = err?.message || 'Error al procesar matrícula';
+          errors.push({
+            studentId: sId,
+            identification: studentObj?.identification,
+            name: studentObj ? `${studentObj.firstName} ${studentObj.lastName}` : undefined,
+            error: errMsg,
+          });
+          failedStudentIds.push(sId);
+          throw err;
+        }
+      })
+    );
+
+    const successCount = results.filter((r) => r.status === 'fulfilled').length;
+    const failedCount = failedStudentIds.length;
+
+    if (successCount > 0) {
+      const [enrollmentsResult, coursesResult, studentsResult] = await Promise.allSettled([
+        academicApi.getEnrollments(orgId),
+        academicApi.getCourses(orgId),
+        academicApi.getStudents(orgId),
       ]);
+      if (enrollmentsResult.status === 'fulfilled') setEnrollments(enrollmentsResult.value);
       if (coursesResult.status === 'fulfilled') setCourses(coursesResult.value);
       if (studentsResult.status === 'fulfilled') setStudents(studentsResult.value);
-      if (coursesResult.status === 'rejected' || studentsResult.status === 'rejected') {
-        setApiError('La matrícula se guardó, pero no se pudieron actualizar todos los datos visibles. Recarga la información.');
-      }
-    } catch (err: any) {
-      throw new Error(err.message || 'Error al matricular al estudiante.');
     }
+
+    if (failedCount === ids.length && ids.length > 0) {
+      const firstError = errors[0]?.error || 'No se pudo procesar la matrícula.';
+      throw new Error(firstError);
+    }
+
+    if (failedCount > 0) {
+      const sampleError = errors[0]
+        ? ` (${errors[0].name || errors[0].identification || 'Estudiante'}: ${errors[0].error})`
+        : '';
+      setApiError(
+        `Se matricularon ${successCount} estudiante(s) correctamente. ${failedCount} falló${sampleError}.`
+      );
+    }
+
+    return {
+      success: failedCount === 0,
+      totalRequested: ids.length,
+      successCount,
+      failedCount,
+      failedStudentIds,
+      errors,
+    };
   };
 
   // Handlers F2 (Asistencia y Sesiones conectadas a PostgreSQL)
@@ -408,7 +548,7 @@ export function App() {
     try {
       let targetSessionId = context.sessionId;
 
-      if (!targetSessionId) {
+      if (!targetSessionId || isNaN(Number(targetSessionId))) {
         // Buscar si ya existe una sesión en esa fecha para el curso y materia
         const existingSessions = await academicApi.getSessions(activeOrganization.id, {
           courseId: context.courseId,
@@ -438,13 +578,15 @@ export function App() {
         records
       );
 
-      // Refrescar historial de asistencias y sesiones
-      const [historyResult, sessionsResult] = await Promise.allSettled([
+      // Refrescar historial de asistencias, sesiones y dashboard
+      const [historyResult, sessionsResult, dashboardResult] = await Promise.allSettled([
         academicApi.getAttendanceHistory(activeOrganization.id),
         academicApi.getSessions(activeOrganization.id),
+        academicApi.getDashboard(activeOrganization.id),
       ]);
       if (historyResult.status === 'fulfilled') setAttendanceHistory(historyResult.value);
       if (sessionsResult.status === 'fulfilled') setClassSessions(sessionsResult.value);
+      if (dashboardResult.status === 'fulfilled') setDashboardData(dashboardResult.value);
       if (historyResult.status === 'rejected' || sessionsResult.status === 'rejected') {
         setApiError('La asistencia se guardó, pero no se pudo actualizar todo el historial visible. Recarga la información.');
       }
@@ -551,13 +693,16 @@ export function App() {
           type: newActivity.type,
           dueDate: newActivity.date,
           maxScore: newActivity.maxScore,
+          academicPeriodId: newActivity.academicPeriodId,
+          categoryId: newActivity.categoryId,
+          evaluationSchemeId: newActivity.evaluationSchemeId,
         }
       );
       setActivities((prev) => [created, ...prev]);
       return true;
     } catch (err: any) {
       console.error('[Add Activity Error]:', err);
-      alert(`Error al registrar evaluación: ${err.message}`);
+      alert(`Error al registrar actividad: ${err.message}`);
       return false;
     }
   };
@@ -573,7 +718,7 @@ export function App() {
         onOpenQuickGrade={() => setActiveTab('grades')}
         totalStudents={students.length}
         courseCount={courses.length}
-        todaysClassesCount={classSessions.filter((session) => session.date === getLocalDateString() || (classSessions[0] && session.date === classSessions[0].date)).length}
+        todaysClassesCount={dashboardData?.todaySessionsCount ?? dashboardData?.todaySessions?.length ?? classSessions.filter((session) => session.date === getLocalDateString()).length}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         currentUser={currentUser}
@@ -609,15 +754,57 @@ export function App() {
           </div>
         )}
 
-        {/* Mensajes si no hay organización activa seleccionada */}
-        {!isAuthLoading && !currentUser && !apiError && (
-          <div className="bg-amber-50 border-b border-amber-200 px-6 py-5 flex items-center justify-between gap-3 text-xs text-amber-900">
-            <div>
-              <p className="font-bold">No se detecta una sesión activa</p>
-              <p className="text-amber-800">Inicia sesión en la plataforma y vuelve a cargar este módulo.</p>
+        {/* Banner de Sesión Expirada (HTTP 401) */}
+        {!isAuthLoading && authExpired && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-xs">
+            <div className="flex items-center gap-3">
+              <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="font-bold">Tu sesión ha expirado</p>
+                <p className="text-amber-800">Inicia sesión nuevamente en el Core para continuar gestionando tus registros académicos sin perder tus datos.</p>
+              </div>
             </div>
-            <button onClick={() => window.location.reload()} className="px-3 py-2 rounded-lg bg-white border border-amber-300 font-bold hover:bg-amber-100">
-              Recargar
+            <button
+              type="button"
+              onClick={() => navigateToLogin()}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" /> Iniciar Sesión
+            </button>
+          </div>
+        )}
+
+        {/* Banner de Permisos Insuficientes (HTTP 403) */}
+        {!isAuthLoading && isForbidden && !authExpired && (
+          <div className="bg-rose-50 border-b border-rose-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-900 shadow-xs">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              <div>
+                <p className="font-bold">Acceso restringido a la institución</p>
+                <p className="text-rose-800">
+                  {apiError || 'No tienes permisos asignados en esta institución o el módulo se encuentra restringido. Selecciona otra institución autorizada.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mensajes si no hay sesión activa inicial */}
+        {!isAuthLoading && !currentUser && !authExpired && !apiError && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-xs">
+            <div className="flex items-center gap-3">
+              <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="font-bold">Inicio de sesión requerido</p>
+                <p className="text-amber-800">Para acceder al módulo docente y sincronizar tus cursos, por favor inicia sesión en la plataforma.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigateToLogin()}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" /> Iniciar Sesión
             </button>
           </div>
         )}
@@ -675,21 +862,32 @@ export function App() {
 
         {/* Main Content Area */}
         <main className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
-          {isDataLoading && (
+          {isDataLoading && courses.length === 0 && (
             <div className="flex items-center justify-center p-8 gap-2 text-indigo-600 text-xs font-semibold">
               <Loader2 className="w-5 h-5 animate-spin" />
               <span>Sincronizando registros académicos con PostgreSQL...</span>
             </div>
           )}
 
-          {!isAuthLoading && currentUser && activeOrganization && isTeachingEnabled && !isDataLoading && (
+          {!isAuthLoading && currentUser && activeOrganization && isTeachingEnabled && (
           <>
           {/* Tab 1: Dashboard */}
           {activeTab === 'dashboard' && (
             <TeacherDashboard
               onNavigate={(tab) => setActiveTab(tab)}
-              onOpenQuickAttendance={() => openQuickAttendance()}
-              onOpenQuickGrade={() => setActiveTab('grades')}
+              onOpenQuickAttendance={(context) => {
+                if (context?.courseId) {
+                  openQuickAttendance({
+                    courseId: context.courseId,
+                    subjectId: context.subjectId || '',
+                    date: new Date().toISOString().split('T')[0],
+                    sessionId: context.sessionId,
+                  });
+                } else {
+                  openQuickAttendance();
+                }
+              }}
+              onOpenQuickGrade={(_context) => setActiveTab('grades')}
               onOpenNewStudentModal={() => setIsNewStudentModalOpen(true)}
               students={students}
               courses={courses}
@@ -697,6 +895,7 @@ export function App() {
               grades={grades}
               dashboardData={dashboardData}
               currentUser={currentUser}
+              isLoading={isDataLoading && !dashboardData}
             />
           )}
 
@@ -708,6 +907,7 @@ export function App() {
               onUpdateStudent={handleUpdateStudent}
               courses={courses}
               enrollments={enrollments}
+              academicYears={academicYears}
               onAddEnrollment={handleAddEnrollment}
               attendanceHistory={attendanceHistory}
               grades={grades}
@@ -724,8 +924,15 @@ export function App() {
               enrollments={enrollments}
               attendanceHistory={attendanceHistory}
               grades={grades}
+              academicYears={academicYears}
+              orgId={activeOrganization.id}
               onAddCourse={handleAddCourse}
+              onUpdateCourse={handleUpdateCourse}
+              onArchiveCourse={handleArchiveCourse}
+              onReactivateCourse={handleReactivateCourse}
+              onDeleteCourse={handleDeleteCourse}
               onAddSubject={handleAddSubject}
+              onScheduleUpdated={() => loadAcademicData(activeOrganization.id, true)}
             />
           )}
 
@@ -742,6 +949,8 @@ export function App() {
           {/* Tab 5: Calificaciones */}
           {activeTab === 'grades' && (
             <GradesView
+              currentUser={currentUser}
+              organization={activeOrganization}
               students={students}
               grades={grades}
               onAddGrade={handleAddGrade}
@@ -751,18 +960,24 @@ export function App() {
               onAddActivity={handleAddActivity}
               enrollments={enrollments}
               onSaveGrades={handleSaveGrades}
+              academicYears={academicYears}
+              onReloadAcademicData={async () => {
+                if (activeOrganization) await loadAcademicData(activeOrganization.id, true);
+              }}
             />
           )}
 
           {/* Tab 6: Horario de Clases */}
           {activeTab === 'classes' && (
             <ClassScheduleView
-              classes={classSessions}
+              classes={dashboardData?.todaySessions?.length ? dashboardData.todaySessions : classSessions.filter((s) => s.date === getLocalDateString())}
+              courses={courses}
+              subjects={subjects}
               onOpenQuickAttendance={(session) =>
                 openQuickAttendance({
                   courseId: session.courseId,
                   subjectId: session.subjectId,
-                  date: session.date,
+                  date: session.date || getLocalDateString(),
                   sessionId: session.id,
                 })
               }
@@ -788,6 +1003,41 @@ export function App() {
             />
           )}
           </>
+          )}
+
+          {/* Estado Informativo Central si no hay usuario autenticado o la sesión expiró */}
+          {!isAuthLoading && (!currentUser || authExpired) && (
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center space-y-4">
+                <div className="w-14 h-14 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {authExpired ? 'Sesión Expirada' : 'Autenticación Requerida'}
+                </h2>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {authExpired
+                    ? 'Tu sesión de usuario ha caducado. Vuelve a iniciar sesión en el Core para sincronizar tus calificaciones, asistencias y materias.'
+                    : 'Para acceder al módulo docente y gestionar tus clases, alumnos y calificaciones, debes identificarte en el Core de Profesionales Ecuador.'}
+                </p>
+                <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => navigateToLogin()}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <LogIn className="w-4 h-4" /> Iniciar Sesión en el Core
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => initAuth()}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> Comprobar Conexión
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </main>
       </div>

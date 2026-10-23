@@ -26,7 +26,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
     fileExtension: 'pdf' as LegalDocument['fileExtension'],
     description: '',
     uploadDate: new Date().toISOString().split('T')[0],
-    uploadedBy: 'Dr. Alejandro Benítez',
+    uploadedBy: '',
     status: 'Final' as DocumentStatus,
   });
 

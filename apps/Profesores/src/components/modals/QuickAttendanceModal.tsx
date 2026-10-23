@@ -10,6 +10,8 @@ import {
   Subject,
 } from '../../types/teacher';
 import { getLocalDateString } from '../../utils/date';
+import { StudentSearchInput } from '../ui/StudentSearchInput';
+import { matchesStudentQuery } from '../../utils/studentFilter';
 
 export interface QuickAttendanceModalProps {
   isOpen: boolean;
@@ -67,10 +69,14 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
     context?.date || getLocalDateString()
   );
   const [sessionId, setSessionId] = useState<string | undefined>(context?.sessionId);
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
-  const [studentStates, setStudentStates] = useState<Record<string, { status: AttendanceStatus; obs: string }>>({});
+  const [studentStates, setStudentStates] = useState<Record<string, { status?: AttendanceStatus; obs: string }>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  const todayStr = getLocalDateString();
+  const isPastDate = attendanceDate < todayStr;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,6 +90,7 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
     setSessionId(context?.sessionId);
     setStudentStates(getAttendanceStates(attendanceHistory, nextCourse, nextSubject, nextDate, context?.sessionId));
     setSaveError('');
+    setStudentSearchQuery('');
   }, [isOpen, context, attendanceHistory, courses, subjects]);
 
   if (!isOpen) return null;
@@ -94,8 +101,12 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
     .map((enrollment) => students.find((student) => student.id === enrollment.studentId))
     .filter((student): student is Student => Boolean(student));
 
-  const getStatus = (id: string): AttendanceStatus => {
-    return studentStates[id]?.status || 'present';
+  const visibleCourseStudents = courseStudents.filter((student) =>
+    matchesStudentQuery(student, studentSearchQuery)
+  );
+
+  const getStatus = (id: string): AttendanceStatus | undefined => {
+    return studentStates[id]?.status;
   };
 
   const getObs = (id: string): string => {
@@ -103,40 +114,59 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
   };
 
   const handleSetStatus = (id: string, status: AttendanceStatus) => {
+    if (isPastDate) return;
     setStudentStates((prev) => ({
       ...prev,
       [id]: { status, obs: prev[id]?.obs || '' },
     }));
+    setSaveError('');
   };
 
   const handleSetObs = (id: string, obs: string) => {
+    if (isPastDate) return;
     setStudentStates((prev) => ({
       ...prev,
-      [id]: { status: prev[id]?.status || 'present', obs },
+      [id]: { status: prev[id]?.status, obs },
     }));
   };
 
   const handleMarkAllPresent = () => {
+    if (isPastDate) return;
     const next: Record<string, { status: AttendanceStatus; obs: string }> = {};
     courseStudents.forEach((s) => {
       next[s.id] = { status: 'present', obs: studentStates[s.id]?.obs || '' };
     });
     setStudentStates(next);
+    setSaveError('');
   };
 
   const refreshStates = (courseId: string, subjectId: string, date: string) => {
     setStudentStates(getAttendanceStates(attendanceHistory, courseId, subjectId, date));
     setSaveError('');
+    setStudentSearchQuery('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting || !selectedCourse || !selectedSubject || courseStudents.length === 0) return;
+    if (isSubmitting || isPastDate || !selectedCourse || !selectedSubject || courseStudents.length === 0) return;
+
+    // Validación de nómina completa antes de enviar
+    const missingStudents = courseStudents.filter((s) => !studentStates[s.id]?.status);
+    if (missingStudents.length > 0) {
+      setSaveError(
+        `Faltan ${missingStudents.length} ${
+          missingStudents.length === 1 ? 'estudiante' : 'estudiantes'
+        } por registrar. Seleccione un estado para toda la nómina antes de guardar.`
+      );
+      return;
+    }
+
     const records = courseStudents.map((s) => ({
       studentId: s.id,
-      status: getStatus(s.id),
+      status: studentStates[s.id]!.status!,
       observation: getObs(s.id),
     }));
+
     setIsSubmitting(true);
     setSaveError('');
     try {
@@ -205,11 +235,13 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
                 }}
                 className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
               >
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.name} - {course.level}
-                  </option>
-                ))}
+                {courses
+                  .filter((course) => course.status !== 'archived')
+                  .map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.name} - {course.level}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -253,106 +285,139 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
             </div>
           </div>
 
-          {/* Quick All Present Button */}
-          <div className="flex items-center justify-between">
+          {/* Banner de día cerrado */}
+          {isPastDate && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>La asistencia de este día está cerrada para edición docente (modo sólo lectura).</span>
+            </div>
+          )}
+
+          {/* Quick All Present Button and Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <span className="text-xs font-bold text-slate-700">
-              Nómina ({courseStudents.length} estudiantes)
+              Nómina ({courseStudents.length} {courseStudents.length === 1 ? 'estudiante' : 'estudiantes'})
             </span>
-            <button
-              type="button"
-              onClick={handleMarkAllPresent}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Marcar Todos Presentes
-            </button>
+            <div className="flex items-center gap-2">
+              {courseStudents.length > 0 && (
+                <StudentSearchInput
+                  value={studentSearchQuery}
+                  onChange={setStudentSearchQuery}
+                  placeholder="Buscar estudiante..."
+                  className="w-full sm:w-48"
+                />
+              )}
+              {!isPastDate && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllPresent}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1 shrink-0"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Marcar Todos Presentes
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Student List Grid */}
           <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100">
-            {courseStudents.map((std) => {
-              const currentStatus = getStatus(std.id);
-              return (
-                <div key={std.id} className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-[11px] flex items-center justify-center shrink-0">
-                      {std.firstName[0]}
-                      {std.lastName[0]}
-                    </div>
-                    <span className="font-bold text-slate-900">
-                      {std.firstName} {std.lastName}
-                    </span>
-                  </div>
-
-                  {/* Status Options */}
-                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
-                    <div className="flex flex-wrap items-center gap-1">
-                      <button
-                        type="button"
-                        aria-pressed={currentStatus === 'present'}
-                        onClick={() => handleSetStatus(std.id, 'present')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
-                          currentStatus === 'present'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        <CheckCircle2 className="w-3 h-3" /> Presente
-                      </button>
-
-                      <button
-                        type="button"
-                        aria-pressed={currentStatus === 'absent'}
-                        onClick={() => handleSetStatus(std.id, 'absent')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
-                          currentStatus === 'absent'
-                            ? 'bg-rose-600 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        <XCircle className="w-3 h-3" /> Falta
-                      </button>
-
-                      <button
-                        type="button"
-                        aria-pressed={currentStatus === 'late'}
-                        onClick={() => handleSetStatus(std.id, 'late')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
-                          currentStatus === 'late'
-                            ? 'bg-amber-500 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        <Clock className="w-3 h-3" /> Atraso
-                      </button>
-
-                      <button
-                        type="button"
-                        aria-pressed={currentStatus === 'excused'}
-                        onClick={() => handleSetStatus(std.id, 'excused')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
-                          currentStatus === 'excused'
-                            ? 'bg-blue-600 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        <AlertCircle className="w-3 h-3" /> Justificado
-                      </button>
+            {courseStudents.length === 0 ? (
+              <p className="text-xs text-slate-500 py-4 text-center">No hay estudiantes matriculados en este curso.</p>
+            ) : visibleCourseStudents.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                No se encontraron estudiantes para "{studentSearchQuery}".
+              </div>
+            ) : (
+              visibleCourseStudents.map((std) => {
+                const currentStatus = getStatus(std.id);
+                return (
+                  <div key={std.id} className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-[11px] flex items-center justify-center shrink-0">
+                        {std.firstName[0]}
+                        {std.lastName[0]}
+                      </div>
+                      <span className="font-bold text-slate-900">
+                        {std.firstName} {std.lastName}
+                      </span>
                     </div>
 
-                    {currentStatus !== 'present' && (
-                      <input
-                        type="text"
-                        aria-label={`Observación de ${std.firstName} ${std.lastName}`}
-                        placeholder="Observación..."
-                        value={getObs(std.id)}
-                        onChange={(e) => handleSetObs(std.id, e.target.value)}
-                        className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800 w-36"
-                      />
-                    )}
+                    {/* Status Options */}
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={isPastDate}
+                          aria-pressed={currentStatus === 'present'}
+                          onClick={() => handleSetStatus(std.id, 'present')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
+                            currentStatus === 'present'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3 h-3" /> Presente
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isPastDate}
+                          aria-pressed={currentStatus === 'absent'}
+                          onClick={() => handleSetStatus(std.id, 'absent')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
+                            currentStatus === 'absent'
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50'
+                          }`}
+                        >
+                          <XCircle className="w-3 h-3" /> Falta
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isPastDate}
+                          aria-pressed={currentStatus === 'late'}
+                          onClick={() => handleSetStatus(std.id, 'late')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
+                            currentStatus === 'late'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50'
+                          }`}
+                        >
+                          <Clock className="w-3 h-3" /> Atraso
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isPastDate}
+                          aria-pressed={currentStatus === 'excused'}
+                          onClick={() => handleSetStatus(std.id, 'excused')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition ${
+                            currentStatus === 'excused'
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50'
+                          }`}
+                        >
+                          <AlertCircle className="w-3 h-3" /> Justificado
+                        </button>
+                      </div>
+
+                      {currentStatus && currentStatus !== 'present' && (
+                        <input
+                          type="text"
+                          disabled={isPastDate}
+                          aria-label={`Observación de ${std.firstName} ${std.lastName}`}
+                          placeholder="Observación..."
+                          value={getObs(std.id)}
+                          onChange={(e) => handleSetObs(std.id, e.target.value)}
+                          className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800 w-36 disabled:bg-slate-100"
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           {/* Footer Submit */}
@@ -364,16 +429,18 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
               disabled={isSubmitting}
               className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold transition"
             >
-              Cancelar
+              {isPastDate ? 'Cerrar' : 'Cancelar'}
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !selectedCourse || !selectedSubject || courseStudents.length === 0}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-2 shadow-xs disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              <span>{isSubmitting ? 'Guardando...' : 'Guardar Registro'}</span>
-            </button>
+            {!isPastDate && (
+              <button
+                type="submit"
+                disabled={isSubmitting || !selectedCourse || !selectedSubject || courseStudents.length === 0}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-2 shadow-xs disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSubmitting ? 'Guardando...' : 'Guardar Registro'}</span>
+              </button>
+            )}
           </div>
         </form>
       </div>

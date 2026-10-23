@@ -36,11 +36,13 @@ export const CaseList: React.FC<CaseListProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
 
   const filteredCases = cases.filter((c) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.courtName.toLowerCase().includes(searchTerm.toLowerCase());
+      c.title.toLowerCase().includes(term) ||
+      c.caseNumber.toLowerCase().includes(term) ||
+      (c.judicialProcessNumber ? c.judicialProcessNumber.toLowerCase().includes(term) : false) ||
+      c.clientName.toLowerCase().includes(term) ||
+      c.courtName.toLowerCase().includes(term);
 
     const matchesArea = selectedArea === 'todas' ? true : c.legalArea === selectedArea;
     const matchesStatus = selectedStatus === 'todos' ? true : c.status === selectedStatus;
@@ -176,9 +178,16 @@ export const CaseList: React.FC<CaseListProps> = ({
                     onClick={() => onSelectCaseDetail(c.id)}
                   >
                     <td className="p-4">
-                      <span className="text-[11px] font-mono font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 block w-fit mb-1">
-                        {c.caseNumber}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <span className="text-[11px] font-mono font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          {c.caseNumber}
+                        </span>
+                        {c.judicialProcessNumber && (
+                          <span className="text-[10px] font-mono font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200" title="Número de Juicio SATJE">
+                            SATJE: {c.judicialProcessNumber}
+                          </span>
+                        )}
+                      </div>
                       <div className="font-bold text-slate-900 leading-snug">{c.title}</div>
                       <div className="text-[11px] text-slate-500 truncate max-w-xs">{c.courtName}</div>
                     </td>
@@ -229,9 +238,16 @@ export const CaseList: React.FC<CaseListProps> = ({
             >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-[11px] font-mono font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                    {c.caseNumber}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-mono font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      {c.caseNumber}
+                    </span>
+                    {c.judicialProcessNumber && (
+                      <span className="text-[10px] font-mono font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200" title="Número de Juicio SATJE">
+                        SATJE: {c.judicialProcessNumber}
+                      </span>
+                    )}
+                  </div>
                   <StatusBadge status={c.status} size="sm" />
                 </div>
 

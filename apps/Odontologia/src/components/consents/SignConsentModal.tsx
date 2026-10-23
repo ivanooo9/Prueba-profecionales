@@ -32,7 +32,7 @@ export const SignConsentModal: React.FC<SignConsentModalProps> = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawnSignature, setHasDrawnSignature] = useState(false);
 
-  const orgId = dentalService.getOrganizationId() || 11;
+  const orgId = dentalService.getOrganizationId();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -100,6 +100,10 @@ export const SignConsentModal: React.FC<SignConsentModalProps> = ({
 
   const handleSign = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!orgId) {
+      setError('Organización no identificada en la sesión.');
+      return;
+    }
     if (!patientConfirmed || !professionalConfirmed) {
       setError('Ambas partes deben confirmar la suscripción y aceptación del consentimiento.');
       return;

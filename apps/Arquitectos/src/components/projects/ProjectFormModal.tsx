@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
-import { Project, Client, ProjectType, ProjectStatus, ProjectPriority } from '../../types';
+import { Project, Client, ProjectType, ProjectStatus, ProjectPriority, ArchitectureAssignableUser } from '../../types';
+import { OrganizationUserSelect } from '../ui/OrganizationUserSelect';
+import { getTodayCalendarDate } from '../../utils/dateUtils';
 
 interface ProjectFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (project: Partial<Project>) => void;
   clients: Client[];
+  assignableUsers: ArchitectureAssignableUser[];
   initialData?: Project | null;
 }
 
@@ -14,9 +17,18 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  clients,
+  clients = [],
+  assignableUsers = [],
   initialData
 }) => {
+  const todayStr = getTodayCalendarDate();
+  const [error, setError] = useState<string | null>(null);
+
+  // Para nuevos proyectos solo clientes activos; para edición preservar el cliente asignado históricamente
+  const availableClients = initialData
+    ? clients
+    : (clients || []).filter((c) => c && c.status === 'Activo');
+
   const [formData, setFormData] = useState<Partial<Project>>({
     name: '',
     clientId: '',
@@ -24,36 +36,34 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
     location: '',
     approxAreaM2: 250,
     levelsCount: 2,
-    leadArchitect: 'Arq. Esteban Guarderas',
-    startDate: new Date().toISOString().split('T')[0],
+    leadArchitectUserId: undefined,
+    startDate: getTodayCalendarDate(),
     targetDeliveryDate: '',
     status: 'Planificación',
     priority: 'Media',
-    estimatedBudget: 150000,
-    approvedBudget: 0,
     clientRequirements: '',
     description: '',
     notes: ''
   });
 
   useEffect(() => {
+    setError(null);
     if (initialData) {
       setFormData({ ...initialData });
     } else {
+      const firstActiveClient = (clients || []).find((c) => c && c.status === 'Activo');
       setFormData({
         name: '',
-        clientId: clients[0]?.id || '',
+        clientId: firstActiveClient?.id || '',
         type: 'Vivienda',
         location: '',
         approxAreaM2: 250,
         levelsCount: 2,
-        leadArchitect: 'Arq. Esteban Guarderas',
-        startDate: new Date().toISOString().split('T')[0],
+        leadArchitectUserId: undefined,
+        startDate: getTodayCalendarDate(),
         targetDeliveryDate: '',
         status: 'Planificación',
         priority: 'Media',
-        estimatedBudget: 150000,
-        approvedBudget: 0,
         clientRequirements: '',
         description: '',
         notes: ''
@@ -64,7 +74,22 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.clientId) return;
-    await onSave(formData);
+    if (formData.targetDeliveryDate && formData.targetDeliveryDate < todayStr) {
+      setError('La fecha estimada de entrega no puede ser anterior a hoy.');
+      return;
+    }
+    setError(null);
+
+    const projectData = { ...formData };
+    delete projectData.estimatedBudget;
+    delete projectData.approvedBudget;
+    delete projectData.leadArchitect;
+    if (initialData && String(initialData.leadArchitectUserId || '') === String(formData.leadArchitectUserId || '')) {
+      delete projectData.leadArchitectUserId;
+    } else if (projectData.leadArchitectUserId != null) {
+      projectData.leadArchitectUserId = Number(projectData.leadArchitectUserId);
+    }
+    await onSave(projectData);
   };
 
   return (
@@ -76,6 +101,11 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+            {error}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className="block font-semibold text-slate-700 mb-1">Nombre del Proyecto *</label>
@@ -93,18 +123,23 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             <label className="block font-semibold text-slate-700 mb-1">Cliente * {initialData && '(Inmutable)'}</label>
             <select
               required
-              disabled={Boolean(initialData)}
+              disabled={Boolean(initialData) || (!initialData && availableClients.length === 0)}
               value={formData.clientId || ''}
               onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
             >
-              <option value="">Seleccione un cliente</option>
-              {clients.map((c) => (
+              <option value="">{availableClients.length === 0 ? 'Sin clientes activos disponibles' : 'Seleccione un cliente'}</option>
+              {availableClients.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} ({c.type})
+                  {c.name} ({c.type}){c.status !== 'Activo' ? ' (Inactivo)' : ''}
                 </option>
               ))}
             </select>
+            {!initialData && availableClients.length === 0 && (
+              <p className="text-amber-600 text-[11px] mt-1 font-medium">
+                No hay clientes activos disponibles. Debe registrar o activar un cliente antes de crear un nuevo proyecto.
+              </p>
+            )}
           </div>
 
           <div>
@@ -135,16 +170,14 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             />
           </div>
 
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">Arquitecto Responsable</label>
-            <input
-              type="text"
-              placeholder="Arq. Nombre Apellido"
-              value={formData.leadArchitect || ''}
-              onChange={(e) => setFormData({ ...formData, leadArchitect: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500"
-            />
-          </div>
+          <OrganizationUserSelect
+            label="Arquitecto Responsable *"
+            users={assignableUsers}
+            value={formData.leadArchitectUserId}
+            currentName={initialData?.leadArchitect}
+            responsibleOnly
+            onChange={(userId) => setFormData({ ...formData, leadArchitectUserId: userId ? Number(userId) : undefined })}
+          />
 
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Área Aproximada (m²)</label>
@@ -182,8 +215,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             <label className="block font-semibold text-slate-700 mb-1">Fecha Estimada de Entrega</label>
             <input
               type="date"
+              min={todayStr}
               value={formData.targetDeliveryDate || ''}
-              onChange={(e) => setFormData({ ...formData, targetDeliveryDate: e.target.value })}
+              onChange={(e) => {
+                setError(null);
+                setFormData({ ...formData, targetDeliveryDate: e.target.value });
+              }}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500 font-mono"
             />
           </div>
@@ -216,28 +253,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               <option value="Media">Media</option>
               <option value="Alta">Alta</option>
             </select>
-          </div>
-
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">Presupuesto Estimado ($)</label>
-            <input
-              type="number"
-              min="0"
-              value={formData.estimatedBudget || ''}
-              onChange={(e) => setFormData({ ...formData, estimatedBudget: Number(e.target.value) })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500 font-mono"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">Presupuesto Aprobado ($)</label>
-            <input
-              type="number"
-              min="0"
-              value={formData.approvedBudget || 0}
-              onChange={(e) => setFormData({ ...formData, approvedBudget: Number(e.target.value) })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500 font-mono"
-            />
           </div>
 
           <div className="sm:col-span-2">

@@ -5,6 +5,9 @@ export interface DentalRecordInput {
   chiefComplaint?: string | null;
   evaluationNotes?: string | null;
   diagnosisSummary?: string | null;
+  allergies?: string | null;
+  medicalBackground?: string | null;
+  currentMedication?: string | null;
 }
 
 export class DentistryRecordService {
@@ -57,6 +60,9 @@ export class DentistryRecordService {
         chiefComplaint: data.chiefComplaint?.trim() || null,
         evaluationNotes: data.evaluationNotes?.trim() || null,
         diagnosisSummary: data.diagnosisSummary?.trim() || null,
+        allergies: data.allergies?.trim() || null,
+        medicalBackground: data.medicalBackground?.trim() || null,
+        currentMedication: data.currentMedication?.trim() || null,
       },
       update: {
         dentalBackground:
@@ -74,6 +80,18 @@ export class DentistryRecordService {
         diagnosisSummary:
           data.diagnosisSummary !== undefined
             ? data.diagnosisSummary?.trim() || null
+            : undefined,
+        allergies:
+          data.allergies !== undefined
+            ? data.allergies?.trim() || null
+            : undefined,
+        medicalBackground:
+          data.medicalBackground !== undefined
+            ? data.medicalBackground?.trim() || null
+            : undefined,
+        currentMedication:
+          data.currentMedication !== undefined
+            ? data.currentMedication?.trim() || null
             : undefined,
       },
     });

@@ -11,6 +11,12 @@ import {
 import { ArchitectureCalendarService, ArchitectureCalendarFilter } from "./architecture-calendar.service";
 import { ArchitectureDashboardService } from "./architecture-dashboard.service";
 import { ArchitectureReportsService } from "./architecture-reports.service";
+import { calculateArchitectureProjectFinancials } from "./architecture-financial.service";
+import {
+  parseMeetingDateTime,
+  formatDateOnly,
+  formatTimeOnly,
+} from "./architecture-date.utils";
 
 export interface CreateArchitectureClientInput {
   name: string;
@@ -74,7 +80,17 @@ export interface UpdateArchitectureProjectInput {
   notes?: string | null;
 }
 
+export interface CreateArchitectureStageInput {
+  name: string;
+  startDate?: string | Date | null;
+  dueDate?: string | Date | null;
+  notes?: string | null;
+  progress?: number;
+  status?: string;
+}
+
 export interface UpdateArchitectureStageInput {
+  name?: string;
   status?: string;
   progress?: number;
   startDate?: string | Date | null;
@@ -126,6 +142,7 @@ export interface UpdateArchitectureDeliverableInput {
 
 export interface CreateArchitectureMeetingInput {
   projectId: number;
+  clientId?: number | null;
   title: string;
   scheduledAt?: string | Date;
   date?: string;
@@ -140,6 +157,8 @@ export interface CreateArchitectureMeetingInput {
 }
 
 export interface UpdateArchitectureMeetingInput {
+  projectId?: number;
+  clientId?: number | null;
   title?: string;
   scheduledAt?: string | Date;
   date?: string;
@@ -195,6 +214,9 @@ export class ArchitectureService {
     if (!user) {
       throw new Error(`El usuario asignado con ID ${userId} no existe.`);
     }
+    if (user.status !== "ACTIVE") {
+      throw new Error(`El usuario asignado con ID ${userId} no es un miembro activo autorizado porque su cuenta no está activa en la plataforma.`);
+    }
 
     const membership = await client.organizationMember.findUnique({
       where: {
@@ -212,6 +234,32 @@ export class ArchitectureService {
     }
 
     return { id: user.id, name: user.name };
+  }
+
+  public static async listAssignableOrganizationMembers(
+    organizationId: number,
+    client: any = db
+  ): Promise<Array<{ id: number; name: string; email: string; role: string; canBeResponsible: boolean }>> {
+    const memberships = await client.organizationMember.findMany({
+      where: {
+        organizationId,
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+      },
+      select: {
+        role: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { user: { name: "asc" } },
+    });
+
+    return memberships.map((membership: any) => ({
+      id: membership.user.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      role: membership.role,
+      canBeResponsible: !["ASSISTANT", "SECRETARY", "CLIENT", "STUDENT"].includes(membership.role),
+    }));
   }
 
   // -------------------------------------------------------------
@@ -243,6 +291,9 @@ export class ArchitectureService {
 
     if (!user) {
       throw new Error(`El usuario responsable con ID ${leadArchitectUserId} no existe.`);
+    }
+    if (user.status !== "ACTIVE") {
+      throw new Error(`El usuario responsable con ID ${leadArchitectUserId} no está activo y no está autorizado para asumir la responsabilidad.`);
     }
 
     const membership = await client.organizationMember.findUnique({
@@ -613,32 +664,7 @@ export class ArchitectureService {
         ? Math.round(stages.reduce((acc: number, s: any) => acc + (s.progress || 0), 0) / stages.length)
         : 0;
 
-    let estimatedBudget = 0;
-    let approvedBudget = 0;
-
-    if (Array.isArray(p.budgets) && p.budgets.length > 0) {
-      const approvedB = p.budgets.find((b: any) => b.status === "Aprobado");
-      if (approvedB && Array.isArray(approvedB.items)) {
-        const approvedSum = approvedB.items.reduce(
-          (sum: number, it: any) => sum + Number(it.quantity || 0) * Number(it.unitPrice || 0),
-          0
-        );
-        approvedBudget = Number(approvedSum.toFixed(2));
-      }
-
-      if (approvedBudget > 0) {
-        estimatedBudget = approvedBudget;
-      } else {
-        const latestB = p.budgets[p.budgets.length - 1];
-        if (latestB && Array.isArray(latestB.items)) {
-          const latestSum = latestB.items.reduce(
-            (sum: number, it: any) => sum + Number(it.quantity || 0) * Number(it.unitPrice || 0),
-            0
-          );
-          estimatedBudget = Number(latestSum.toFixed(2));
-        }
-      }
-    }
+    const financials = calculateArchitectureProjectFinancials(p.budgets || []);
 
     return {
       id: p.id,
@@ -659,8 +685,9 @@ export class ArchitectureService {
       status: p.status,
       priority: p.priority,
       progress: derivedProgress,
-      estimatedBudget,
-      approvedBudget,
+      estimatedBudget: financials.estimatedAmount,
+      approvedBudget: financials.approvedAmount,
+      financialStatus: financials.status,
       clientRequirements: p.clientRequirements || undefined,
       description: p.description || "",
       notes: p.notes || undefined,
@@ -810,7 +837,8 @@ export class ArchitectureService {
   public static async createProject(
     organizationId: number,
     userId: number,
-    data: CreateArchitectureProjectInput
+    data: CreateArchitectureProjectInput,
+    client: any = db
   ) {
     if (!data.name?.trim()) {
       throw new Error("El nombre del proyecto es obligatorio.");
@@ -820,12 +848,17 @@ export class ArchitectureService {
       throw new Error("El cliente asociado es obligatorio.");
     }
 
-    if (!data.leadArchitectUserId) {
-      throw new Error("El arquitecto líder responsable es obligatorio.");
+    const leadArchitectUserId = data.leadArchitectUserId;
+    if (!Number.isInteger(leadArchitectUserId) || leadArchitectUserId <= 0) {
+      throw new Error("La selección de un arquitecto responsable válido es obligatoria.");
     }
 
-    return await db.$transaction(async (tx) => {
-      // 1. Validar cliente en la misma organización
+    const txRunner = typeof client?.$transaction === "function"
+      ? client.$transaction.bind(client)
+      : db.$transaction.bind(db);
+
+    return await txRunner(async (tx: any) => {
+      // 1. Validar cliente en la misma organización y que se encuentre activo
       const clientRecord = await tx.architectureClient.findUnique({
         where: { id: data.clientId },
       });
@@ -836,10 +869,16 @@ export class ArchitectureService {
         );
       }
 
+      if (clientRecord.status !== "Activo") {
+        throw new Error(
+          "No se pueden crear proyectos asociados a un cliente inactivo."
+        );
+      }
+
       // 2. Validar arquitecto responsable
       await ArchitectureService.validateResponsibleArchitect(
         organizationId,
-        data.leadArchitectUserId,
+        leadArchitectUserId,
         tx
       );
 
@@ -861,7 +900,7 @@ export class ArchitectureService {
           location: data.location?.trim() || null,
           approxAreaM2: data.approxAreaM2 !== undefined && data.approxAreaM2 !== null ? Number(data.approxAreaM2) : null,
           levelsCount: data.levelsCount !== undefined && data.levelsCount !== null ? Number(data.levelsCount) : null,
-          leadArchitectUserId: data.leadArchitectUserId,
+          leadArchitectUserId,
           startDate: data.startDate ? new Date(data.startDate) : null,
           targetDeliveryDate: data.targetDeliveryDate ? new Date(data.targetDeliveryDate) : null,
           status: data.status || "Planificación",
@@ -1035,6 +1074,68 @@ export class ArchitectureService {
   // -------------------------------------------------------------
   // ETAPAS (ArchitectureProjectStage)
   // -------------------------------------------------------------
+  public static async createStage(
+    organizationId: number,
+    projectId: number,
+    data: CreateArchitectureStageInput,
+    client: any = db
+  ) {
+    const project = await client.architectureProject.findUnique({
+      where: { id: projectId },
+      include: { stages: { select: { order: true } } },
+    });
+
+    if (!project || project.organizationId !== organizationId) {
+      throw new Error(`Proyecto con ID ${projectId} no encontrado en la organización.`);
+    }
+
+    if (project.status === "Archivado") {
+      throw new Error("No se pueden agregar etapas a un proyecto archivado.");
+    }
+
+    if (!data.name || !data.name.trim()) {
+      throw new Error("El nombre de la etapa es obligatorio.");
+    }
+
+    const trimmedName = data.name.trim();
+
+    // Asignar el siguiente número de orden para posicionar la nueva etapa al final
+    const currentMaxOrder = (project.stages || []).reduce(
+      (max: number, s: any) => (s.order > max ? s.order : max),
+      0
+    );
+    const nextOrder = currentMaxOrder + 1;
+
+    let progress = 0;
+    if (data.progress !== undefined) {
+      const p = Number(data.progress);
+      if (!isNaN(p) && p >= 0 && p <= 100) {
+        progress = Math.round(p);
+      }
+    }
+
+    let status = data.status || "Pendiente";
+    if (progress === 100 && status === "Pendiente") {
+      status = "Completada";
+    }
+
+    await client.architectureProjectStage.create({
+      data: {
+        organizationId,
+        projectId,
+        name: trimmedName,
+        order: nextOrder,
+        status,
+        progress,
+        startDate: data.startDate ? new Date(data.startDate) : null,
+        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        notes: data.notes?.trim() || null,
+      },
+    });
+
+    return ArchitectureService.getProjectById(organizationId, projectId, client);
+  }
+
   public static async updateStage(
     organizationId: number,
     projectId: number,
@@ -1051,6 +1152,13 @@ export class ArchitectureService {
     }
 
     const updateData: any = {};
+
+    if (data.name !== undefined) {
+      if (!data.name.trim()) {
+        throw new Error("El nombre de la etapa no puede estar vacío.");
+      }
+      updateData.name = data.name.trim();
+    }
 
     if (data.progress !== undefined) {
       const progressNum = Number(data.progress);
@@ -1085,6 +1193,54 @@ export class ArchitectureService {
     });
 
     // Recalcular y retornar proyecto con su nuevo avance dinámico derivado
+    return ArchitectureService.getProjectById(organizationId, projectId, client);
+  }
+
+  public static async deleteStage(
+    organizationId: number,
+    projectId: number,
+    stageId: number,
+    client: any = db
+  ) {
+    const stage = await client.architectureProjectStage.findUnique({
+      where: { id: stageId },
+    });
+
+    if (!stage || stage.projectId !== projectId || stage.organizationId !== organizationId) {
+      throw new Error(`Etapa con ID ${stageId} no encontrada para este proyecto.`);
+    }
+
+    const project = await client.architectureProject.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project || project.organizationId !== organizationId) {
+      throw new Error(`Proyecto con ID ${projectId} no encontrado en la organización.`);
+    }
+
+    if (project.status === "Archivado") {
+      throw new Error("No se pueden eliminar etapas de un proyecto archivado.");
+    }
+
+    // Comprobar si existen tareas, entregables o documentos vinculados
+    const [taskCount, deliverableCount, documentCount] = await Promise.all([
+      client.architectureTask.count({ where: { stageId } }),
+      client.architectureDeliverable.count({ where: { stageId } }),
+      client.architectureDocument.count({ where: { stageId } }),
+    ]);
+
+    if (taskCount > 0 || deliverableCount > 0 || documentCount > 0) {
+      const err: any = new Error(
+        "No se puede eliminar esta etapa porque contiene tareas o entregables asociados."
+      );
+      err.status = 409;
+      throw err;
+    }
+
+    await client.architectureProjectStage.delete({
+      where: { id: stageId },
+    });
+
     return ArchitectureService.getProjectById(organizationId, projectId, client);
   }
 
@@ -1630,16 +1786,16 @@ export class ArchitectureService {
       clientId: m.project?.clientId ?? undefined,
       clientName: m.project?.client?.name || "",
       title: m.title,
-      scheduledAt: scheduledAt ? scheduledAt.toISOString() : "",
-      date: scheduledAt ? scheduledAt.toISOString().slice(0, 10) : "",
-      time: scheduledAt ? scheduledAt.toISOString().slice(11, 16) : "",
+      scheduledAt: scheduledAt && !isNaN(scheduledAt.getTime()) ? scheduledAt.toISOString() : "",
+      date: formatDateOnly(m.scheduledAt),
+      time: formatTimeOnly(m.scheduledAt),
       location: m.location || "",
       meetingUrl: m.meetingUrl || undefined,
-      modality: m.modality,
+      modality: m.modality || "Presencial",
       meetingType: m.meetingType || "Reunión",
       leadArchitect: m.leadArchitectUser?.name || "Sin asignar",
       leadArchitectUserId: m.leadArchitectUserId ?? undefined,
-      status: m.status,
+      status: m.status || "Programada",
       notes: m.notes || undefined,
       completedAt: m.completedAt ? m.completedAt.toISOString() : undefined,
       cancelledAt: m.cancelledAt ? m.cancelledAt.toISOString() : undefined,
@@ -1751,6 +1907,7 @@ export class ArchitectureService {
     // 1. Validar proyecto: existencia, pertenencia y no archivado
     const project = await client.architectureProject.findUnique({
       where: { id: data.projectId },
+      include: { client: true },
     });
     if (!project || project.organizationId !== organizationId) {
       throw new Error(`Proyecto con ID ${data.projectId} no encontrado en la organización.`);
@@ -1759,7 +1916,15 @@ export class ArchitectureService {
       throw new Error("No se pueden agendar reuniones en un proyecto archivado.");
     }
 
-    // 2. Validar arquitecto responsable si se especificó
+    // 2. Validar coherencia con cliente si se especifica
+    if (data.clientId !== undefined && data.clientId !== null) {
+      const requestedClientId = Number(data.clientId);
+      if (project.clientId && project.clientId !== requestedClientId) {
+        throw new Error("El cliente especificado no coincide con el cliente del proyecto.");
+      }
+    }
+
+    // 3. Validar arquitecto responsable si se especificó
     if (data.leadArchitectUserId) {
       await ArchitectureService.validateResponsibleArchitect(
         organizationId,
@@ -1768,20 +1933,8 @@ export class ArchitectureService {
       );
     }
 
-    // 3. Resolver scheduledAt
-    let scheduledAt: Date;
-    if (data.scheduledAt) {
-      scheduledAt = new Date(data.scheduledAt);
-    } else if (data.date) {
-      const timeStr = data.time || "10:00";
-      scheduledAt = new Date(`${data.date}T${timeStr}:00.000Z`);
-    } else {
-      throw new Error("La fecha y hora de la reunión son obligatorias.");
-    }
-
-    if (isNaN(scheduledAt.getTime())) {
-      throw new Error("Formato de fecha u hora de reunión inválido.");
-    }
+    // 4. Resolver scheduledAt con utilidad centralizada
+    const scheduledAt = parseMeetingDateTime(data.date, data.time, data.scheduledAt);
 
     const status = data.status || "Programada";
     const completedAt = status === "Realizada" ? new Date() : null;
@@ -1817,7 +1970,11 @@ export class ArchitectureService {
   ) {
     const existing = await client.architectureMeeting.findUnique({
       where: { id: meetingId },
-      include: { project: true },
+      include: {
+        project: {
+          include: { client: true },
+        },
+      },
     });
 
     if (!existing || existing.organizationId !== organizationId) {
@@ -1829,6 +1986,31 @@ export class ArchitectureService {
     }
 
     const updateData: any = {};
+    let targetProject = existing.project;
+
+    // 1. Si cambia de proyecto, validar que pertenezca a la misma organización y no esté archivado
+    if (data.projectId !== undefined && data.projectId !== existing.projectId) {
+      const newProject = await client.architectureProject.findUnique({
+        where: { id: data.projectId },
+        include: { client: true },
+      });
+      if (!newProject || newProject.organizationId !== organizationId) {
+        throw new Error(`Proyecto con ID ${data.projectId} no encontrado en la organización.`);
+      }
+      if (newProject.status === "Archivado") {
+        throw new Error("No se pueden modificar reuniones asociándolas a un proyecto archivado.");
+      }
+      updateData.projectId = data.projectId;
+      targetProject = newProject;
+    }
+
+    // 2. Validar coherencia de cliente contra el proyecto de destino
+    if (data.clientId !== undefined && data.clientId !== null) {
+      const requestedClientId = Number(data.clientId);
+      if (targetProject.clientId && targetProject.clientId !== requestedClientId) {
+        throw new Error("El cliente especificado no coincide con el cliente del proyecto.");
+      }
+    }
 
     if (data.title !== undefined) {
       if (!data.title?.trim()) {
@@ -1870,30 +2052,26 @@ export class ArchitectureService {
       updateData.notes = data.notes?.trim() || null;
     }
 
-    // Resolver fecha y hora
+    // 3. Resolver fecha y hora con utilidades centralizadas
     if (data.scheduledAt !== undefined) {
-      const d = new Date(data.scheduledAt);
-      if (isNaN(d.getTime())) throw new Error("Formato de fecha inválido.");
-      updateData.scheduledAt = d;
+      updateData.scheduledAt = parseMeetingDateTime(undefined, data.time, data.scheduledAt);
     } else if (data.date !== undefined) {
-      const timeStr = data.time || (existing.scheduledAt ? existing.scheduledAt.toISOString().slice(11, 16) : "10:00");
-      const d = new Date(`${data.date}T${timeStr}:00.000Z`);
-      if (isNaN(d.getTime())) throw new Error("Formato de fecha u hora inválido.");
-      updateData.scheduledAt = d;
+      const existingTime = formatTimeOnly(existing.scheduledAt) || "10:00";
+      const timeStr = data.time || existingTime;
+      updateData.scheduledAt = parseMeetingDateTime(data.date, timeStr);
     } else if (data.time !== undefined && existing.scheduledAt) {
-      const dateStr = existing.scheduledAt.toISOString().slice(0, 10);
-      const d = new Date(`${dateStr}T${data.time}:00.000Z`);
-      if (isNaN(d.getTime())) throw new Error("Formato de hora inválido.");
-      updateData.scheduledAt = d;
+      const existingDate = formatDateOnly(existing.scheduledAt);
+      updateData.scheduledAt = parseMeetingDateTime(existingDate, data.time);
     }
 
+    // 4. Coherencia en transiciones de estado
     if (data.status !== undefined) {
       updateData.status = data.status;
-      if (data.status === "Realizada" && existing.status !== "Realizada") {
-        updateData.completedAt = new Date();
+      if (data.status === "Realizada") {
+        updateData.completedAt = existing.completedAt || new Date();
         updateData.cancelledAt = null;
-      } else if (data.status === "Cancelada" && existing.status !== "Cancelada") {
-        updateData.cancelledAt = new Date();
+      } else if (data.status === "Cancelada") {
+        updateData.cancelledAt = existing.cancelledAt || new Date();
         updateData.completedAt = null;
       } else if (data.status === "Programada") {
         updateData.completedAt = null;
@@ -2435,6 +2613,22 @@ export class ArchitectureService {
     client: any = db
   ) {
     return ArchitectureBudgetService.updateBudget(organizationId, userId, budgetId, data, client);
+  }
+
+  public static async updateBudgetWithItems(
+    organizationId: number,
+    userId: number,
+    budgetId: number,
+    data: UpdateArchitectureBudgetInput & {
+      items?: Array<
+        (CreateArchitectureBudgetItemInput | UpdateArchitectureBudgetItemInput) & {
+          id?: number | string | null;
+        }
+      >;
+    },
+    client: any = db
+  ) {
+    return ArchitectureBudgetService.updateBudgetWithItems(organizationId, userId, budgetId, data, client);
   }
 
   public static async approveBudget(

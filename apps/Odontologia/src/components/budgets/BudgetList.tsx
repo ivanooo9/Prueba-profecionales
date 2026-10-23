@@ -3,7 +3,7 @@ import { Budget, BudgetStatus, DentalBudget, DentalBudgetStatus, DentalPaymentFi
 import { dentalService } from '../../services/dentalService';
 import { EmptyState } from '../ui/EmptyState';
 import { SearchFilter } from '../ui/SearchFilter';
-import { Receipt, Plus, Printer, Edit3, DollarSign, CreditCard, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Receipt, Plus, Printer, Edit3, DollarSign, CreditCard, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, User } from 'lucide-react';
 import { BudgetFormModal } from './BudgetFormModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
 
@@ -16,6 +16,8 @@ export const BudgetList: React.FC<BudgetListProps> = ({
   patientIdFilter,
   onSelectPatient
 }) => {
+  const isMockPatient = Boolean(patientIdFilter && patientIdFilter.startsWith('PAT-'));
+  const isRealMode = !isMockPatient;
   const isRealPatient = Boolean(patientIdFilter && !patientIdFilter.startsWith('PAT-'));
 
   // Modals
@@ -30,20 +32,29 @@ export const BudgetList: React.FC<BudgetListProps> = ({
   const [isLoadingReal, setIsLoadingReal] = useState(false);
   const [realError, setRealError] = useState<string | null>(null);
 
-  // Mock filters
+  // Filters and Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 6;
 
-  // Cargar presupuestos reales si es un paciente real
   useEffect(() => {
-    if (!isRealPatient || !patientIdFilter) return;
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  // Cargar presupuestos reales (modo paciente específico o vista global de la organización)
+  useEffect(() => {
+    if (isMockPatient) return;
 
     let isMounted = true;
     setIsLoadingReal(true);
     setRealError(null);
 
-    dentalService
-      .loadRealBudgets(patientIdFilter)
+    const loadPromise = patientIdFilter
+      ? dentalService.loadRealBudgets(patientIdFilter)
+      : dentalService.loadAllRealBudgets();
+
+    loadPromise
       .then((budgets) => {
         if (!isMounted) return;
         setRealBudgets(budgets);
@@ -52,13 +63,17 @@ export const BudgetList: React.FC<BudgetListProps> = ({
       .catch((err) => {
         if (!isMounted) return;
         console.error('[BudgetList] Error loading real budgets:', err);
-        setRealError('Error al cargar presupuestos del paciente.');
+        setRealError('Error al cargar presupuestos desde la base de datos.');
         setIsLoadingReal(false);
       });
 
     const unsubscribe = dentalService.subscribe(() => {
       if (isMounted) {
-        setRealBudgets(dentalService.getRealBudgets(patientIdFilter));
+        if (patientIdFilter) {
+          setRealBudgets(dentalService.getRealBudgets(patientIdFilter));
+        } else {
+          setRealBudgets(dentalService.getAllRealBudgets());
+        }
       }
     });
 
@@ -66,13 +81,17 @@ export const BudgetList: React.FC<BudgetListProps> = ({
       isMounted = false;
       unsubscribe();
     };
-  }, [patientIdFilter, isRealPatient]);
+  }, [patientIdFilter, isMockPatient]);
 
   // Manejo de cambio de estado para presupuestos reales
-  const handleRealStatusChange = async (budgetId: number, newStatus: string) => {
-    if (!patientIdFilter) return;
+  const handleRealStatusChange = async (budgetId: number, newStatus: string, budgetPatientId?: number | string) => {
+    const targetPatientId = patientIdFilter || (budgetPatientId ? String(budgetPatientId) : undefined);
+    if (!targetPatientId) return;
     try {
-      await dentalService.updateRealBudget(patientIdFilter, budgetId, { status: newStatus });
+      await dentalService.updateRealBudget(targetPatientId, budgetId, { status: newStatus });
+      if (!patientIdFilter) {
+        await dentalService.loadAllRealBudgets();
+      }
     } catch (err: any) {
       console.error('[BudgetList] Error updating budget status:', err);
       alert(err.message || 'Error al actualizar estado del presupuesto.');
@@ -162,9 +181,27 @@ export const BudgetList: React.FC<BudgetListProps> = ({
         )}
       </div>
 
-      {/* VISTA REAL (Para paciente real con ID numérico en la organización activa) */}
-      {isRealPatient ? (
+      {/* VISTA REAL (Para paciente real o vista global de presupuestos de la organización) */}
+      {isRealMode ? (
         <div className="space-y-4">
+          {/* Buscador y filtro para la vista global o de paciente */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm no-print">
+            <SearchFilter
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              placeholder="Buscar presupuesto por título o paciente..."
+              filterOptions={[
+                { label: 'Borrador', value: 'DRAFT' },
+                { label: 'Emitido', value: 'ISSUED' },
+                { label: 'Aceptado', value: 'ACCEPTED' },
+                { label: 'Rechazado', value: 'REJECTED' },
+                { label: 'Cancelado', value: 'CANCELLED' }
+              ]}
+              selectedFilter={statusFilter}
+              onFilterChange={setStatusFilter}
+            />
+          </div>
+
           {realError && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -174,17 +211,36 @@ export const BudgetList: React.FC<BudgetListProps> = ({
 
           {isLoadingReal ? (
             <div className="p-8 text-center text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
-              Cargando presupuestos formales del paciente...
+              Cargando presupuestos formales desde la base de datos...
             </div>
           ) : realBudgets.length === 0 ? (
             <EmptyState
               icon={<Receipt className="w-8 h-8" />}
               title="Sin presupuestos formales"
-              description="Aún no se ha generado ningún presupuesto formal para este paciente. Puede crearlo desde la pestaña 'Tratamientos' a partir de un Plan de Tratamiento."
+              description={
+                patientIdFilter
+                  ? "Aún no se ha generado ningún presupuesto formal para este paciente. Puede crearlo desde la pestaña 'Tratamientos' a partir de un Plan de Tratamiento."
+                  : "No existen presupuestos formales registrados en la organización clínica. Los presupuestos se generan a partir de Planes de Tratamiento en el expediente de cada paciente."
+              }
             />
-          ) : (
-            <div className="space-y-4">
-              {realBudgets.map((b) => {
+          ) : (() => {
+            const filteredRealBudgets = realBudgets.filter((b) => {
+              const matchesQuery =
+                b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (b.patientName && b.patientName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                String(b.id).includes(searchQuery);
+              const matchesStatus = !statusFilter || b.status === statusFilter;
+              return matchesQuery && matchesStatus;
+            });
+            const totalRealPages = Math.ceil(filteredRealBudgets.length / PAGE_SIZE) || 1;
+            const paginatedRealBudgets = filteredRealBudgets.slice(
+              (currentPage - 1) * PAGE_SIZE,
+              currentPage * PAGE_SIZE
+            );
+
+            return (
+              <div className="space-y-4">
+                {paginatedRealBudgets.map((b) => {
                 const isFinancialPaid = b.paymentStatus === 'PAID' || b.balance <= 0;
                 const isExpanded = expandedPaymentsId === b.id;
 
@@ -204,11 +260,28 @@ export const BudgetList: React.FC<BudgetListProps> = ({
                           {getDocumentStatusBadge(b.status)}
                           {getFinancialStatusBadge(b.paymentStatus)}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {b.treatmentPlanId && (
-                            <span className="mr-3 font-semibold text-cyan-700">Plan #{b.treatmentPlanId}</span>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
+                          {b.patientName && (
+                            <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                              <User className="w-3.5 h-3.5 text-cyan-600" />
+                              <span>Paciente:</span>
+                              {onSelectPatient && b.patientId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectPatient(String(b.patientId))}
+                                  className="text-cyan-700 hover:text-cyan-900 font-bold hover:underline"
+                                >
+                                  {b.patientName}
+                                </button>
+                              ) : (
+                                <span className="font-semibold text-slate-900">{b.patientName}</span>
+                              )}
+                            </div>
                           )}
-                          Fecha: {new Date(b.createdAt).toLocaleDateString()}
+                          {b.treatmentPlanId && (
+                            <span className="font-semibold text-cyan-700">Plan #{b.treatmentPlanId}</span>
+                          )}
+                          <span>Fecha: {new Date(b.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
 
@@ -218,7 +291,7 @@ export const BudgetList: React.FC<BudgetListProps> = ({
                           <span className="text-[11px] text-slate-400 font-semibold">Estado:</span>
                           <select
                             value={b.status}
-                            onChange={(e) => handleRealStatusChange(b.id, e.target.value)}
+                            onChange={(e) => handleRealStatusChange(b.id, e.target.value, b.patientId)}
                             className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700"
                           >
                             <option value="DRAFT">Borrador</option>
@@ -376,8 +449,39 @@ export const BudgetList: React.FC<BudgetListProps> = ({
                   </div>
                 );
               })}
+
+              {/* Barra de Paginación */}
+              {totalRealPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-white rounded-xl border border-slate-200 text-xs text-slate-600 no-print">
+                  <span>
+                    Mostrando {((currentPage - 1) * PAGE_SIZE) + 1} - {Math.min(currentPage * PAGE_SIZE, filteredRealBudgets.length)} de {filteredRealBudgets.length} presupuestos
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 font-medium transition-colors"
+                    >
+                      Anterior
+                    </button>
+                    <span className="font-semibold text-slate-800">
+                      Página {currentPage} de {totalRealPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.min(totalRealPages, p + 1))}
+                      disabled={currentPage === totalRealPages}
+                      className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 font-medium transition-colors"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          );
+        })()}
         </div>
       ) : (
         /* VISTA MOCK LEGACY (Para vista global de presupuestos o pacientes PAT-*) */
@@ -520,14 +624,18 @@ export const BudgetList: React.FC<BudgetListProps> = ({
       )}
 
       {/* Modal para Registrar Pago / Abono */}
-      {isRealPatient && patientIdFilter && paymentModalBudget && (
+      {isRealMode && paymentModalBudget && (
         <RecordPaymentModal
           isOpen={paymentModalBudget !== null}
           onClose={() => setPaymentModalBudget(null)}
-          patientId={patientIdFilter}
+          patientId={patientIdFilter || String(paymentModalBudget.patientId || '')}
           budget={paymentModalBudget}
           onSuccess={() => {
-            dentalService.loadRealBudgets(patientIdFilter);
+            if (patientIdFilter) {
+              dentalService.loadRealBudgets(patientIdFilter);
+            } else {
+              dentalService.loadAllRealBudgets();
+            }
           }}
         />
       )}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Settings, User, Building2, Bell, BookOpen, ShieldCheck } from 'lucide-react';
 import { UserSession, Organization } from '../../services/api/organizationApi';
+import { AcademicConfigSection } from './AcademicConfigSection';
 
 export interface SettingsViewProps {
   currentUser?: UserSession | null;
@@ -11,6 +12,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   currentUser,
   activeOrganization,
 }) => {
+  const isAdminOrOwner =
+    currentUser?.role?.toUpperCase() === 'ADMIN' ||
+    currentUser?.role?.toUpperCase() === 'OWNER';
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -25,7 +30,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Main Settings Panel */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-6 max-w-3xl">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-6 max-w-4xl">
         {/* Section 1: Teacher Profile */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -110,7 +115,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Section 4: Academic Multi-level Configuration */}
+        <AcademicConfigSection
+          organization={activeOrganization}
+          isAdminOrOwner={isAdminOrOwner}
+        />
       </div>
     </div>
   );
 };
+

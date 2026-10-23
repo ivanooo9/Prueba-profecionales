@@ -118,7 +118,7 @@ export const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({
               const primary = pDiagnoses.find((d) => d.type === 'PRIMARY') || pDiagnoses[0];
               return (
                 <span className="font-mono text-xs text-sky-800 font-medium">
-                  {primary ? primary.description : 'Z00.0 - Examen General'}
+                  {primary ? (primary.cie10Code ? `${primary.cie10Code} - ${primary.description}` : primary.description) : 'Sin diagnóstico registrado'}
                 </span>
               );
             },

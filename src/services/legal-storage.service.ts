@@ -47,8 +47,12 @@ export class LegalStorageService {
     ".scr",
   ]);
 
+  public static getRootStorageDir(): string {
+    return process.env.LEGAL_STORAGE_DIR || path.resolve(process.cwd(), "storage", "legal");
+  }
+
   private static getBaseDir(organizationId: number, legalCaseId: number): string {
-    const baseStorage = path.resolve(process.cwd(), "storage", "legal");
+    const baseStorage = LegalStorageService.getRootStorageDir();
     return path.join(baseStorage, String(organizationId), String(legalCaseId));
   }
 

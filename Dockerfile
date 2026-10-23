@@ -1,4 +1,6 @@
-FROM node:20-bookworm AS base
+FROM node:22-bookworm AS base
+
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 
 FROM base AS builder
 
@@ -26,10 +28,11 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/.cache/puppeteer ./.cache/puppeteer
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/views ./views
-COPY entrypoint.sh ./entrypoint.sh
+COPY entrypoint.deploy.sh ./entrypoint.deploy.sh
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -74,12 +77,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends postgresql-client-18 \
     && apt-get purge -y --auto-remove curl gnupg \
     && rm -rf /var/lib/apt/lists/* \
-    && chmod +x /app/entrypoint.sh \
+    && chmod +x /app/entrypoint.deploy.sh \
     && chown -R node:node /app
 
 USER node
 
 EXPOSE 3000
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.deploy.sh"]
 CMD ["node", "dist/server.js"]

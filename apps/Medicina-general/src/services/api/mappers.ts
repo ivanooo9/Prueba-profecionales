@@ -142,20 +142,56 @@ export function mapPatientToApi(patient: Partial<Patient>): any {
 }
 
 /**
+ * Analiza el texto de una alergia y determina sustancia, severidad clínica y reacción.
+ */
+export function parseAllergySeverity(text: string): {
+  substance: string;
+  severity: Allergy['severity'];
+  reaction?: string;
+} {
+  const lower = text.toLowerCase();
+  let severity: Allergy['severity'] = 'UNKNOWN';
+
+  if (/severa|grave|anafil|shock|edema de glotis|dificultad respiratoria/i.test(lower)) {
+    severity = 'SEVERE';
+  } else if (/moderada|urticaria|broncoespasmo|angioedema/i.test(lower)) {
+    severity = 'MODERATE';
+  } else if (/leve|rinitis|estornudo|picaz[oó]n|prurito|erupci[oó]n leve/i.test(lower)) {
+    severity = 'MILD';
+  }
+
+  // Extraer reacción entre paréntesis ej. "Penicilina (shock anafiláctico)"
+  const match = text.match(/^(.*?)\s*\((.*?)\)$/);
+  if (match) {
+    return {
+      substance: match[1].trim(),
+      reaction: match[2].trim(),
+      severity,
+    };
+  }
+
+  return { substance: text.trim(), severity };
+}
+
+/**
  * Extrae alergias del texto anamnésico para alimentar clinicalStore.allergies
  */
 export function extractAllergiesFromPatient(patient: Patient): Allergy[] {
   if (!patient.anamnesis?.allergies) return [];
   const parts = patient.anamnesis.allergies.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-  return parts.map((substance, idx) => ({
-    id: `alg-${patient.id}-${idx}`,
-    patientId: patient.id,
-    substance,
-    severity: 'SEVERE',
-    status: 'ACTIVE',
-    recordedAt: patient.updatedAt || patient.createdAt,
-    recordedBy: 'Historia Clínica',
-  }));
+  return parts.map((part, idx) => {
+    const { substance, severity, reaction } = parseAllergySeverity(part);
+    return {
+      id: `alg-${patient.id}-${idx}`,
+      patientId: patient.id,
+      substance: substance || part,
+      reaction,
+      severity,
+      status: 'ACTIVE',
+      recordedAt: patient.updatedAt || patient.createdAt,
+      recordedBy: 'Historia Clínica',
+    };
+  });
 }
 
 /**
@@ -199,8 +235,8 @@ export function mapApiConsultationToConsultation(api: ApiConsultation): {
       id: `diag-${api.id}`,
       patientId,
       consultationId,
-      cie10Code: api.cie10Code || 'Z00.0',
-      description: api.cie10Description || api.assessment || 'Examen médico general',
+      cie10Code: api.cie10Code || '',
+      description: api.cie10Description || api.assessment || 'Diagnóstico preliminar',
       type: 'PRIMARY',
       status: 'ACTIVE',
       diagnosedAt: api.date,
@@ -287,7 +323,7 @@ export function mapApiPrescriptionToPrescription(api: ApiPrescription): {
           startDate: formatDateYmd(api.signedAt || api.createdAt),
           status: 'ACTIVE',
           indication: item.instructions,
-          prescribedBy: api.signedBy || 'Dr. Roberto Silva',
+          prescribedBy: api.signedBy || 'Profesional Médico',
           sourcePrescriptionId: prescriptionId,
           createdAt: api.createdAt,
           updatedAt: api.updatedAt,

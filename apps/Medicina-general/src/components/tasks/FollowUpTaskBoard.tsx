@@ -17,6 +17,7 @@ export const FollowUpTaskBoard: React.FC<FollowUpTaskBoardProps> = ({ tasks, pat
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const todayStr = new Date().toLocaleDateString('en-CA');
 
   const toggleTask = async (taskId: string, currentStatus: FollowUpTask['status']) => {
     const nextStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
@@ -31,6 +32,10 @@ export const FollowUpTaskBoard: React.FC<FollowUpTaskBoardProps> = ({ tasks, pat
   const createTask = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!title.trim() || !dueDate) return;
+    if (dueDate < todayStr) {
+      setError('La fecha límite no puede ser anterior a hoy.');
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     try {
@@ -126,8 +131,12 @@ export const FollowUpTaskBoard: React.FC<FollowUpTaskBoardProps> = ({ tasks, pat
                 <input
                   required
                   type="date"
+                  min={todayStr}
                   value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
+                  onChange={(event) => {
+                    setError(null);
+                    setDueDate(event.target.value);
+                  }}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-1 focus:ring-sky-500"
                   disabled={isSubmitting}
                 />
@@ -241,8 +250,12 @@ export const FollowUpTaskBoard: React.FC<FollowUpTaskBoardProps> = ({ tasks, pat
               <input
                 required
                 type="date"
+                min={todayStr}
                 value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
+                onChange={(event) => {
+                  setError(null);
+                  setDueDate(event.target.value);
+                }}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-1 focus:ring-sky-500"
                 disabled={isSubmitting}
               />

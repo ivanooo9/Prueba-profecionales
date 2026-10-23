@@ -62,9 +62,63 @@ export const ACADEMIC_ACTIVITY_TYPE = {
   PROJECT: 'PROJECT',
   PRACTICE: 'PRACTICE',
   PARTICIPATION: 'PARTICIPATION',
+  LESSON: 'LESSON',
+  ACTIVITY: 'ACTIVITY',
 } as const;
 
 export type AcademicActivityType =
   (typeof ACADEMIC_ACTIVITY_TYPE)[keyof typeof ACADEMIC_ACTIVITY_TYPE];
+
+export const ACADEMIC_YEAR_STATUS = {
+  PLANNED: 'PLANNED',
+  ACTIVE: 'ACTIVE',
+  CLOSED: 'CLOSED',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+
+export type AcademicYearStatus =
+  (typeof ACADEMIC_YEAR_STATUS)[keyof typeof ACADEMIC_YEAR_STATUS];
+
+export const ACADEMIC_PERIOD_TYPE = {
+  YEAR: 'YEAR',
+  SEMESTER: 'SEMESTER',
+  QUIMESTER: 'QUIMESTER',
+  TRIMESTER: 'TRIMESTER',
+  BIMESTER: 'BIMESTER',
+  PARTIAL: 'PARTIAL',
+} as const;
+
+export type AcademicPeriodType =
+  (typeof ACADEMIC_PERIOD_TYPE)[keyof typeof ACADEMIC_PERIOD_TYPE];
+
+export const ACADEMIC_PERIOD_STATUS = {
+  ACTIVE: 'ACTIVE',
+  LOCKED: 'LOCKED',
+  CLOSED: 'CLOSED',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+
+export type AcademicPeriodStatus =
+  (typeof ACADEMIC_PERIOD_STATUS)[keyof typeof ACADEMIC_PERIOD_STATUS];
+
+export const ACADEMIC_EVALUATION_SCHEME_STATUS = {
+  DRAFT: 'DRAFT',
+  VALID: 'VALID',
+  LOCKED: 'LOCKED',
+  CLOSED: 'CLOSED',
+} as const;
+
+export type AcademicEvaluationSchemeStatus =
+  (typeof ACADEMIC_EVALUATION_SCHEME_STATUS)[keyof typeof ACADEMIC_EVALUATION_SCHEME_STATUS];
+
+export const ACADEMIC_GRADE_STATUS = {
+  PENDING: 'PENDING',
+  GRADED: 'GRADED',
+  ABSENT: 'ABSENT',
+  EXCUSED: 'EXCUSED',
+} as const;
+
+export type AcademicGradeStatus =
+  (typeof ACADEMIC_GRADE_STATUS)[keyof typeof ACADEMIC_GRADE_STATUS];
 
 

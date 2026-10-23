@@ -16,6 +16,7 @@ import {
   Inbox
 } from 'lucide-react';
 import { Hearing, LegalCase, LegalTask, ProceduralDeadline, LegalDashboardDTO } from '../../types';
+import { legalService } from '../../services/legalService';
 
 export interface DashboardViewProps {
   cases: LegalCase[];
@@ -64,15 +65,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <h3 className="text-base font-bold text-rose-900">Error al cargar datos del Dashboard</h3>
             <p className="text-xs text-rose-700">{error}</p>
           </div>
-          {onRefresh && (
+          <div className="flex items-center justify-center gap-3">
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition cursor-pointer"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+                <span>Reintentar</span>
+              </button>
+            )}
             <button
-              onClick={onRefresh}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition cursor-pointer"
+              onClick={() => {
+                localStorage.removeItem('abogado_org_id');
+                localStorage.removeItem('active_organization_id');
+                legalService.setOrganizationId(0);
+                window.location.href = window.location.origin + window.location.pathname;
+              }}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition cursor-pointer"
             >
-              <RotateCw className="w-3.5 h-3.5" />
-              <span>Reintentar</span>
+              <Scale className="w-3.5 h-3.5" />
+              <span>Cambiar Despacho</span>
             </button>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -96,14 +111,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
   }
 
-  // Métricas agregadas gobernadas por Core API si existen, con fallback a arrays locales
+  // Métricas agregadas gobernadas por Core API si existen, con fallback reactivo a arrays sincronizados
   const urgentCount = dashboardData
     ? dashboardData.workload.overdueDeadlines
     : deadlines.filter((d) => d.status === 'Vencido' || d.priority === 'Urgente').length;
 
-  const hearingsCount = dashboardData
-    ? dashboardData.workload.upcomingHearings
-    : hearings.filter((h) => h.status === 'Programada').length;
+  const scheduledHearingsLocal = hearings.filter((h) => h.status === 'Programada').length;
+  const hearingsCount = dashboardData && dashboardData.workload && typeof dashboardData.workload.upcomingHearings === 'number'
+    ? Math.max(dashboardData.workload.upcomingHearings, scheduledHearingsLocal)
+    : scheduledHearingsLocal;
 
   const tasksCount = dashboardData
     ? dashboardData.workload.pendingTasks
@@ -116,10 +132,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const urgentDeadlinesList = deadlines.filter((d) => d.status === 'Vencido' || d.priority === 'Urgente');
   const criticalCases = cases.filter((c) => c.priority === 'Urgente' || c.priority === 'Alta').slice(0, 4);
 
-  // Próximos eventos (Upcoming) provistos por proyección de F5/F7
-  const upcomingEvents = dashboardData && Array.isArray(dashboardData.upcoming) && dashboardData.upcoming.length > 0
-    ? dashboardData.upcoming
-    : [];
+  // Próximos eventos (Upcoming) provistos por proyección de F5/F7 con fallback reactivo local
+  const localUpcomingEvents = [
+    ...hearings
+      .filter((h) => h.status === 'Programada')
+      .map((h) => ({
+        type: 'HEARING' as const,
+        id: Number(h.id) || 0,
+        legalCaseId: Number(h.caseId) || 0,
+        caseNumber: h.caseNumber || `CAS-${h.caseId}`,
+        title: h.title,
+        date: h.date ? `${h.date} ${h.time || ''}`.trim() : '',
+        priority: 'Alta',
+      })),
+    ...deadlines
+      .filter((d) => d.status !== 'Cumplido')
+      .map((d) => ({
+        type: 'DEADLINE' as const,
+        id: Number(d.id) || 0,
+        legalCaseId: Number(d.caseId) || 0,
+        caseNumber: d.caseNumber || `CAS-${d.caseId}`,
+        title: d.description,
+        date: d.dueDate || '',
+        priority: d.priority,
+      })),
+    ...tasks
+      .filter((t) => t.status !== 'Completada')
+      .map((t) => ({
+        type: 'TASK' as const,
+        id: Number(t.id) || 0,
+        legalCaseId: Number(t.caseId) || 0,
+        caseNumber: t.caseTitle || `CAS-${t.caseId}`,
+        title: t.title,
+        date: t.dueDate || '',
+        priority: t.priority,
+      })),
+  ]
+    .sort((a, b) => (a.date > b.date ? 1 : -1))
+    .slice(0, 10);
+
+  const upcomingEvents =
+    dashboardData && Array.isArray(dashboardData.upcoming) && dashboardData.upcoming.length > 0
+      ? dashboardData.upcoming
+      : localUpcomingEvents;
 
   const isEmpty = (dashboardData ? dashboardData.cases.total === 0 : cases.length === 0) &&
     urgentCount === 0 &&

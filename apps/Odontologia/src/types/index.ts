@@ -79,7 +79,8 @@ export interface Patient {
   id: string;
   names: string;
   surnames: string;
-  identification: string; // CI
+  identification: string; // CI o Pasaporte
+  idType?: 'CEDULA' | 'PASAPORTE';
   birthDate: string;
   gender: 'Femenino' | 'Masculino' | 'Otro';
   phone: string;
@@ -319,6 +320,7 @@ export interface DentalProcedure {
   organizationId: number;
   code?: string | null;
   name: string;
+  description?: string | null;
   category?: string | null;
   defaultPrice: number;
   estimatedDurationMin?: number | null;
@@ -353,6 +355,8 @@ export interface DentalTreatmentPlan {
   id: number;
   organizationId: number;
   dentalRecordId: number;
+  patientId?: number | string;
+  patientName?: string;
   title: string;
   notes?: string | null;
   status: DentalTreatmentPlanStatus;
@@ -399,6 +403,8 @@ export interface DentalBudget {
   organizationId: number;
   dentalRecordId: number;
   treatmentPlanId?: number | null;
+  patientId?: number | string;
+  patientName?: string;
   title: string;
   subtotal: number;
   discount: number;

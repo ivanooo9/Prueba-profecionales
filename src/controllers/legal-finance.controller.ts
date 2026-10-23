@@ -189,19 +189,32 @@ export class LegalFinanceController {
       }
 
       const authUserId = LegalFinanceController.getAuthUserId(req, res);
+      const idempotencyKey =
+        (req.headers["x-idempotency-key"] as string) ||
+        (req.headers["idempotency-key"] as string) ||
+        req.body?.idempotencyKey;
+
+      const paymentPayload = {
+        ...req.body,
+        idempotencyKey: idempotencyKey ? String(idempotencyKey).trim() : undefined,
+      };
+
       const result = await LegalFinanceService.recordPayment(
         orgId,
         caseId,
         agreementId,
-        req.body,
+        paymentPayload,
         authUserId
       );
 
-      return res.status(201).json({ success: true, data: result });
+      const statusCode = (result as any)?.idempotentReplay ? 200 : 201;
+      return res.status(statusCode).json({ success: true, data: result });
     } catch (error: any) {
       console.error("[LegalFinanceController.recordPayment] Error:", error);
       const isNotFound = error.message?.includes("no encontrado");
-      const isConflict = error.message?.includes("supera el saldo");
+      const isConflict =
+        error.message?.includes("supera el saldo") ||
+        error.message?.includes("Conflicto de idempotencia");
       return res.status(isNotFound ? 404 : isConflict ? 409 : 400).json({
         success: false,
         error: error.message || "Error al registrar pago de honorarios.",

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DentalTreatmentPlan } from '../../types';
 import { dentalService } from '../../services/dentalService';
 import { X, FileText, DollarSign, AlertCircle } from 'lucide-react';
@@ -56,10 +57,18 @@ export const GenerateBudgetModal: React.FC<GenerateBudgetModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-        {/* Modal Header */}
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-slate-900/70 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-lg my-auto max-h-[88vh] bg-white rounded-2xl border border-slate-200 shadow-2xl text-left flex flex-col overflow-hidden animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+          {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center">
@@ -81,7 +90,7 @@ export const GenerateBudgetModal: React.FC<GenerateBudgetModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-75px)] overscroll-contain">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -201,4 +210,6 @@ export const GenerateBudgetModal: React.FC<GenerateBudgetModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

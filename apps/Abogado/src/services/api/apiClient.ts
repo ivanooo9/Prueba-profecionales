@@ -24,11 +24,29 @@ async function request<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const url = `${BASE_URL}${endpoint}`;
+  // Blindaje preventivo: Interceptar URLs con segmentos inválidos (null, undefined, NaN)
+  const invalidSegmentRegex = /\/(null|undefined|NaN)(\/|$|\?)/i;
+  if (invalidSegmentRegex.test(endpoint)) {
+    const errMessage = `[apiClient] Solicitud bloqueada preventivamente: Endpoint contiene identificador inválido '${endpoint}'`;
+    console.error(errMessage);
+    throw new ApiError(errMessage, 400, { blockedUrl: endpoint });
+  }
 
+  const url = `${BASE_URL}${endpoint}`;
   const headers = new Headers(options.headers || {});
+
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
+  }
+
+  // Inyección automática del header multi-tenant x-organization-id si existe en sesión
+  if (typeof window !== 'undefined' && !headers.has('x-organization-id')) {
+    const activeOrgId =
+      localStorage.getItem('abogado_org_id') ||
+      localStorage.getItem('active_organization_id');
+    if (activeOrgId && !isNaN(Number(activeOrgId)) && Number(activeOrgId) > 0) {
+      headers.set('x-organization-id', activeOrgId);
+    }
   }
 
   const config: RequestInit = {

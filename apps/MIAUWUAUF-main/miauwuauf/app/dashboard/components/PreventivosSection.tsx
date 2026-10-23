@@ -43,6 +43,11 @@ export const PreventivosSection: React.FC<PreventivosSectionProps> = ({
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (formSubmitting) return
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })
+    if (form.proximaFecha && form.proximaFecha < todayStr) {
+      alert("La fecha de la siguiente dosis o control no puede ser anterior a hoy")
+      return
+    }
     setFormSubmitting(true)
     try {
       await Promise.resolve(onSubmit(e))
@@ -114,7 +119,7 @@ export const PreventivosSection: React.FC<PreventivosSectionProps> = ({
                 <Input
                   type="date"
                   className="border-[2px] border-foreground bg-white p-3 rounded-xl font-medium"
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })}
                   value={form.proximaFecha}
                   onChange={(e) => setForm({ ...form, proximaFecha: e.target.value })}
                 />

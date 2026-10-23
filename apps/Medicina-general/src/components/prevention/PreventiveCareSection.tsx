@@ -16,10 +16,15 @@ export const PreventiveCareSection: React.FC<PreventiveCareSectionProps> = ({ pr
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const todayStr = new Date().toLocaleDateString('en-CA');
 
   const createPreventiveItem = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return;
+    if (dueDate && dueDate < todayStr) {
+      setError('La fecha programada no puede ser anterior a hoy.');
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     try {
@@ -133,8 +138,12 @@ export const PreventiveCareSection: React.FC<PreventiveCareSectionProps> = ({ pr
               <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Fecha límite o programada</label>
               <input
                 type="date"
+                min={todayStr}
                 value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
+                onChange={(event) => {
+                  setError(null);
+                  setDueDate(event.target.value);
+                }}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500"
                 disabled={isSubmitting}
               />

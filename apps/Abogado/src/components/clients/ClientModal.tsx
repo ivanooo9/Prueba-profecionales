@@ -88,8 +88,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
-      subtitle="Complete la información del cliente del despacho jurídico"
+      title={initialClient ? 'Perfil de Cliente' : 'Registrar Nuevo Cliente'}
+      subtitle={
+        initialClient
+          ? 'Consulte y actualice la información del cliente del despacho jurídico'
+          : 'Complete la información del cliente del despacho jurídico'
+      }
       maxWidth="xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">

@@ -17,10 +17,13 @@ export class LegalDashboardController {
       const userId = authUser?.id ? Number(authUser.id) : undefined;
 
       const dashboard = await LegalDashboardService.getDashboard(organizationId, userId);
-      return res.status(200).json(dashboard);
+      return res.status(200).json({
+        success: true,
+        data: dashboard,
+      });
     } catch (error: any) {
       console.error("[LegalDashboardController.getDashboard] Error:", error);
-      return res.status(400).json({ error: error.message || "Error al obtener dashboard jurídico" });
+      return res.status(400).json({ success: false, error: error.message || "Error al obtener dashboard jurídico" });
     }
   }
 
@@ -32,7 +35,7 @@ export class LegalDashboardController {
     try {
       const organizationId = parseInt(String(req.params.id), 10);
       if (isNaN(organizationId)) {
-        return res.status(400).json({ error: "ID de organización no válido" });
+        return res.status(400).json({ success: false, error: "ID de organización no válido" });
       }
 
       const { from, to } = req.query;
@@ -42,10 +45,13 @@ export class LegalDashboardController {
       if (to) filters.to = String(to);
 
       const reports = await LegalDashboardService.getReports(organizationId, filters);
-      return res.status(200).json(reports);
+      return res.status(200).json({
+        success: true,
+        data: reports,
+      });
     } catch (error: any) {
       console.error("[LegalDashboardController.getReports] Error:", error);
-      return res.status(400).json({ error: error.message || "Error al obtener reportes jurídicos" });
+      return res.status(400).json({ success: false, error: error.message || "Error al obtener reportes jurídicos" });
     }
   }
 }

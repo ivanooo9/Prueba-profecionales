@@ -811,6 +811,20 @@ export class LegalService {
       throw new Error(`Caso jurídico con ID ${caseId} no encontrado en la organización.`);
     }
 
+    // 2. Inmutabilidad estricta: un expediente archivado no admite modificaciones
+    if (existing.status === "Archivado") {
+      throw new Error("No se pueden modificar los datos de un expediente archivado.");
+    }
+
+    // 3. Integridad de transiciones: Cierre y Archivo requieren procedimientos formales
+    if (data.status !== undefined && data.status !== existing.status) {
+      if (data.status === "Cerrado" || data.status === "Archivado") {
+        throw new Error(
+          "El cierre y archivado de expedientes deben realizarse exclusivamente mediante los procedimientos formales autorizados del despacho."
+        );
+      }
+    }
+
     if (data.clientId !== undefined && data.clientId !== existing.clientId) {
       throw new Error("No se permite transferir un caso existente a otro cliente.");
     }

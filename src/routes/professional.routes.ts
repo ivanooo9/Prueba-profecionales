@@ -3,7 +3,12 @@ import path from "path";
 // @ts-ignore
 import { PDFParse } from "pdf-parse";
 import { db } from "../lib/db";
-import { comparePassword, hashPassword, revokeSessionFromToken } from "../lib/auth";
+import {
+  comparePassword,
+  getAuthCookieClearOptions,
+  hashPassword,
+  revokeSessionFromToken,
+} from "../lib/auth";
 import { generateInvoiceXml } from "../lib/sri/xml-generator";
 import { signDocument } from "../lib/sri/sri-signer";
 import { SriClient } from "../lib/sri/sri-client";
@@ -1407,7 +1412,7 @@ router.post("/dashboard/profesional/cuenta/eliminar", requireProfessional, async
       await tx.user.delete({ where: { id: uId } });
     });
 
-    res.clearCookie("token");
+    res.clearCookie("token", getAuthCookieClearOptions());
     res.redirect("/?success=account_deleted");
   } catch (error) {
     console.error("Error deleting account:", error);

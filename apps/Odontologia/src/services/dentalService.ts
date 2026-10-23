@@ -78,7 +78,9 @@ class DentalService {
   private prescriptions: Prescription[];
   private dentalProcedures: DentalProcedure[] = [];
   private dentalTreatmentPlans: Record<string, DentalTreatmentPlan[]> = {};
+  private allRealTreatmentPlans: DentalTreatmentPlan[] = [];
   private realBudgets: Record<string, DentalBudget[]> = {};
+  private allRealBudgets: DentalBudget[] = [];
   private realPrescriptions: Record<string, Prescription[]> = {};
   private realDocuments: Record<string, DocumentItem[]> = {};
   private listeners: Set<Listener> = new Set();
@@ -290,9 +292,9 @@ class DentalService {
         if (record) {
           const loaded: ClinicalHistory = {
             patientId,
-            medicalBackground: '',
-            allergies: '',
-            currentMedication: '',
+            medicalBackground: record.medicalBackground || '',
+            allergies: record.allergies || '',
+            currentMedication: record.currentMedication || '',
             dentalBackground: record.dentalBackground || '',
             chiefComplaint: record.chiefComplaint || '',
             evaluationNotes: record.evaluationNotes || '',
@@ -332,7 +334,10 @@ class DentalService {
           dentalBackground: history.dentalBackground,
           chiefComplaint: history.chiefComplaint,
           evaluationNotes: history.evaluationNotes,
-          diagnosisSummary: history.diagnosisSummary
+          diagnosisSummary: history.diagnosisSummary,
+          allergies: history.allergies,
+          medicalBackground: history.medicalBackground,
+          currentMedication: history.currentMedication,
         });
 
         const updated: ClinicalHistory = {
@@ -343,6 +348,9 @@ class DentalService {
           chiefComplaint: record.chiefComplaint || '',
           evaluationNotes: record.evaluationNotes || '',
           diagnosisSummary: record.diagnosisSummary || '',
+          allergies: record.allergies || '',
+          medicalBackground: record.medicalBackground || '',
+          currentMedication: record.currentMedication || '',
           updatedAt: record.updatedAt ? record.updatedAt.split('T')[0] : new Date().toISOString().split('T')[0]
         };
         this.clinicalHistories[patientId] = updated;
@@ -493,8 +501,29 @@ class DentalService {
       if (Array.isArray(apiAppointments)) {
         this.appointments = apiAppointments.map((apt: any): Appointment => {
           const scheduledDate = new Date(apt.scheduledAt);
-          const dateStr = !isNaN(scheduledDate.getTime()) ? scheduledDate.toISOString().split('T')[0] : '';
-          const timeStr = !isNaN(scheduledDate.getTime()) ? scheduledDate.toISOString().split('T')[1].substring(0, 5) : '';
+          let dateStr = '';
+          let timeStr = '';
+          if (!isNaN(scheduledDate.getTime())) {
+            try {
+              const formatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Guayaquil',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              });
+              const parts = formatter.formatToParts(scheduledDate);
+              const partMap: Record<string, string> = {};
+              for (const p of parts) partMap[p.type] = p.value;
+              dateStr = `${partMap.year}-${partMap.month}-${partMap.day}`;
+              timeStr = `${partMap.hour}:${partMap.minute}`;
+            } catch {
+              dateStr = scheduledDate.toISOString().split('T')[0];
+              timeStr = scheduledDate.toISOString().split('T')[1].substring(0, 5);
+            }
+          }
 
           const mapStatus = (st: string): AppointmentStatus => {
             switch (st) {
@@ -573,6 +602,10 @@ class DentalService {
   }
 
   public async addAppointment(apt: Omit<Appointment, 'id'>): Promise<Appointment> {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (apt.date && apt.date < todayStr) {
+      throw new Error('La fecha de la cita no puede ser anterior a hoy.');
+    }
     const orgId = this.currentOrganizationId;
     const isNumericPatient = !apt.patientId.startsWith('PAT-') && !isNaN(Number(apt.patientId));
 
@@ -612,7 +645,7 @@ class DentalService {
         reason: apt.notes || null,
         type: mapTypeToBackend(apt.type),
         notes: apt.notes || null,
-        scheduledAt: `${apt.date}T${apt.time}:00.000Z`,
+        scheduledAt: `${apt.date}T${apt.time}:00-05:00`,
         durationMinutes: apt.durationMinutes || 45,
         status: mapStatusToBackend(apt.status),
       };
@@ -713,6 +746,10 @@ class DentalService {
   }
 
   public addTreatment(trt: Omit<Treatment, 'id'>): Treatment {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (trt.targetDate && trt.targetDate < todayStr) {
+      throw new Error('La fecha estimada de finalización no puede ser anterior a hoy.');
+    }
     const newId = `TRT-${String(this.treatments.length + 201).padStart(3, '0')}`;
     const newTrt: Treatment = { ...trt, id: newId };
     this.treatments = [newTrt, ...this.treatments];
@@ -792,6 +829,14 @@ class DentalService {
     return updated;
   }
 
+  public async seedDefaultProcedures(): Promise<{ createdCount: number; skippedCount: number; totalCount: number }> {
+    if (!this.currentOrganizationId) throw new Error('No hay organización activa');
+    const res = await dentistryApi.seedDefaultProcedures(this.currentOrganizationId);
+    await this.loadProcedures(true);
+    this.notify();
+    return res;
+  }
+
   // --- PLANES DE TRATAMIENTO REALES (DentalTreatmentPlan) ---
   public async loadRealTreatmentPlans(patientId: string): Promise<DentalTreatmentPlan[]> {
     const isLegacy = patientId.startsWith('PAT-');
@@ -810,6 +855,25 @@ class DentalService {
 
   public getRealTreatmentPlans(patientId: string): DentalTreatmentPlan[] {
     return this.dentalTreatmentPlans[patientId] || [];
+  }
+
+  public async loadAllRealTreatmentPlans(organizationId?: number): Promise<DentalTreatmentPlan[]> {
+    const orgId = organizationId || this.currentOrganizationId;
+    if (!orgId) return [];
+    this.currentOrganizationId = orgId;
+    try {
+      const plans = await dentistryApi.getAllTreatmentPlans(orgId);
+      this.allRealTreatmentPlans = plans;
+      this.notify();
+      return plans;
+    } catch (err) {
+      console.error('[dentalService.loadAllRealTreatmentPlans] Error loading all treatment plans:', err);
+      return this.allRealTreatmentPlans || [];
+    }
+  }
+
+  public getAllRealTreatmentPlans(): DentalTreatmentPlan[] {
+    return this.allRealTreatmentPlans || [];
   }
 
   public async createRealTreatmentPlan(patientId: string, data: {
@@ -1008,6 +1072,25 @@ class DentalService {
     return this.realBudgets[patientId] || [];
   }
 
+  public async loadAllRealBudgets(organizationId?: number): Promise<DentalBudget[]> {
+    const orgId = organizationId || this.currentOrganizationId;
+    if (!orgId) return [];
+    this.currentOrganizationId = orgId;
+    try {
+      const budgets = await dentistryApi.getAllBudgets(orgId);
+      this.allRealBudgets = budgets;
+      this.notify();
+      return budgets;
+    } catch (err) {
+      console.error('[dentalService.loadAllRealBudgets] Error loading all budgets:', err);
+      return this.allRealBudgets || [];
+    }
+  }
+
+  public getAllRealBudgets(): DentalBudget[] {
+    return this.allRealBudgets || [];
+  }
+
   public async createRealBudgetFromPlan(
     patientId: string,
     planId: number,
@@ -1186,6 +1269,13 @@ class DentalService {
     if (patientId) {
       await this.loadRealDocuments(patientId);
     }
+  }
+
+  public async downloadRealDocument(documentId: number | string): Promise<Blob> {
+    if (!this.currentOrganizationId) {
+      throw new Error("No hay una organización activa seleccionada.");
+    }
+    return dentistryApi.downloadDocument(this.currentOrganizationId, documentId);
   }
 
   public addDocument(doc: Omit<DocumentItem, 'id'>): DocumentItem {

@@ -143,6 +143,11 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       return;
     }
 
+    if (date < getTodayDate()) {
+      setErrorMessage('La fecha de la cita no puede ser anterior a hoy.');
+      return;
+    }
+
     const patient = dentalService.getPatientById(patientId);
     const patientName = patient ? `${patient.names} ${patient.surnames}` : 'Paciente';
     const prof = professionals.find(p => p.userId === professionalUserId);
@@ -243,8 +248,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
             <label className="block text-xs font-semibold text-slate-700 mb-1">Fecha *</label>
             <input
               type="date"
+              min={getTodayDate()}
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                setErrorMessage(null);
+                setDate(e.target.value);
+              }}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono"
               required
             />

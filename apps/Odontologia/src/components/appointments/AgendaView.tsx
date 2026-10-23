@@ -43,13 +43,6 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
               <CalendarDays className="w-3.5 h-3.5" /> Calendario
             </button>
           </div>
-
-          <button
-            onClick={onOpenNewAppointmentModal}
-            className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
-          >
-            + Nueva cita
-          </button>
         </div>
       </div>
 

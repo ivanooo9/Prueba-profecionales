@@ -240,8 +240,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
 
           <div className="text-right text-xs">
-            <div className="font-bold text-slate-900">Dr. Alejandro Benítez</div>
-            <div className="text-slate-500 text-[11px]">Matrícula Foro Abogados #17-2018-94</div>
+            <div className="font-bold text-slate-900">Despacho Jurídico Acreditado</div>
+            <div className="text-slate-500 text-[11px]">Sistema de Gestión Jurídica Profesional</div>
           </div>
         </div>
 

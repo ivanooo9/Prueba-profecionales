@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, Calendar, Building2 } from 'lucide-react';
 import { UserSession, Organization } from '../../services/api/organizationApi';
+import { navigateToLogin } from '../../utils/auth';
 
 export interface TopHeaderProps {
   onOpenMobileMenu: () => void;
@@ -87,7 +88,15 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               <span className="block text-[10px] text-slate-400 leading-tight">{currentUser.email}</span>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            onClick={() => navigateToLogin()}
+            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
+          >
+            Iniciar Sesión
+          </button>
+        )}
       </div>
     </header>
   );

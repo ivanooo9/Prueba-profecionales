@@ -23,6 +23,7 @@ import { DeadlineModal } from './components/deadlines/DeadlineModal';
 import { TaskModal } from './components/tasks/TaskModal';
 import { HearingModal } from './components/hearings/HearingModal';
 import { DocumentModal } from './components/documents/DocumentModal';
+import { TenantGuard } from './components/layout/TenantGuard';
 
 import { legalService } from './services/legalService';
 import type {
@@ -79,11 +80,16 @@ export const App: React.FC = () => {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   const loadDashboard = async () => {
+    const orgId = legalService.getOrganizationId();
+    if (!orgId) return;
+
     setIsDashboardLoading(true);
     setDashboardError(null);
     try {
       const data = await legalService.fetchDashboard();
-      setDashboardData(data);
+      if (data) {
+        setDashboardData(data);
+      }
     } catch (err: any) {
       console.error("Error loading dashboard data:", err);
       setDashboardError(err.message || "Error al conectar con el servidor para obtener el dashboard");
@@ -93,11 +99,16 @@ export const App: React.FC = () => {
   };
 
   const loadReports = async (filters?: { from?: string; to?: string }) => {
+    const orgId = legalService.getOrganizationId();
+    if (!orgId) return;
+
     setIsReportsLoading(true);
     setReportsError(null);
     try {
       const data = await legalService.fetchReports(filters);
-      setReportsData(data);
+      if (data) {
+        setReportsData(data);
+      }
     } catch (err: any) {
       console.error("Error loading reports data:", err);
       setReportsError(err.message || "Error al conectar con el servidor para obtener reportes");
@@ -121,6 +132,9 @@ export const App: React.FC = () => {
     setDocuments(legalService.getDocuments());
     setNotifications(legalService.getNotifications ? legalService.getNotifications() : []);
     setUnreadCount(legalService.getUnreadCount());
+
+    const orgId = legalService.getOrganizationId();
+    if (!orgId) return;
 
     try {
       const synced = await legalService.syncFromApi();
@@ -259,7 +273,8 @@ export const App: React.FC = () => {
   const urgentCount = deadlines.filter((deadline) => deadline.status === 'Vencido' || deadline.priority === 'Urgente').length;
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col lg:flex-row antialiased selection:bg-amber-500 selection:text-slate-950">
+    <TenantGuard>
+      <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col lg:flex-row antialiased selection:bg-amber-500 selection:text-slate-950">
 
       {/* Sidebar */}
       <Sidebar
@@ -336,9 +351,22 @@ export const App: React.FC = () => {
                 documents={documents.filter((document) => document.caseId === selectedCase.id)}
                 activities={legalService.getCaseActivities(selectedCase.id)}
                 onBack={() => setSelectedCase(null)}
-                onUpdateStatus={(caseId, status) => {
-                  legalService.updateCaseStatus(caseId, status);
-                  loadData();
+                onEditCase={(caseItem) => {
+                  setEditingCase(caseItem);
+                  setNewlyCreatedClientId(null);
+                  setIsCaseModalOpen(true);
+                }}
+                onUpdateStatus={async (caseId, status) => {
+                  try {
+                    await legalService.updateCaseStatus(caseId, status);
+                    await loadData();
+                    const updated = legalService.getCaseById(caseId);
+                    if (updated) {
+                      setSelectedCase(updated);
+                    }
+                  } catch (err: any) {
+                    alert(err.message || 'Error al actualizar estado del expediente');
+                  }
                 }}
                 onOpenNewDeadline={(caseId) => {
                   setModalCaseId(caseId);
@@ -403,7 +431,10 @@ export const App: React.FC = () => {
                 setIsClientModalOpen(true);
               }}
               onSelectCase={handleSelectCaseById}
-              onSelectClientDetail={() => { }}
+              onSelectClientDetail={(client) => {
+                setEditingClient(client);
+                setIsClientModalOpen(true);
+              }}
             />
           )}
 
@@ -411,6 +442,8 @@ export const App: React.FC = () => {
             <HearingList
               hearings={hearings}
               cases={cases}
+              deadlines={deadlines}
+              tasks={tasks}
               onOpenNewHearingModal={() => {
                 setEditingItem(null);
                 setIsHearingModalOpen(true);
@@ -613,7 +646,8 @@ export const App: React.FC = () => {
         }}
       />
 
-    </div>
+      </div>
+    </TenantGuard>
   );
 };
 

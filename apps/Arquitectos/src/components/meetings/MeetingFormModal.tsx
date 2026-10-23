@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
-import { Meeting, Project, Client, MeetingModality, MeetingStatus } from '../../types';
+import { Meeting, Project, Client, MeetingModality, MeetingStatus, ArchitectureAssignableUser } from '../../types';
+import { OrganizationUserSelect } from '../ui/OrganizationUserSelect';
+import { getTodayCalendarDate } from '../../utils/dateUtils';
 
 interface MeetingFormModalProps {
   isOpen: boolean;
@@ -8,6 +10,7 @@ interface MeetingFormModalProps {
   onSave: (meeting: Partial<Meeting>) => void;
   projects: Project[];
   clients: Client[];
+  assignableUsers: ArchitectureAssignableUser[];
   defaultProjectId?: string | number;
   initialData?: Meeting | null;
 }
@@ -17,46 +20,88 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   onClose,
   onSave,
   projects,
-  clients,
+  clients: _clients,
+  assignableUsers,
   defaultProjectId,
   initialData
 }) => {
+  const todayStr = getTodayCalendarDate();
+  const [error, setError] = useState<string | null>(null);
+  const initialProjectId = defaultProjectId || String(projects[0]?.id || '');
+  const matchingProject = projects.find((p) => String(p.id) === String(initialProjectId));
+
   const [formData, setFormData] = useState<Partial<Meeting>>({
-    projectId: defaultProjectId || String(projects[0]?.id || ''),
-    clientId: String(clients[0]?.id || ''),
+    projectId: initialProjectId,
+    clientId: matchingProject?.clientId ? String(matchingProject.clientId) : undefined,
     title: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayCalendarDate(),
     time: '10:00',
     location: 'Estudio de Arquitectura',
     modality: 'Presencial',
-    leadArchitect: 'Arq. Esteban Guarderas',
+    leadArchitectUserId: undefined,
     status: 'Programada',
     notes: ''
   });
 
   useEffect(() => {
+    setError(null);
     if (initialData) {
-      setFormData({ ...initialData });
-    } else {
       setFormData({
-        projectId: defaultProjectId || String(projects[0]?.id || ''),
-        clientId: String(clients[0]?.id || ''),
+        ...initialData,
+        date: initialData.date ? initialData.date.slice(0, 10) : getTodayCalendarDate(),
+        time: initialData.time || '10:00',
+      });
+    } else {
+      const selectedProjId = defaultProjectId || String(projects[0]?.id || '');
+      const proj = projects.find((p) => String(p.id) === String(selectedProjId));
+      setFormData({
+        projectId: selectedProjId,
+        clientId: proj?.clientId ? String(proj.clientId) : undefined,
         title: '',
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayCalendarDate(),
         time: '10:00',
         location: 'Estudio de Arquitectura',
         modality: 'Presencial',
-        leadArchitect: 'Arq. Esteban Guarderas',
+        leadArchitectUserId: undefined,
         status: 'Programada',
         notes: ''
       });
     }
-  }, [initialData, defaultProjectId, projects, clients, isOpen]);
+  }, [initialData, defaultProjectId, projects, isOpen]);
+
+  const handleProjectChange = (newProjectId: string) => {
+    const selectedProj = projects.find((p) => String(p.id) === String(newProjectId));
+    setFormData((prev) => ({
+      ...prev,
+      projectId: newProjectId,
+      clientId: selectedProj?.clientId ? String(selectedProj.clientId) : undefined
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.projectId) return;
-    onSave(formData);
+    if (formData.date && formData.date < todayStr) {
+      setError('La fecha de la reunión no puede ser anterior a hoy.');
+      return;
+    }
+    setError(null);
+
+    const meetingData: Partial<Meeting> = {
+      ...formData,
+      projectId: Number(formData.projectId) || formData.projectId,
+      clientId: formData.clientId ? Number(formData.clientId) : undefined
+    };
+
+    delete meetingData.leadArchitect;
+
+    if (initialData && String(initialData.leadArchitectUserId || '') === String(formData.leadArchitectUserId || '')) {
+      delete meetingData.leadArchitectUserId;
+    } else {
+      meetingData.leadArchitectUserId = formData.leadArchitectUserId ? Number(formData.leadArchitectUserId) : null;
+    }
+
+    onSave(meetingData);
     onClose();
   };
 
@@ -69,12 +114,17 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+            {error}
+          </div>
+        )}
         <div>
           <label className="block font-semibold text-slate-700 mb-1">Proyecto Asociado *</label>
           <select
             required
             value={formData.projectId || ''}
-            onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+            onChange={(e) => handleProjectChange(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500"
           >
             <option value="">Seleccione proyecto...</option>
@@ -99,12 +149,25 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-4">
+          <OrganizationUserSelect
+            label="Responsable de reunión"
+            users={assignableUsers}
+            value={formData.leadArchitectUserId}
+            currentName={initialData?.leadArchitect}
+            responsibleOnly
+            optional
+            onChange={(userId) => setFormData({ ...formData, leadArchitectUserId: userId ? Number(userId) : undefined })}
+          />
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Fecha</label>
             <input
               type="date"
+              min={todayStr}
               value={formData.date || ''}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              onChange={(e) => {
+                setError(null);
+                setFormData({ ...formData, date: e.target.value });
+              }}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500 font-mono"
             />
           </div>

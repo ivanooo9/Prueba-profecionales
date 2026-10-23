@@ -177,8 +177,11 @@ export class LegalCaseOperationsService {
       throw new Error("No se permite vincular la actuación a un caso distinto del especificado en la ruta.");
     }
 
-    // 2. Verificar que el caso pertenezca a la organización
+    // 2. Verificar que el caso pertenezca a la organización y no esté archivado
     const legalCase = await LegalCaseOperationsService.getCaseInOrganization(organizationId, caseId, client);
+    if (legalCase.status === "Archivado") {
+      throw new Error("No se pueden registrar nuevas actuaciones en un expediente archivado.");
+    }
 
     // 3. Validar título
     const title = (data.title || "").trim();
@@ -467,10 +470,17 @@ export class LegalCaseOperationsService {
         organizationId,
         legalCaseId: caseId,
       },
+      include: {
+        legalCase: true,
+      },
     });
 
     if (!existing) {
       throw new Error(`Tarea con ID ${taskId} no encontrada para el caso ${caseId} en esta organización.`);
+    }
+
+    if (existing.legalCase?.status === "Archivado") {
+      throw new Error("No se pueden modificar tareas de un expediente archivado.");
     }
 
     const updateData: any = {};
@@ -759,10 +769,17 @@ export class LegalCaseOperationsService {
         organizationId,
         legalCaseId: caseId,
       },
+      include: {
+        legalCase: true,
+      },
     });
 
     if (!existing) {
       throw new Error(`Plazo procesal con ID ${deadlineId} no encontrado para el caso ${caseId} en esta organización.`);
+    }
+
+    if (existing.legalCase?.status === "Archivado") {
+      throw new Error("No se pueden modificar plazos procesales de un expediente archivado.");
     }
 
     const updateData: any = {};
@@ -1056,10 +1073,17 @@ export class LegalCaseOperationsService {
         organizationId,
         legalCaseId: caseId,
       },
+      include: {
+        legalCase: true,
+      },
     });
 
     if (!existing) {
       throw new Error(`Audiencia con ID ${hearingId} no encontrada para el caso ${caseId} en esta organización.`);
+    }
+
+    if (existing.legalCase?.status === "Archivado") {
+      throw new Error("No se pueden modificar audiencias de un expediente archivado.");
     }
 
     const updateData: any = {};

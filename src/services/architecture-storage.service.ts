@@ -34,26 +34,28 @@ export class ArchitectureStorageService {
     "model/vnd.dwf",
   ]);
 
-  private static readonly ALLOWED_EXTENSIONS = new Set([
-    ".pdf",
-    ".doc",
-    ".docx",
-    ".xls",
-    ".xlsx",
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".webp",
-    ".tiff",
-    ".tif",
-    ".txt",
-    ".csv",
-    ".dwg",
-    ".dxf",
-    ".skp",
-    ".ifc",
-    ".rvt",
-  ]);
+  private static readonly EXTENSION_TO_MIME: Record<string, string[]> = {
+    ".pdf": ["application/pdf"],
+    ".doc": ["application/msword"],
+    ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    ".xls": ["application/vnd.ms-excel"],
+    ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+    ".jpg": ["image/jpeg"],
+    ".jpeg": ["image/jpeg"],
+    ".png": ["image/png"],
+    ".webp": ["image/webp"],
+    ".tiff": ["image/tiff"],
+    ".tif": ["image/tiff"],
+    ".txt": ["text/plain"],
+    ".csv": ["text/plain", "text/csv"],
+    ".dwg": ["application/x-dwg", "image/vnd.dwg", "image/x-dwg", "application/octet-stream"],
+    ".dxf": ["application/octet-stream"],
+    ".skp": ["application/octet-stream"],
+    ".ifc": ["application/octet-stream"],
+    ".rvt": ["application/octet-stream"],
+  };
+
+  private static readonly ALLOWED_EXTENSIONS = new Set(Object.keys(ArchitectureStorageService.EXTENSION_TO_MIME));
 
   private static readonly DISALLOWED_EXTENSIONS = new Set([
     ".exe",
@@ -123,10 +125,84 @@ export class ArchitectureStorageService {
     return clean;
   }
 
+  private static hasCompatibleMime(ext: string, mimeType: string): boolean {
+    const normalizedMime = (mimeType || "").toLowerCase().trim();
+    const expectedMimes = ArchitectureStorageService.EXTENSION_TO_MIME[ext] || [];
+
+    if (!expectedMimes.length) {
+      return false;
+    }
+
+    const isAllowedMime = expectedMimes.includes(normalizedMime);
+    const isGenericOctetStream =
+      normalizedMime === "application/octet-stream" &&
+      [".dwg", ".dxf", ".skp", ".ifc", ".rvt"].includes(ext);
+
+    return isAllowedMime || isGenericOctetStream;
+  }
+
+  private static hasExpectedContentSignature(
+    ext: string,
+    mimeType: string,
+    buffer: Buffer
+  ): boolean {
+    if (!buffer || buffer.length === 0) {
+      return false;
+    }
+
+    const header = buffer.subarray(0, 16);
+    const normalizedMime = (mimeType || "").toLowerCase().trim();
+
+    if (normalizedMime.startsWith("text/") || normalizedMime === "application/json") {
+      const textSample = buffer.toString("utf8", 0, Math.min(buffer.length, 512));
+      return !textSample.includes("\u0000") && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(textSample);
+    }
+
+    switch (ext) {
+      case ".pdf":
+        return header.subarray(0, 5).toString("latin1") === "%PDF-";
+      case ".png":
+        return header.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";
+      case ".jpg":
+      case ".jpeg":
+        return header[0] === 0xff && header[1] === 0xd8;
+      case ".webp":
+        return (
+          header.subarray(0, 4).toString("ascii") === "RIFF" &&
+          header.subarray(8, 12).toString("ascii") === "WEBP"
+        );
+      case ".tif":
+      case ".tiff":
+        return (
+          header.subarray(0, 4).toString("ascii") === "II*\0" ||
+          header.subarray(0, 4).toString("ascii") === "MM\0*"
+        );
+      case ".doc":
+      case ".xls":
+        return header.subarray(0, 8).toString("hex") === "d0cf11e0a1b11ae1";
+      case ".docx":
+      case ".xlsx":
+        return header.subarray(0, 4).toString("ascii") === "PK\x03\x04";
+      case ".dwg":
+      case ".dxf":
+      case ".skp":
+      case ".ifc":
+      case ".rvt":
+        return !(
+          header.subarray(0, 2).toString("ascii") === "MZ" ||
+          header.subarray(0, 4).toString("ascii") === "PK\x03\x04" ||
+          /<\s*(html|script|svg|xml)/i.test(buffer.toString("utf8", 0, 256))
+        );
+      default:
+        return true;
+    }
+  }
+
   public static validateFile(
     fileName: string,
     mimeType: string,
-    fileSize: number
+    fileSize: number,
+    buffer?: Buffer
   ): void {
     if (!fileSize || fileSize <= 0) {
       throw new Error("El archivo está vacío (0 bytes).");
@@ -145,13 +221,32 @@ export class ArchitectureStorageService {
       );
     }
 
-    const normalizedMime = (mimeType || "").toLowerCase().trim();
-    const isExtensionAllowed = ArchitectureStorageService.ALLOWED_EXTENSIONS.has(ext);
-    const isMimeAllowed = ArchitectureStorageService.ALLOWED_MIME_TYPES.has(normalizedMime);
-
-    if (!isExtensionAllowed && !isMimeAllowed) {
+    if (!ArchitectureStorageService.ALLOWED_EXTENSIONS.has(ext)) {
       throw new Error(
         `Formato o tipo de archivo no permitido (${ext || mimeType}). Formatos aceptados: PDF, CAD/BIM (.dwg, .dxf, .skp, .ifc, .rvt), Imágenes (JPG, PNG, WEBP, TIFF), Office (DOC, DOCX, XLS, XLSX) y Texto.`
+      );
+    }
+
+    const normalizedMime = (mimeType || "").toLowerCase().trim();
+    if (!normalizedMime) {
+      throw new Error("El tipo MIME del archivo es obligatorio.");
+    }
+
+    if (!ArchitectureStorageService.ALLOWED_MIME_TYPES.has(normalizedMime)) {
+      throw new Error(
+        `MIME no permitido (${mimeType}). Formatos aceptados: PDF, CAD/BIM, Imágenes, Office y Texto.`
+      );
+    }
+
+    if (!ArchitectureStorageService.hasCompatibleMime(ext, normalizedMime)) {
+      throw new Error(
+        `Tipo MIME incompatible con la extensión (${ext}) y el contenido real del archivo (${mimeType}).`
+      );
+    }
+
+    if (buffer && !ArchitectureStorageService.hasExpectedContentSignature(ext, normalizedMime, buffer)) {
+      throw new Error(
+        `El contenido del archivo no coincide con la extensión y el MIME declarados (${ext}, ${mimeType}).`
       );
     }
   }
@@ -169,7 +264,7 @@ export class ArchitectureStorageService {
     buffer: Buffer
   ): Promise<ArchitectureStoredFileInfo> {
     const fileSize = buffer.length;
-    ArchitectureStorageService.validateFile(originalName, mimeType, fileSize);
+    ArchitectureStorageService.validateFile(originalName, mimeType, fileSize, buffer);
 
     const sanitizedFileName = ArchitectureStorageService.sanitizeFileName(originalName);
     const checksumSha256 = ArchitectureStorageService.calculateChecksum(buffer);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -42,13 +42,36 @@ export const MedicalGeneralDashboard: React.FC<MedicalGeneralDashboardProps> = (
   onViewAgenda,
   onViewPatients,
 }) => {
-  const { patients, appointments, consultations, medications, labResults, followUpTasks } = useClinicalStore();
+  const { currentUser, patients, appointments, consultations, medications, labResults, followUpTasks } = useClinicalStore();
   const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
   const todayConsultations = consultations.filter((c) => c.date?.slice(0, 10) === todayKey);
   const todayAppointments = appointments.filter((a) => a.date === todayKey);
   const totalToday = todayConsultations.length + todayAppointments.length;
 
-  const upcomingAppointments = [...appointments].sort((a, b) => a.startTime.localeCompare(b.startTime)).slice(0, 5);
+  const doctorDisplayName = useMemo(() => {
+    if (!currentUser?.name) return 'Dr. Médico';
+    const name = currentUser.name.trim();
+    if (name.toLowerCase().startsWith('dr.') || name.toLowerCase().startsWith('dra.')) {
+      return name;
+    }
+    return `Dr. ${name}`;
+  }, [currentUser]);
+
+  const upcomingAppointments = useMemo(() => {
+    return appointments
+      .filter((a) => {
+        if (a.status === 'CANCELLED' || a.status === 'NO_SHOW') return false;
+        // Solo citas de hoy en adelante sincronizadas con la fecha actual
+        return a.date >= todayKey;
+      })
+      .sort((a, b) => {
+        const dateCmp = a.date.localeCompare(b.date);
+        if (dateCmp !== 0) return dateCmp;
+        return a.startTime.localeCompare(b.startTime);
+      })
+      .slice(0, 5);
+  }, [appointments, todayKey]);
+
   const currentAppointment = upcomingAppointments.find((appointment) => appointment.status === 'IN_CONSULTATION')
     || upcomingAppointments.find((appointment) => appointment.status === 'WAITING_ROOM')
     || upcomingAppointments.find((appointment) => appointment.status === 'PENDING');
@@ -73,7 +96,7 @@ export const MedicalGeneralDashboard: React.FC<MedicalGeneralDashboardProps> = (
     <div className="mx-auto max-w-7xl space-y-6">
       <section className="space-y-1">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-700">Medicina General</p>
-        <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Buenos días, Dr. Roberto Silva</h1>
+        <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Buenos días, {doctorDisplayName}</h1>
         <p className="text-sm text-slate-500">Tu agenda y pacientes en un solo lugar.</p>
       </section>
 

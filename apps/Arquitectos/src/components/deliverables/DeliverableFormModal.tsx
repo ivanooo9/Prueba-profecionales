@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
-import { Deliverable, Project, DeliverableType, DeliverableStatus } from '../../types';
+import { Deliverable, Project, DeliverableType, DeliverableStatus, ArchitectureAssignableUser } from '../../types';
+import { OrganizationUserSelect } from '../ui/OrganizationUserSelect';
+import { getTodayCalendarDate } from '../../utils/dateUtils';
 
 interface DeliverableFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (deliv: Partial<Deliverable>) => void;
   projects: Project[];
+  assignableUsers: ArchitectureAssignableUser[];
   defaultProjectId?: string | number;
   initialData?: Deliverable | null;
 }
@@ -16,20 +19,25 @@ export const DeliverableFormModal: React.FC<DeliverableFormModalProps> = ({
   onClose,
   onSave,
   projects,
+  assignableUsers,
   defaultProjectId,
   initialData
 }) => {
+  const todayStr = getTodayCalendarDate();
+  const [error, setError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState<Partial<Deliverable>>({
     projectId: defaultProjectId || String(projects[0]?.id || ''),
     name: '',
     type: 'Planos',
-    assignedTo: 'Arq. Esteban Guarderas',
-    dueDate: new Date().toISOString().split('T')[0],
+    assignedToUserId: undefined,
+    dueDate: getTodayCalendarDate(),
     status: 'Pendiente',
     notes: ''
   });
 
   useEffect(() => {
+    setError(null);
     if (initialData) {
       setFormData({ ...initialData });
     } else {
@@ -37,8 +45,8 @@ export const DeliverableFormModal: React.FC<DeliverableFormModalProps> = ({
         projectId: defaultProjectId || String(projects[0]?.id || ''),
         name: '',
         type: 'Planos',
-        assignedTo: 'Arq. Esteban Guarderas',
-        dueDate: new Date().toISOString().split('T')[0],
+        assignedToUserId: undefined,
+        dueDate: getTodayCalendarDate(),
         status: 'Pendiente',
         notes: ''
       });
@@ -48,7 +56,19 @@ export const DeliverableFormModal: React.FC<DeliverableFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.projectId) return;
-    onSave(formData);
+    if (formData.dueDate && formData.dueDate < todayStr) {
+      setError('La fecha límite no puede ser anterior a hoy.');
+      return;
+    }
+    setError(null);
+    const deliverableData = { ...formData };
+    delete deliverableData.assignedTo;
+    if (initialData && String(initialData.assignedToUserId || '') === String(formData.assignedToUserId || '')) {
+      delete deliverableData.assignedToUserId;
+    } else {
+      deliverableData.assignedToUserId = formData.assignedToUserId ? Number(formData.assignedToUserId) : null;
+    }
+    onSave(deliverableData);
     onClose();
   };
 
@@ -61,6 +81,11 @@ export const DeliverableFormModal: React.FC<DeliverableFormModalProps> = ({
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+            {error}
+          </div>
+        )}
         <div>
           <label className="block font-semibold text-slate-700 mb-1">Proyecto Asociado *</label>
           <select
@@ -108,22 +133,25 @@ export const DeliverableFormModal: React.FC<DeliverableFormModalProps> = ({
             </select>
           </div>
 
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">Responsable</label>
-            <input
-              type="text"
-              value={formData.assignedTo || ''}
-              onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500"
-            />
-          </div>
+          <OrganizationUserSelect
+            label="Responsable"
+            users={assignableUsers}
+            value={formData.assignedToUserId}
+            currentName={initialData?.assignedTo}
+            optional
+            onChange={(userId) => setFormData({ ...formData, assignedToUserId: userId ? Number(userId) : undefined })}
+          />
 
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Fecha Límite</label>
             <input
               type="date"
+              min={todayStr}
               value={formData.dueDate || ''}
-              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              onChange={(e) => {
+                setError(null);
+                setFormData({ ...formData, dueDate: e.target.value });
+              }}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-arch-500/20 focus:border-arch-500 font-mono"
             />
           </div>

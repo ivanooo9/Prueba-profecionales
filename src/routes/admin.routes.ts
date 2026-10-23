@@ -3,7 +3,13 @@ import fs from "fs";
 import { execFileSync } from "child_process";
 import path from "path";
 import { db } from "../lib/db";
-import { hashPassword, createAuthSession } from "../lib/auth";
+import {
+  getAuthCookieClearOptions,
+  getAuthCookieMetadataOptions,
+  getAuthCookieOptions,
+  hashPassword,
+  createAuthSession,
+} from "../lib/auth";
 import { generateInvoiceXml } from "../lib/sri/xml-generator";
 import { signDocument } from "../lib/sri/sri-signer";
 import { SriClient } from "../lib/sri/sri-client";
@@ -5492,9 +5498,9 @@ router.post("/dashboard/admin/users/:userId/impersonate", requireAdmin, async (r
     const currentToken = req.cookies.token;
 
     // Save admin original token and setup impersonation cookies
-    res.cookie("admin_original_token", currentToken, { httpOnly: true });
-    res.cookie("is_impersonating", "true", { httpOnly: false });
-    res.cookie("impersonator_admin_name", adminUser.name || "Administrador", { httpOnly: false });
+    res.cookie("admin_original_token", currentToken, getAuthCookieOptions());
+    res.cookie("is_impersonating", "true", getAuthCookieMetadataOptions());
+    res.cookie("impersonator_admin_name", adminUser.name || "Administrador", getAuthCookieMetadataOptions());
 
     // Generate session token for target user
     const impersonatedToken = await createAuthSession(
@@ -5503,7 +5509,7 @@ router.post("/dashboard/admin/users/:userId/impersonate", requireAdmin, async (r
       req
     );
 
-    res.cookie("token", impersonatedToken, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+    res.cookie("token", impersonatedToken, getAuthCookieOptions());
 
     // Redirect to target user's respective dashboard
     const roleName = targetUser.role.name.toUpperCase();
@@ -5530,12 +5536,12 @@ const exitImpersonationHandler = async (req: Request, res: Response) => {
     const originalToken = req.cookies.admin_original_token;
 
     if (originalToken) {
-      res.cookie("token", originalToken, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+      res.cookie("token", originalToken, getAuthCookieOptions());
     }
 
-    res.clearCookie("admin_original_token");
-    res.clearCookie("is_impersonating");
-    res.clearCookie("impersonator_admin_name");
+    res.clearCookie("admin_original_token", getAuthCookieClearOptions());
+    res.clearCookie("is_impersonating", { ...getAuthCookieClearOptions(), httpOnly: false });
+    res.clearCookie("impersonator_admin_name", { ...getAuthCookieClearOptions(), httpOnly: false });
 
     return res.redirect("/dashboard/admin?tab=accounts&success=impersonation_ended");
   } catch (error: any) {

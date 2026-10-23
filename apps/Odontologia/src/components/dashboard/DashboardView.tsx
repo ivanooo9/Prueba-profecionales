@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { dentalService } from '../../services/dentalService';
+import { DentalTreatmentPlan } from '../../types';
 import { MetricCard } from '../ui/MetricCard';
 import { StatusBadge } from '../ui/StatusBadge';
 import { ActiveView } from '../../types';
@@ -29,12 +30,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenNewAppointment,
   currentUser,
 }) => {
+  const [realPlans, setRealPlans] = useState<DentalTreatmentPlan[]>(dentalService.getAllRealTreatmentPlans());
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      dentalService.loadAllRealTreatmentPlans(),
+      dentalService.loadAppointments()
+    ]).then(([plans]) => {
+      if (isMounted) setRealPlans(plans);
+    }).catch(console.error);
+
+    const unsubscribe = dentalService.subscribe(() => {
+      if (isMounted) setRealPlans(dentalService.getAllRealTreatmentPlans());
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
   const appointments = dentalService.getAppointments();
   const treatments = dentalService.getTreatments();
   const alerts = dentalService.getAlerts();
 
   const waitingCount = appointments.filter(a => a.status === 'En espera').length;
-  const activeTreatments = treatments.filter(t => t.status === 'En progreso').length;
+  const activeRealPlans = realPlans.filter(p => p.status === 'ACTIVE');
+  const activeTreatmentsCount = activeRealPlans.length > 0
+    ? activeRealPlans.length
+    : treatments.filter(t => t.status === 'En progreso').length;
+
   const pendingAppointments = appointments.filter(a => a.status === 'Programada' || a.status === 'Confirmada').length;
 
   const upcomingAppointments = [...appointments]
@@ -43,10 +69,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     .slice(0, 5);
 
   const nextAppointment = upcomingAppointments[0];
-  const activeTreatmentPreview = treatments
-    .filter(t => t.status === 'En progreso')
-    .sort((a, b) => b.progress - a.progress)
-    .slice(0, 4);
+
+  const activeTreatmentPreview = activeRealPlans.length > 0
+    ? activeRealPlans.slice(0, 4).map(p => {
+        const completed = p.items.filter(i => i.status === 'COMPLETED').length;
+        const total = p.items.length;
+        const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+        return {
+          id: String(p.id),
+          patientId: String(p.patientId || ''),
+          patientName: p.patientName || 'Paciente',
+          title: p.title,
+          progress
+        };
+      })
+    : treatments
+        .filter(t => t.status === 'En progreso')
+        .sort((a, b) => b.progress - a.progress)
+        .slice(0, 4);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -79,7 +119,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         />
         <MetricCard
           title="Tratamientos activos"
-          value={activeTreatments}
+          value={activeTreatmentsCount}
           subtitle="En progreso clínico"
           icon={<Activity className="w-5 h-5" />}
           iconBgColor="bg-purple-50 text-purple-600"

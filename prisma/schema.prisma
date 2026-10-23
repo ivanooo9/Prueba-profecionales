@@ -270,41 +270,41 @@ model User {
   role   Role @relation(fields: [roleId], references: [id])
 
   // Relaciones
-  professionalProfile           ProfessionalProfile?
-  studentProfile                StudentProfile?
-  roleTransitionRequests        RoleTransitionRequest[]
-  appointments                  Appointment[]
-  certificates                  CursoCertificate[]
-  acquiredCertificates          Certificate[]
-  enrollments                   EventEnrollment[]
-  auditLogs                     AuditLog[]
-  cursoSubmissions              CursoSubmission[]
-  eventAccessLogs               EventAccessLog[]
-  payPhoneTransactions          PayPhoneTransaction[]
-  sessions                      UserSession[]
-  referralProfile               ReferralProfile?
-  conversatorioQas              ConversatorioQuestionAnswer[]
-  cursoOrders                   CursoOrder[]
-  organizationMemberships       OrganizationMember[]
-  dentalExecutions              DentalTreatmentExecution[]    @relation("DentalExecutions")
-  issuedDentalPrescriptions     DentalPrescription[]          @relation("DentalPrescriptionsIssued")
-  uploadedDentalDocuments       DentalDocument[]              @relation("DentalDocumentsUploaded")
-  dentalAppointmentsAssigned    DentalAppointment[]           @relation("DentalAppointmentsAssigned")
-  issuedDentalConsents          DentalConsent[]               @relation("DentalConsentsIssued")
-  legalCasesResponsible         LegalCase[]                   @relation("LegalCasesResponsible")
-  legalCasesClosed              LegalCase[]                   @relation("LegalCasesClosed")
-  legalCasesArchived            LegalCase[]                   @relation("LegalCasesArchived")
-  legalCaseActivitiesCreated    LegalCaseActivity[]           @relation("LegalCaseActivitiesCreated")
-  legalTasksAssigned            LegalTask[]                   @relation("LegalTasksAssigned")
-  legalDeadlinesResponsible     LegalDeadline[]               @relation("LegalDeadlinesResponsible")
-  legalHearingsResponsible      LegalHearing[]                @relation("LegalHearingsResponsible")
-  legalDocumentsCreated         LegalDocument[]               @relation("LegalDocumentsCreated")
-  legalDocumentVersionsUploaded LegalDocumentVersion[]        @relation("LegalDocumentVersionsUploaded")
-  legalFeeAgreementsCreated     LegalFeeAgreement[]           @relation("LegalFeeAgreementsCreated")
-  legalPaymentsRegistered       LegalPayment[]                @relation("LegalPaymentsRegistered")
-  legalRemindersTarget          LegalReminder[]               @relation("LegalRemindersTargetUser")
-  legalRemindersCreated         LegalReminder[]               @relation("LegalRemindersCreatedBy")
-  legalNotifications            LegalNotification[]           @relation("LegalNotificationsUser")
+  professionalProfile              ProfessionalProfile?
+  studentProfile                   StudentProfile?
+  roleTransitionRequests           RoleTransitionRequest[]
+  appointments                     Appointment[]
+  certificates                     CursoCertificate[]
+  acquiredCertificates             Certificate[]
+  enrollments                      EventEnrollment[]
+  auditLogs                        AuditLog[]
+  cursoSubmissions                 CursoSubmission[]
+  eventAccessLogs                  EventAccessLog[]
+  payPhoneTransactions             PayPhoneTransaction[]
+  sessions                         UserSession[]
+  referralProfile                  ReferralProfile?
+  conversatorioQas                 ConversatorioQuestionAnswer[]
+  cursoOrders                      CursoOrder[]
+  organizationMemberships          OrganizationMember[]
+  dentalExecutions                 DentalTreatmentExecution[]    @relation("DentalExecutions")
+  issuedDentalPrescriptions        DentalPrescription[]          @relation("DentalPrescriptionsIssued")
+  uploadedDentalDocuments          DentalDocument[]              @relation("DentalDocumentsUploaded")
+  dentalAppointmentsAssigned       DentalAppointment[]           @relation("DentalAppointmentsAssigned")
+  issuedDentalConsents             DentalConsent[]               @relation("DentalConsentsIssued")
+  legalCasesResponsible            LegalCase[]                   @relation("LegalCasesResponsible")
+  legalCasesClosed                 LegalCase[]                   @relation("LegalCasesClosed")
+  legalCasesArchived               LegalCase[]                   @relation("LegalCasesArchived")
+  legalCaseActivitiesCreated       LegalCaseActivity[]           @relation("LegalCaseActivitiesCreated")
+  legalTasksAssigned               LegalTask[]                   @relation("LegalTasksAssigned")
+  legalDeadlinesResponsible        LegalDeadline[]               @relation("LegalDeadlinesResponsible")
+  legalHearingsResponsible         LegalHearing[]                @relation("LegalHearingsResponsible")
+  legalDocumentsCreated            LegalDocument[]               @relation("LegalDocumentsCreated")
+  legalDocumentVersionsUploaded    LegalDocumentVersion[]        @relation("LegalDocumentVersionsUploaded")
+  legalFeeAgreementsCreated        LegalFeeAgreement[]           @relation("LegalFeeAgreementsCreated")
+  legalPaymentsRegistered          LegalPayment[]                @relation("LegalPaymentsRegistered")
+  legalRemindersTarget             LegalReminder[]               @relation("LegalRemindersTargetUser")
+  legalRemindersCreated            LegalReminder[]               @relation("LegalRemindersCreatedBy")
+  legalNotifications               LegalNotification[]           @relation("LegalNotificationsUser")
   architectureClientsCreated       ArchitectureClient[]          @relation("ArchitectureClientsCreated")
   architectureProjectsLead         ArchitectureProject[]         @relation("ArchitectureProjectsLead")
   architectureProjectsCreated      ArchitectureProject[]         @relation("ArchitectureProjectsCreated")
@@ -315,16 +315,18 @@ model User {
   architectureDeliverablesCreated  ArchitectureDeliverable[]     @relation("ArchitectureDeliverablesCreated")
   architectureMeetingsLead         ArchitectureMeeting[]         @relation("ArchitectureMeetingsLead")
   architectureMeetingsCreated      ArchitectureMeeting[]         @relation("ArchitectureMeetingsCreated")
-  architectureDocumentsCreated    ArchitectureDocument[]        @relation("ArchitectureDocumentsCreated")
-  architectureDocVersionsUploaded ArchitectureDocumentVersion[] @relation("ArchitectureDocVersionsUploaded")
+  architectureDocumentsCreated     ArchitectureDocument[]        @relation("ArchitectureDocumentsCreated")
+  architectureDocVersionsUploaded  ArchitectureDocumentVersion[] @relation("ArchitectureDocVersionsUploaded")
   architectureBudgetsCreated       ArchitectureBudget[]          @relation("ArchitectureBudgetsCreated")
   architectureBudgetsApproved      ArchitectureBudget[]          @relation("ArchitectureBudgetsApproved")
 
   // Profesores / Gestión Académica (TEACHING - Fase 1, Fase 2 y Fase 3)
-  academicCoursesTaught            AcademicCourse[]              @relation("AcademicCourseTutorUser")
-  academicSubjectsTaught           AcademicSubject[]             @relation("AcademicSubjectTeacherUser")
-  academicClassSessionsTaught      AcademicClassSession[]        @relation("AcademicClassSessionTeacherUser")
-  academicActivitiesTaught         AcademicActivity[]            @relation("AcademicActivityTeacherUser")
+  academicCoursesTaught       AcademicCourse[]        @relation("AcademicCourseTutorUser")
+  academicSubjectsTaught      AcademicSubject[]       @relation("AcademicSubjectTeacherUser")
+  academicClassSessionsTaught AcademicClassSession[]  @relation("AcademicClassSessionTeacherUser")
+  academicActivitiesTaught    AcademicActivity[]      @relation("AcademicActivityTeacherUser")
+  academicGradeAuditLogs      AcademicGradeAuditLog[] @relation("AcademicGradeAuditLogUser")
+  academicSubjectScheduleSlotsTaught AcademicSubjectScheduleSlot[] @relation("SubjectScheduleSlotTeacherUser")
 }
 
 model UserSession {
@@ -1765,48 +1767,48 @@ model Organization {
   modules OrganizationModule[]
 
   // Entidad Compartida: Pacientes (Módulos MEDICINE, DENTISTRY)
-  patients                  Patient[]
-  medicalRecords            MedicalRecord[]
-  medicalConsultations      MedicalConsultation[]
-  medicalVitalSigns         MedicalVitalSigns[]
-  medicalPrescriptions      MedicalPrescription[]
-  medicalFollowUps          MedicalFollowUp[]
-  medicalLaboratoryResults  MedicalLaboratoryResult[]
-  medicalImagingStudies     MedicalImagingStudy[]
-  medicalPreventionRecords  MedicalPreventionRecord[]
-  medicalDocuments          MedicalDocument[]
-  medicalAppointments       MedicalAppointment[]
-  dentalRecords             DentalRecord[]
-  dentalToothSnapshots      DentalToothSnapshot[]
-  dentalToothEvents         DentalToothEvent[]
-  dentalProcedures          DentalProcedure[]
-  dentalTreatmentPlans      DentalTreatmentPlan[]
-  dentalBudgets             DentalBudget[]
-  dentalBudgetItems         DentalBudgetItem[]
-  dentalPayments            DentalPayment[]
-  dentalTreatmentExecutions DentalTreatmentExecution[]
-  dentalPrescriptions       DentalPrescription[]
-  dentalDocuments           DentalDocument[]
-  dentalAppointments        DentalAppointment[]
-  dentalConsentTemplates    DentalConsentTemplate[]
-  dentalConsents            DentalConsent[]
-  legalClients              LegalClient[]
-  legalCases                LegalCase[]
-  legalCaseActivities       LegalCaseActivity[]
-  legalTasks                LegalTask[]
-  legalDeadlines            LegalDeadline[]
-  legalHearings             LegalHearing[]
-  legalDocuments            LegalDocument[]
-  legalDocumentVersions     LegalDocumentVersion[]
-  legalFeeAgreements        LegalFeeAgreement[]
-  legalFeeItems             LegalFeeItem[]
-  legalPayments             LegalPayment[]
-  legalReminders            LegalReminder[]
-  legalNotifications        LegalNotification[]
-  architectureClients       ArchitectureClient[]
-  architectureProjects      ArchitectureProject[]
-  architectureProjectStages ArchitectureProjectStage[]
-  architectureTasks         ArchitectureTask[]
+  patients                     Patient[]
+  medicalRecords               MedicalRecord[]
+  medicalConsultations         MedicalConsultation[]
+  medicalVitalSigns            MedicalVitalSigns[]
+  medicalPrescriptions         MedicalPrescription[]
+  medicalFollowUps             MedicalFollowUp[]
+  medicalLaboratoryResults     MedicalLaboratoryResult[]
+  medicalImagingStudies        MedicalImagingStudy[]
+  medicalPreventionRecords     MedicalPreventionRecord[]
+  medicalDocuments             MedicalDocument[]
+  medicalAppointments          MedicalAppointment[]
+  dentalRecords                DentalRecord[]
+  dentalToothSnapshots         DentalToothSnapshot[]
+  dentalToothEvents            DentalToothEvent[]
+  dentalProcedures             DentalProcedure[]
+  dentalTreatmentPlans         DentalTreatmentPlan[]
+  dentalBudgets                DentalBudget[]
+  dentalBudgetItems            DentalBudgetItem[]
+  dentalPayments               DentalPayment[]
+  dentalTreatmentExecutions    DentalTreatmentExecution[]
+  dentalPrescriptions          DentalPrescription[]
+  dentalDocuments              DentalDocument[]
+  dentalAppointments           DentalAppointment[]
+  dentalConsentTemplates       DentalConsentTemplate[]
+  dentalConsents               DentalConsent[]
+  legalClients                 LegalClient[]
+  legalCases                   LegalCase[]
+  legalCaseActivities          LegalCaseActivity[]
+  legalTasks                   LegalTask[]
+  legalDeadlines               LegalDeadline[]
+  legalHearings                LegalHearing[]
+  legalDocuments               LegalDocument[]
+  legalDocumentVersions        LegalDocumentVersion[]
+  legalFeeAgreements           LegalFeeAgreement[]
+  legalFeeItems                LegalFeeItem[]
+  legalPayments                LegalPayment[]
+  legalReminders               LegalReminder[]
+  legalNotifications           LegalNotification[]
+  architectureClients          ArchitectureClient[]
+  architectureProjects         ArchitectureProject[]
+  architectureProjectStages    ArchitectureProjectStage[]
+  architectureTasks            ArchitectureTask[]
   architectureDeliverables     ArchitectureDeliverable[]
   architectureMeetings         ArchitectureMeeting[]
   architectureDocuments        ArchitectureDocument[]
@@ -1814,15 +1816,19 @@ model Organization {
   architectureBudgets          ArchitectureBudget[]
   architectureBudgetItems      ArchitectureBudgetItem[]
 
-  // Profesores / Gestión Académica (TEACHING - Fase 1, Fase 2 y Fase 3)
-  academicCourses              AcademicCourse[]
-  academicSubjects             AcademicSubject[]
-  academicStudents             AcademicStudent[]
-  academicEnrollments          AcademicEnrollment[]
-  academicClassSessions        AcademicClassSession[]
-  academicAttendanceRecords    AcademicAttendanceRecord[]
-  academicActivities           AcademicActivity[]
-  academicGrades               AcademicGrade[]
+  // Profesores / Gestión Académica (TEACHING - Fase 1, Fase 2, Fase 3 y Evolución Periodos/Esquemas)
+  academicCourses           AcademicCourse[]
+  academicSubjects          AcademicSubject[]
+  academicStudents          AcademicStudent[]
+  academicEnrollments       AcademicEnrollment[]
+  academicClassSessions     AcademicClassSession[]
+  academicAttendanceRecords AcademicAttendanceRecord[]
+  academicActivities        AcademicActivity[]
+  academicGrades            AcademicGrade[]
+  academicYears             AcademicYear[]
+  academicPeriods           AcademicPeriod[]
+  academicEvaluationSchemes AcademicEvaluationScheme[]
+  academicSubjectScheduleSlots AcademicSubjectScheduleSlot[]
 }
 
 model OrganizationMember {
@@ -2241,10 +2247,13 @@ model DentalRecord {
   patientId      Int @unique
 
   // Información clínica específica de Odontología (auditoría frontend real)
-  dentalBackground String? // Antecedentes odontológicos (endodoncias, ortodoncia, cirugías dentales)
-  chiefComplaint   String? // Motivo de consulta odontológica (palabras del paciente / síntoma principal)
-  evaluationNotes  String? // Evaluación clínica odontológica (examen intraoral, tejidos blandos, encías)
-  diagnosisSummary String? // Resumen o diagnóstico odontológico general
+  dentalBackground  String? // Antecedentes odontológicos (endodoncias, ortodoncia, cirugías dentales)
+  chiefComplaint    String? // Motivo de consulta odontológica (palabras del paciente / síntoma principal)
+  evaluationNotes   String? // Evaluación clínica odontológica (examen intraoral, tejidos blandos, encías)
+  diagnosisSummary  String? // Resumen o diagnóstico odontológico general
+  allergies         String? // Alergias conocidas reportadas (penicilina, anestésicos, látex, etc.)
+  medicalBackground String? // Antecedentes médicos sistémicos relevantes (diabetes, hipertensión, etc.)
+  currentMedication String? // Medicación habitual actual
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2879,11 +2888,11 @@ model LegalCase {
   startDate       DateTime  @default(now())
   expectedEndDate DateTime?
 
-  closedAt        DateTime?
-  closedByUserId  Int?
-  closedByUser    User?     @relation("LegalCasesClosed", fields: [closedByUserId], references: [id], onDelete: SetNull)
-  closureReason   String?
-  closureNotes    String?
+  closedAt       DateTime?
+  closedByUserId Int?
+  closedByUser   User?     @relation("LegalCasesClosed", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  closureReason  String?
+  closureNotes   String?
 
   archivedAt       DateTime?
   archivedByUserId Int?
@@ -3170,11 +3179,12 @@ model LegalPayment {
   feeAgreementId Int
   feeAgreement   LegalFeeAgreement @relation(fields: [feeAgreementId], references: [id], onDelete: Restrict)
 
-  amount        Float
-  paymentMethod String  @default("Transferencia") // Efectivo, Transferencia, Depósito, Tarjeta, Otro
-  reference     String?
-  notes         String?
-  status        String  @default("COMPLETED")
+  amount         Float
+  paymentMethod  String  @default("Transferencia") // Efectivo, Transferencia, Depósito, Tarjeta, Otro
+  reference      String?
+  notes          String?
+  idempotencyKey String?
+  status         String  @default("COMPLETED")
 
   paidAt DateTime @default(now())
 
@@ -3186,6 +3196,7 @@ model LegalPayment {
 
   @@index([organizationId, feeAgreementId])
   @@index([organizationId, paidAt])
+  @@unique([organizationId, idempotencyKey])
 }
 
 // -------------------------------------------------------------
@@ -3232,26 +3243,26 @@ model LegalReminder {
 // -------------------------------------------------------------
 
 model LegalNotification {
-  id             Int            @id @default(autoincrement())
+  id             Int  @id @default(autoincrement())
   organizationId Int
   userId         Int
   legalCaseId    Int
-  reminderId     Int?           @unique
+  reminderId     Int? @unique
 
-  type           String         // TASK, DEADLINE, HEARING
-  title          String
-  message        String
+  type    String // TASK, DEADLINE, HEARING
+  title   String
+  message String
 
-  status         String         @default("UNREAD") // UNREAD, READ, DISMISSED
+  status String @default("UNREAD") // UNREAD, READ, DISMISSED
 
-  createdAt      DateTime       @default(now())
-  readAt         DateTime?
-  dismissedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+  dismissedAt DateTime?
 
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  user           User           @relation("LegalNotificationsUser", fields: [userId], references: [id], onDelete: Restrict)
-  legalCase      LegalCase      @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
-  reminder       LegalReminder? @relation(fields: [reminderId], references: [id], onDelete: SetNull)
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user         User           @relation("LegalNotificationsUser", fields: [userId], references: [id], onDelete: Restrict)
+  legalCase    LegalCase      @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
+  reminder     LegalReminder? @relation(fields: [reminderId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, userId, status])
   @@index([organizationId, userId, createdAt])
@@ -3451,23 +3462,23 @@ model ArchitectureMeeting {
 }
 
 model ArchitectureDocument {
-  id              Int                           @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   organizationId  Int
   projectId       Int
   stageId         Int?
   name            String
-  documentType    String                        @default("Plano")
+  documentType    String   @default("Plano")
   description     String?
-  status          String                        @default("Borrador")
+  status          String   @default("Borrador")
   createdByUserId Int
-  createdAt       DateTime                      @default(now())
-  updatedAt       DateTime                      @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  organization    Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  project         ArchitectureProject           @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  stage           ArchitectureProjectStage?     @relation(fields: [stageId], references: [id], onDelete: SetNull)
-  createdByUser   User                          @relation("ArchitectureDocumentsCreated", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  versions        ArchitectureDocumentVersion[]
+  organization  Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project       ArchitectureProject           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  stage         ArchitectureProjectStage?     @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  createdByUser User                          @relation("ArchitectureDocumentsCreated", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  versions      ArchitectureDocumentVersion[]
 
   @@index([organizationId, status])
   @@index([organizationId, projectId])
@@ -3475,7 +3486,7 @@ model ArchitectureDocument {
 }
 
 model ArchitectureDocumentVersion {
-  id               Int                  @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   organizationId   Int
   documentId       Int
   versionNumber    Int
@@ -3486,11 +3497,11 @@ model ArchitectureDocumentVersion {
   checksumSha256   String
   notes            String?
   uploadedByUserId Int
-  createdAt        DateTime             @default(now())
+  createdAt        DateTime @default(now())
 
-  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  document         ArchitectureDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  uploadedByUser   User                 @relation("ArchitectureDocVersionsUploaded", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document       ArchitectureDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  uploadedByUser User                 @relation("ArchitectureDocVersionsUploaded", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
 
   @@unique([documentId, versionNumber])
   @@index([organizationId, documentId])
@@ -3498,23 +3509,23 @@ model ArchitectureDocumentVersion {
 }
 
 model ArchitectureBudget {
-  id               Int                    @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   organizationId   Int
   projectId        Int
   name             String
   description      String?
-  status           String                 @default("Borrador")
+  status           String    @default("Borrador")
   notes            String?
   approvedAt       DateTime?
   approvedByUserId Int?
   createdByUserId  Int
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  project        ArchitectureProject    @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  createdByUser  User                   @relation("ArchitectureBudgetsCreated", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  approvedByUser User?                  @relation("ArchitectureBudgetsApproved", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project        ArchitectureProject      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdByUser  User                     @relation("ArchitectureBudgetsCreated", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedByUser User?                    @relation("ArchitectureBudgetsApproved", fields: [approvedByUserId], references: [id], onDelete: SetNull)
   items          ArchitectureBudgetItem[]
 
   @@index([organizationId, projectId])
@@ -3523,16 +3534,16 @@ model ArchitectureBudget {
 }
 
 model ArchitectureBudgetItem {
-  id             Int                @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   organizationId Int
   budgetId       Int
   description    String
   category       String?
-  quantity       Decimal            @default(1) @db.Decimal(12, 4)
-  unitPrice      Decimal            @default(0) @db.Decimal(14, 2)
-  order          Int                @default(0)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  quantity       Decimal  @default(1) @db.Decimal(12, 4)
+  unitPrice      Decimal  @default(0) @db.Decimal(14, 2)
+  order          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   budget       ArchitectureBudget @relation(fields: [budgetId], references: [id], onDelete: Restrict)
@@ -3547,22 +3558,24 @@ model ArchitectureBudgetItem {
 // -------------------------------------------------------------
 
 model AcademicCourse {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   organizationId Int
-  name           String    // Ej: "1ro A", "10mo EGB"
-  level          String    // Ej: "Educación General Básica", "Bachillerato General"
-  classroom      String?   // Ej: "Aula 204", "Laboratorio de Ciencias"
-  status         String    @default("ACTIVE") // ACTIVE, ARCHIVED
+  name           String // Ej: "1ro A", "10mo EGB"
+  level          String // Ej: "Educación General Básica", "Bachillerato General"
+  classroom      String? // Ej: "Aula 204", "Laboratorio de Ciencias"
+  status         String   @default("ACTIVE") // ACTIVE, ARCHIVED
   tutorUserId    Int?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  tutorUser      User?                @relation("AcademicCourseTutorUser", fields: [tutorUserId], references: [id], onDelete: SetNull)
-  subjects       AcademicSubject[]
-  enrollments    AcademicEnrollment[]
-  classSessions  AcademicClassSession[]
-  activities     AcademicActivity[]
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  tutorUser         User?                      @relation("AcademicCourseTutorUser", fields: [tutorUserId], references: [id], onDelete: SetNull)
+  subjects          AcademicSubject[]
+  enrollments       AcademicEnrollment[]
+  classSessions     AcademicClassSession[]
+  activities        AcademicActivity[]
+  evaluationSchemes AcademicEvaluationScheme[]
+  scheduleSlots     AcademicSubjectScheduleSlot[]
 
   @@unique([organizationId, name])
   @@index([organizationId, status])
@@ -3570,22 +3583,24 @@ model AcademicCourse {
 }
 
 model AcademicSubject {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   organizationId Int
   courseId       Int
-  name           String    // Ej: "Matemáticas", "Lengua y Literatura"
-  code           String?   // Ej: "MAT-101"
-  hoursPerWeek   Int?      // Carga horaria semanal opcional
-  status         String    @default("ACTIVE") // ACTIVE, INACTIVE
+  name           String // Ej: "Matemáticas", "Lengua y Literatura"
+  code           String? // Ej: "MAT-101"
+  hoursPerWeek   Int? // Carga horaria semanal opcional
+  status         String   @default("ACTIVE") // ACTIVE, INACTIVE
   teacherUserId  Int?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  course         AcademicCourse       @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  teacherUser    User?                @relation("AcademicSubjectTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
-  classSessions  AcademicClassSession[]
-  activities     AcademicActivity[]
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course            AcademicCourse             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  teacherUser       User?                      @relation("AcademicSubjectTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
+  classSessions     AcademicClassSession[]
+  activities        AcademicActivity[]
+  evaluationSchemes AcademicEvaluationScheme[]
+  scheduleSlots     AcademicSubjectScheduleSlot[]
 
   @@unique([courseId, name])
   @@index([organizationId, courseId])
@@ -3593,16 +3608,16 @@ model AcademicSubject {
 }
 
 model AcademicStudent {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   organizationId Int
   firstName      String
   lastName       String
-  identification String?   // Cédula o pasaporte. Nullable pero único por organización cuando no es null
+  identification String? // Cédula o pasaporte. Nullable pero único por organización cuando no es null
   email          String?
   phone          String?
-  status         String    @default("ACTIVE") // ACTIVE, INACTIVE (administrativo)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  status         String   @default("ACTIVE") // ACTIVE, INACTIVE (administrativo)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   enrollments       AcademicEnrollment[]
@@ -3615,26 +3630,28 @@ model AcademicStudent {
 }
 
 model AcademicEnrollment {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   organizationId Int
   studentId      Int
   courseId       Int
-  status         String    @default("ACTIVE") // ACTIVE, INACTIVE, WITHDRAWN
-  enrollmentDate DateTime  @default(now())
-  period         String?   // Período académico opcional (ej: "2025-2026")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  academicYearId Int?
+  status         String   @default("ACTIVE") // ACTIVE, INACTIVE, WITHDRAWN
+  enrollmentDate DateTime @default(now())
+  period         String? // Período académico opcional histórico (ej: "2025-2026")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  course         AcademicCourse  @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  student        AcademicStudent @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course       AcademicCourse  @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  student      AcademicStudent @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear?   @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  grades       AcademicGrade[]
 
-  // En F1, un estudiante tiene a lo sumo una matrícula activa/registrada por curso.
-  // Si en fases futuras se formaliza gestión de períodos lectivos, se expandirá a @@unique([studentId, courseId, period]).
-  @@unique([studentId, courseId])
   @@index([organizationId, courseId])
   @@index([organizationId, studentId])
   @@index([organizationId, status])
+  @@index([academicYearId])
+  @@index([organizationId, studentId, courseId, academicYearId])
 }
 
 // -------------------------------------------------------------
@@ -3643,19 +3660,19 @@ model AcademicEnrollment {
 // -------------------------------------------------------------
 
 model AcademicClassSession {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   organizationId Int
   courseId       Int
   subjectId      Int?
   teacherUserId  Int?
   sessionDate    DateTime
-  startTime      String?   // Ej: "08:00" o "08:00 - 09:30"
-  endTime        String?   // Ej: "09:30"
-  room           String?   // Ej: "Aula 102"
-  topic          String?   // Tema de la sesión de clase
-  status         String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  startTime      String? // Ej: "08:00" o "08:00 - 09:30"
+  endTime        String? // Ej: "09:30"
+  room           String? // Ej: "Aula 102"
+  topic          String? // Tema de la sesión de clase
+  status         String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   course            AcademicCourse             @relation(fields: [courseId], references: [id], onDelete: Restrict)
@@ -3671,18 +3688,18 @@ model AcademicClassSession {
 }
 
 model AcademicAttendanceRecord {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   organizationId Int
   sessionId      Int
   studentId      Int
-  status         String    @default("PRESENT") // PRESENT, ABSENT, LATE, EXCUSED
-  observation    String?   // Observación o justificativo
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  status         String   @default("PRESENT") // PRESENT, ABSENT, LATE, EXCUSED
+  observation    String? // Observación o justificativo
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  session        AcademicClassSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
-  student        AcademicStudent      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  session      AcademicClassSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  student      AcademicStudent      @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
   @@unique([sessionId, studentId])
   @@index([organizationId, sessionId])
@@ -3691,56 +3708,246 @@ model AcademicAttendanceRecord {
 }
 
 // -------------------------------------------------------------
+// HORARIOS SEMANALES RECURRENTES POR MATERIA (AcademicSubjectScheduleSlot - FASE 11.2)
+// -------------------------------------------------------------
+
+model AcademicSubjectScheduleSlot {
+  id               Int             @id @default(autoincrement())
+  organizationId   Int
+  academicYearId   Int
+  courseId         Int
+  subjectId        Int
+  teacherUserId    Int?
+  dayOfWeek        Int             // 1 = Lunes, 2 = Martes, 3 = Miércoles, 4 = Jueves, 5 = Viernes, 6 = Sábado, 7 = Domingo
+  startTime        String          // "07:00" (HH:mm)
+  endTime          String          // "08:30" (HH:mm)
+  pedagogicalHours Int             @default(2) // Períodos pedagógicos cubiertos
+  room             String?         // Aula o laboratorio
+  effectiveFrom    DateTime        @default(now()) // Inicio de vigencia
+  effectiveTo      DateTime?       // Fin de vigencia (null = versión vigente actual)
+  status           String          @default("ACTIVE") // ACTIVE, INACTIVE, SUPERSEDED
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear    @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  course       AcademicCourse  @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  subject      AcademicSubject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacherUser  User?           @relation("SubjectScheduleSlotTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, academicYearId, courseId])
+  @@index([organizationId, subjectId, status])
+  @@index([teacherUserId, dayOfWeek, status])
+  @@index([courseId, dayOfWeek, status])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+// -------------------------------------------------------------
 // MÓDULO PROFESORES / GESTIÓN ACADÉMICA (FASE 3: ACTIVIDADES Y CALIFICACIONES)
 // Actividades / Evaluaciones Académicas y Calificaciones Individuales
 // -------------------------------------------------------------
 
 model AcademicActivity {
-  id             Int       @id @default(autoincrement())
-  organizationId Int
-  courseId       Int
-  subjectId      Int
-  teacherUserId  Int?
-  name           String    // Ej: "Examen Unidad 1", "Tarea 2: Ecuaciones"
-  description    String?   // Descripción o instrucciones de la actividad
-  type           String    @default("HOMEWORK") // HOMEWORK, EXAM, PROJECT, PRACTICE, PARTICIPATION
-  dueDate        DateTime? // Fecha de entrega o realización
-  maxScore       Float     // Puntaje máximo explícito (> 0)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int
+  courseId           Int
+  subjectId          Int
+  academicPeriodId   Int?
+  evaluationSchemeId Int?
+  categoryId         Int?
+  teacherUserId      Int?
+  name               String // Ej: "Examen Unidad 1", "Tarea 2: Ecuaciones"
+  description        String? // Descripción o instrucciones de la actividad
+  type               String    @default("HOMEWORK") // HOMEWORK, EXAM, PROJECT, PRACTICE, PARTICIPATION
+  dueDate            DateTime? // Fecha de entrega o realización
+  maxScore           Decimal   @db.Decimal(5, 2) // Puntaje máximo explícito (> 0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  course         AcademicCourse   @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  subject        AcademicSubject  @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  teacherUser    User?            @relation("AcademicActivityTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
-  grades         AcademicGrade[]
+  organization     Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course           AcademicCourse              @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  subject          AcademicSubject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacherUser      User?                       @relation("AcademicActivityTeacherUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
+  academicPeriod   AcademicPeriod?             @relation(fields: [academicPeriodId], references: [id], onDelete: SetNull)
+  evaluationScheme AcademicEvaluationScheme?   @relation(fields: [evaluationSchemeId], references: [id], onDelete: SetNull)
+  category         AcademicEvaluationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  grades           AcademicGrade[]
 
   @@index([organizationId, courseId])
   @@index([organizationId, subjectId])
+  @@index([academicPeriodId])
+  @@index([evaluationSchemeId])
+  @@index([categoryId])
   @@index([teacherUserId])
   @@index([type])
 }
 
 model AcademicGrade {
-  id             Int       @id @default(autoincrement())
+  id             Int                 @id @default(autoincrement())
   organizationId Int
   activityId     Int
-  studentId      Int
-  score          Float     // Calificación obtenida (0 <= score <= activity.maxScore)
-  comments       String?   // Comentarios o retroalimentación docente
-  gradedAt       DateTime  @default(now())
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  studentId      Int // Conservado para compatibilidad durante Etapas B y C
+  enrollmentId   Int? // Nueva relación principal con matrícula académica
+  score          Decimal?            @db.Decimal(5, 2) // Nullable para soportar PENDING, ABSENT, EXCUSED
+  status         AcademicGradeStatus @default(PENDING) // Estado por defecto para nuevas asignaciones
+  comments       String? // Comentarios o retroalimentación docente
+  gradedAt       DateTime? // Nullable hasta que sea formalmente calificada
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  activity       AcademicActivity @relation(fields: [activityId], references: [id], onDelete: Restrict)
-  student        AcademicStudent  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  activity     AcademicActivity        @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  student      AcademicStudent         @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  enrollment   AcademicEnrollment?     @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  auditLogs    AcademicGradeAuditLog[]
 
   @@unique([activityId, studentId])
   @@index([organizationId, activityId])
   @@index([organizationId, studentId])
+  @@index([organizationId, enrollmentId])
+  @@index([organizationId, status])
 }
 
+// -------------------------------------------------------------
+// EVOLUCIÓN ACADÉMICA: ENUMS, PERIODOS, ESQUEMAS, CATEGORÍAS Y AUDITORÍA
+// -------------------------------------------------------------
 
+enum AcademicYearStatus {
+  PLANNED
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
 
+enum AcademicPeriodType {
+  YEAR
+  SEMESTER
+  QUIMESTER
+  TRIMESTER
+  BIMESTER
+  PARTIAL
+}
 
+enum AcademicPeriodStatus {
+  ACTIVE
+  LOCKED
+  CLOSED
+  ARCHIVED
+}
+
+enum AcademicEvaluationSchemeStatus {
+  DRAFT
+  VALID
+  LOCKED
+  CLOSED
+}
+
+enum AcademicGradeStatus {
+  PENDING
+  GRADED
+  ABSENT
+  EXCUSED
+}
+
+model AcademicYear {
+  id             Int                @id @default(autoincrement())
+  organizationId Int
+  name           String // Ej: "Año Lectivo 2025-2026"
+  startDate      DateTime
+  endDate        DateTime
+  status         AcademicYearStatus @default(PLANNED)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  periods      AcademicPeriod[]
+  enrollments  AcademicEnrollment[]
+  scheduleSlots AcademicSubjectScheduleSlot[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status])
+}
+
+model AcademicPeriod {
+  id             Int                  @id @default(autoincrement())
+  organizationId Int
+  academicYearId Int
+  parentId       Int? // Jerarquía: Quimestre 1 -> Parcial 1
+  name           String // Ej: "Primer Trimestre", "Parcial 1"
+  type           AcademicPeriodType
+  order          Int                  @default(1)
+  startDate      DateTime
+  endDate        DateTime
+  status         AcademicPeriodStatus @default(ACTIVE)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear               @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  parentPeriod AcademicPeriod?            @relation("PeriodHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  subPeriods   AcademicPeriod[]           @relation("PeriodHierarchy")
+  schemes      AcademicEvaluationScheme[]
+  activities   AcademicActivity[]
+
+  @@index([organizationId, status])
+  @@index([academicYearId, order])
+  @@index([parentId])
+}
+
+model AcademicEvaluationScheme {
+  id               Int                            @id @default(autoincrement())
+  organizationId   Int
+  courseId         Int
+  subjectId        Int
+  academicPeriodId Int
+  maxScale         Decimal                        @default(10.0) @db.Decimal(5, 2)
+  minPassingScore  Decimal                        @default(7.0) @db.Decimal(5, 2)
+  status           AcademicEvaluationSchemeStatus @default(DRAFT)
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  course         AcademicCourse               @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  subject        AcademicSubject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  academicPeriod AcademicPeriod               @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  categories     AcademicEvaluationCategory[]
+  activities     AcademicActivity[]
+
+  @@unique([organizationId, courseId, subjectId, academicPeriodId])
+  @@index([organizationId, status])
+}
+
+model AcademicEvaluationCategory {
+  id               Int      @id @default(autoincrement())
+  organizationId   Int
+  schemeId         Int
+  name             String // Ej: "Tareas", "Prácticas", "Exámenes"
+  weightPercentage Decimal  @db.Decimal(5, 2) // Ej: 30.00
+  order            Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  scheme     AcademicEvaluationScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  activities AcademicActivity[]
+
+  @@index([schemeId, order])
+}
+
+model AcademicGradeAuditLog {
+  id              Int                  @id @default(autoincrement())
+  organizationId  Int
+  gradeId         Int
+  previousScore   Decimal?             @db.Decimal(5, 2)
+  newScore        Decimal?             @db.Decimal(5, 2)
+  previousStatus  AcademicGradeStatus?
+  newStatus       AcademicGradeStatus
+  changedByUserId Int
+  reason          String? // Motivo pedagógico o administrativo
+  createdAt       DateTime             @default(now())
+
+  grade         AcademicGrade @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  changedByUser User          @relation("AcademicGradeAuditLogUser", fields: [changedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([gradeId, createdAt])
+  @@index([organizationId, changedByUserId])
+}

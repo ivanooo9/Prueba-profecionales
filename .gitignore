@@ -41,6 +41,10 @@ yarn-error.log*
 # environment & secrets
 .env*
 !.env.example
+client_secret*.json
+token*.json
+*.p12
+
 
 # OS & IDE metadata
 .DS_Store
@@ -66,3 +70,4 @@ tsc-errors*.txt
 pnpm-lock.yaml
 pnpm-workspace.yaml
 
+backups/

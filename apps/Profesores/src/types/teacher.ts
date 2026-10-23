@@ -31,6 +31,8 @@ export interface Enrollment {
   id: string;
   studentId: string;
   courseId: string;
+  academicYearId?: string;
+  academicYearName?: string;
   status: EnrollmentStatus;
   enrollmentDate: string;
 }
@@ -46,6 +48,77 @@ export interface Course {
   status: 'active' | 'archived';
 }
 
+export interface CourseDependenciesDTO {
+  courseId: number;
+  courseName: string;
+  level: string;
+  status: string;
+  canDelete: boolean;
+  reason: string | null;
+  dependencies: {
+    enrollments: number;
+    subjects: number;
+    activities: number;
+    grades: number;
+    evaluationSchemes: number;
+    classSessions: number;
+  };
+}
+
+export type SubjectScheduleStatus = 'no_schedule' | 'incomplete' | 'complete' | 'excess';
+
+export interface ScheduleSlot {
+  id?: string;
+  dayOfWeek: number; // 1 = Lunes ... 7 = Domingo
+  startTime: string; // "07:00"
+  endTime: string;   // "08:30"
+  pedagogicalHours: number;
+  room?: string;
+  teacherUserId?: string;
+  teacherName?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  status?: string;
+}
+
+export interface SubjectScheduleDTO {
+  subject: {
+    id: string;
+    name: string;
+    code: string;
+    courseId: string;
+    courseName: string;
+    hoursPerWeek: number;
+    teacherUserId?: string;
+    teacherName: string;
+  };
+  activeSlots: ScheduleSlot[];
+  scheduleStatus: SubjectScheduleStatus;
+  totalPedagogicalHours: number;
+  hoursPerWeek: number;
+  history?: ScheduleSlot[];
+}
+
+export interface ScheduleSlotFormData {
+  id?: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  pedagogicalHours: number;
+  room?: string;
+  teacherUserId?: string;
+}
+
+export interface SubjectFormData {
+  name: string;
+  code?: string;
+  hoursPerWeek?: number;
+  teacherUserId?: number | null;
+  academicYearId?: number;
+  effectiveFrom?: string;
+  scheduleSlots?: ScheduleSlotFormData[];
+}
+
 export interface Subject {
   id: string;
   name: string; // e.g. "Matemáticas"
@@ -53,8 +126,12 @@ export interface Subject {
   courseId: string;
   courseName: string;
   teacherName: string;
+  teacherUserId?: string;
   hoursPerWeek: number;
   iconName?: string;
+  scheduleStatus?: SubjectScheduleStatus;
+  totalPedagogicalHours?: number;
+  activeSlots?: ScheduleSlot[];
 }
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
@@ -78,7 +155,14 @@ export interface AttendanceContext {
   sessionId?: string;
 }
 
-export type EvaluationType = 'homework' | 'exam' | 'project' | 'practice' | 'participation';
+export type EvaluationType =
+  | 'homework'
+  | 'exam'
+  | 'project'
+  | 'practice'
+  | 'participation'
+  | 'activity'
+  | 'lesson';
 
 export interface Activity {
   id: string;
@@ -88,6 +172,10 @@ export interface Activity {
   type: EvaluationType;
   date: string;
   maxScore: number;
+  academicPeriodId?: string;
+  evaluationSchemeId?: string;
+  categoryId?: string;
+  categoryName?: string;
 }
 
 export type Evaluation = Activity;
@@ -285,6 +373,9 @@ export interface GradeMatrixStudentGrade {
   isGraded: boolean;
   comments?: string | null;
   gradedAt?: string | null;
+  status?: string;
+  academicPeriodId?: number | null;
+  academicPeriodStatus?: string | null;
 }
 
 export interface GradeMatrixStudentItem {
@@ -297,6 +388,8 @@ export interface GradeMatrixStudentItem {
   gradedActivitiesCount: number;
   simpleAverage: number | null;
   normalizedPerformance: number | null;
+  isProvisional?: boolean;
+  finalityStatus?: string;
   grades: GradeMatrixStudentGrade[];
 }
 
@@ -311,6 +404,8 @@ export interface GradeReportDTO {
     totalGradesRecorded: number;
     overallAverage: number | null;
     overallNormalizedPerformance: number | null;
+    isProvisional?: boolean;
+    finalityStatus?: string;
   };
   generatedAt: string;
 }
@@ -351,6 +446,8 @@ export interface StudentReportDTO {
       totalGradesCount: number;
       simpleAverage: number | null;
       normalizedPerformance: number | null;
+      isProvisional?: boolean;
+      finalityStatus?: string;
     };
     history: {
       id: number;
@@ -359,13 +456,205 @@ export interface StudentReportDTO {
       activityType: string;
       subjectName: string;
       courseName: string;
-      score: number;
+      score: number | null;
       maxScore: number;
       gradedAt: string | null;
       comments?: string | null;
+      status?: string;
+      academicPeriodId?: number | null;
+      academicPeriodStatus?: string | null;
+      isProvisional?: boolean;
+      finalityStatus?: string;
     }[];
   };
   generatedAt: string;
 }
+
+// ============================================================================
+// ARQUITECTURA ACADÉMICA MULTINIVEL (FASE 3/4/5)
+// ============================================================================
+
+export type AcademicYearStatus = 'PLANNED' | 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
+
+export type AcademicPeriodType =
+  | 'YEAR'
+  | 'SEMESTER'
+  | 'QUIMESTER'
+  | 'TRIMESTER'
+  | 'BIMESTER'
+  | 'PARTIAL';
+
+export type AcademicPeriodStatus = 'ACTIVE' | 'LOCKED' | 'CLOSED' | 'ARCHIVED';
+
+export type AcademicEvaluationSchemeStatus =
+  | 'DRAFT'
+  | 'VALID'
+  | 'LOCKED'
+  | 'CLOSED';
+
+export type AcademicGradeStatus = 'PENDING' | 'GRADED' | 'ABSENT' | 'EXCUSED';
+
+export interface AcademicYear {
+  id: number;
+  organizationId?: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: AcademicYearStatus;
+  periods?: AcademicPeriod[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AcademicPeriod {
+  id: number;
+  organizationId?: number;
+  academicYearId: number;
+  parentId?: number | null;
+  name: string;
+  type: AcademicPeriodType;
+  order: number;
+  startDate: string;
+  endDate: string;
+  status: AcademicPeriodStatus;
+  academicYear?: AcademicYear;
+  parent?: AcademicPeriod | null;
+  children?: AcademicPeriod[];
+}
+
+export interface PeriodClosureBlocker {
+  type: 'PENDING_GRADES' | 'ABSENT_GRADES' | 'INVALID_SCHEMES' | 'INCOMPLETE_WEIGHTS';
+  message: string;
+  count: number;
+  details?: any[];
+}
+
+export interface PeriodClosureWarning {
+  type: 'EXCUSED_GRADES_PRESENT' | 'NO_ACTIVITIES';
+  message: string;
+  count: number;
+}
+
+export interface PeriodClosureReadinessDTO {
+  periodId: number;
+  periodName: string;
+  periodStatus: AcademicPeriodStatus;
+  canClose: boolean;
+  totalActivities: number;
+  totalEnrollments: number;
+  totalGrades: number;
+  gradeSummary: {
+    graded: number;
+    pending: number;
+    absent: number;
+    excused: number;
+  };
+  schemes: {
+    total: number;
+    valid: number;
+    draft: number;
+    locked: number;
+    closed: number;
+    invalidWeight: number;
+  };
+  students: {
+    total: number;
+    complete: number;
+    incomplete: number;
+  };
+  blockers: PeriodClosureBlocker[];
+  warnings: PeriodClosureWarning[];
+}
+
+export interface AcademicEvaluationCategory {
+  id: number;
+  evaluationSchemeId: number;
+  name: string;
+  weightPercentage: number;
+  order: number;
+}
+
+export interface AcademicEvaluationScheme {
+  id: number;
+  organizationId?: number;
+  courseId: number;
+  subjectId: number;
+  academicPeriodId: number;
+  maxScale: number;
+  minPassingScore: number;
+  status: AcademicEvaluationSchemeStatus;
+  categories: AcademicEvaluationCategory[];
+  course?: { id: number; name: string; level: string };
+  subject?: { id: number; name: string; code?: string };
+  academicPeriod?: { id: number; name: string; type: AcademicPeriodType };
+}
+
+export interface PeriodGradesMatrixActivityScore {
+  activityId: number;
+  activityName: string;
+  activityType?: string;
+  maxScore: number;
+  score: number | null;
+  status: AcademicGradeStatus;
+}
+
+export interface PeriodGradesMatrixCategory {
+  categoryId: number;
+  categoryName: string;
+  weightPercentage: number;
+  isEvaluated: boolean;
+  activitiesCount: number;
+  gradedCount: number;
+  categoryAverage: number | null;
+  weightedContribution: number;
+  activities: PeriodGradesMatrixActivityScore[];
+}
+
+export interface PeriodGradesMatrixStudent {
+  studentId: number;
+  enrollmentId: number;
+  identification: string;
+  lastName: string;
+  firstName: string;
+  fullName: string;
+  evaluatedWeightPercentage: number;
+  isComplete: boolean;
+  isProvisional?: boolean;
+  isPassing: boolean;
+  definitiveGrade: number;
+  provisionalAverage: number | null;
+  categories: PeriodGradesMatrixCategory[];
+}
+
+export interface PeriodGradesMatrixDTO {
+  course: { id: number; name: string; level: string };
+  subject: { id: number; name: string; code?: string };
+  period: { id: number; name: string; type: AcademicPeriodType; status: AcademicPeriodStatus };
+  scheme: {
+    id: number;
+    status: AcademicEvaluationSchemeStatus;
+    maxScale: number;
+    minPassingScore: number;
+    totalCategories: number;
+    categories?: AcademicEvaluationCategory[];
+  } | null;
+  categories?: PeriodGradesMatrixCategory[];
+  activities?: {
+    id: number;
+    name: string;
+    type: string;
+    maxScore: number;
+    dueDate: string | null;
+    categoryId: number | null;
+    categoryName?: string;
+    evaluationSchemeId: number | null;
+  }[];
+  totalActivities: number;
+  totalStudents: number;
+  isProvisional?: boolean;
+  students: PeriodGradesMatrixStudent[];
+  generatedAt: string;
+}
+
 
 

@@ -6,10 +6,11 @@ import { Plus, Trash2 } from 'lucide-react';
 interface BudgetFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (budget: Partial<Budget>) => void;
+  onSave: (budget: Partial<Budget>) => Promise<void> | void;
   projects: Project[];
   defaultProjectId?: string;
   initialData?: Budget | null;
+  isSubmitting?: boolean;
 }
 
 export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({
@@ -18,7 +19,8 @@ export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({
   onSave,
   projects,
   defaultProjectId,
-  initialData
+  initialData,
+  isSubmitting = false,
 }) => {
   const [formData, setFormData] = useState<{
     name: string;
@@ -26,6 +28,7 @@ export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({
     status: string;
     notes: string;
     items: Array<{
+      id?: number | string;
       description: string;
       category: string;
       quantity: number;
@@ -51,6 +54,7 @@ export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({
         notes: initialData.notes || '',
         items: initialData.items && initialData.items.length > 0
           ? initialData.items.map((it) => ({
+              id: it.id,
               description: it.description,
               category: it.category || 'General',
               quantity: it.quantity,
@@ -105,20 +109,21 @@ export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({
     0
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.projectId || !formData.name.trim()) return;
+    if (!formData.projectId || !formData.name.trim() || isSubmitting) return;
 
-    onSave({
+    await onSave({
       name: formData.name.trim(),
       projectId: formData.projectId,
       status: formData.status,
       notes: formData.notes.trim() || undefined,
       estimatedAmount: Number(totalCalculated.toFixed(2)),
       approvedAmount: formData.status === 'Aprobado' ? Number(totalCalculated.toFixed(2)) : 0,
-      items: formData.items.filter((it) => it.description.trim().length > 0) as BudgetItem[],
+      items: formData.items
+        .filter((it) => it.description.trim().length > 0)
+        .map((it) => ({ ...it })) as BudgetItem[],
     });
-    onClose();
   };
 
   return (
@@ -278,15 +283,17 @@ export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            disabled={isSubmitting}
+            className="px-4 py-2 font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="px-5 py-2 font-semibold text-white bg-arch-600 hover:bg-arch-700 rounded-lg shadow-xs transition-colors"
+            disabled={isSubmitting}
+            className="px-5 py-2 font-semibold text-white bg-arch-600 hover:bg-arch-700 rounded-lg shadow-xs transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {initialData ? 'Guardar Cambios' : 'Registrar Presupuesto'}
+            {isSubmitting ? 'Guardando…' : (initialData ? 'Guardar Cambios' : 'Registrar Presupuesto')}
           </button>
         </div>
       </form>

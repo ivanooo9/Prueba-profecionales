@@ -6,7 +6,8 @@ import { db } from "../lib/db";
 import { CertificateEligibilityService, getValidCertificateUserName } from "../services/certificate-eligibility.service";
 import { StudentService } from "../services/student.service";
 import {
-  AUTH_COOKIE_OPTIONS,
+  getAuthCookieClearOptions,
+  getAuthCookieOptions,
   comparePassword,
   createAuthSession,
   generatePasswordResetToken,
@@ -34,6 +35,7 @@ import { requireAdmin, requireProfessional, requireClient } from "../lib/middlew
 import { getUniqueSlug, generateSlug } from "../lib/slug";
 import { cachedFetch, cacheKeyFactory as cacheKey } from "../lib/cache";
 import { getEffectiveTiempoMinimoPonencia } from "../lib/video";
+import { getAllowedFrontendOrigins, isSafeRedirectTarget } from "../lib/cors";
 
 const router = express.Router();
 
@@ -2803,7 +2805,7 @@ router.post("/registro-profesional", async (req: Request, res: Response) => {
     // 5. Auto login user by setting a tracked session JWT.
     const token = await createAuthSession(result, "PROFESSIONAL", req);
 
-    res.cookie("token", token, AUTH_COOKIE_OPTIONS);
+    res.cookie("token", token, getAuthCookieOptions());
 
     // Send welcome email for professional (fire-and-forget)
     emailService.sendWelcomeRegistration(email, {
@@ -2845,7 +2847,14 @@ router.get("/dashboard/estudiante", (req: Request, res: Response) => {
 
 // Login Page Route
 router.get("/login", (req: Request, res: Response) => {
+  const allowedOrigins = getAllowedFrontendOrigins();
+  const rawRedirect = typeof req.query.redirect === "string" ? req.query.redirect : null;
+  const redirectTarget = isSafeRedirectTarget(rawRedirect, allowedOrigins, req.protocol, req.get("host"))
+    ? rawRedirect
+    : null;
+
   if (res.locals.user) {
+    if (redirectTarget) return res.redirect(redirectTarget);
     const role = res.locals.user.role?.name;
     if (role === "ADMIN") return res.redirect("/dashboard/admin");
     if (role === "PROFESSIONAL") return res.redirect("/dashboard/profesional");
@@ -2857,13 +2866,20 @@ router.get("/login", (req: Request, res: Response) => {
     title: "Iniciar Sesión",
     activePage: "login",
     error: req.query.error === "unauthorized" ? "Debe iniciar sesión para acceder." : null,
-    success: req.query.success === "registered" ? "Usuario registrado con éxito. Inicie sesión." : null
+    success: req.query.success === "registered" ? "Usuario registrado con éxito. Inicie sesión." : null,
+    redirect: redirectTarget
   });
 });
 
 // POST Login Route
 router.post("/login", async (req: Request, res: Response) => {
   const { email, password } = req.body;
+  const allowedOrigins = getAllowedFrontendOrigins();
+  const rawRedirect = typeof req.body.redirect === "string" ? req.body.redirect : (typeof req.query.redirect === "string" ? req.query.redirect : null);
+  const redirectTarget = isSafeRedirectTarget(rawRedirect, allowedOrigins, req.protocol, req.get("host"))
+    ? rawRedirect
+    : null;
+
   try {
     const user = await db.user.findUnique({
       where: { email },
@@ -2875,7 +2891,8 @@ router.post("/login", async (req: Request, res: Response) => {
         title: "Iniciar Sesión",
         activePage: "login",
         error: "El correo electrónico no está registrado.",
-        success: null
+        success: null,
+        redirect: redirectTarget
       });
     }
 
@@ -2884,7 +2901,8 @@ router.post("/login", async (req: Request, res: Response) => {
         title: "Iniciar Sesión",
         activePage: "login",
         error: "Su cuenta no está activa. Contacte al soporte.",
-        success: null
+        success: null,
+        redirect: redirectTarget
       });
     }
 
@@ -2894,16 +2912,21 @@ router.post("/login", async (req: Request, res: Response) => {
         title: "Iniciar Sesión",
         activePage: "login",
         error: "La contraseña es incorrecta.",
-        success: null
+        success: null,
+        redirect: redirectTarget
       });
     }
 
     const token = await createAuthSession(user, user.role.name, req);
 
-    res.cookie("token", token, AUTH_COOKIE_OPTIONS);
+    res.cookie("token", token, getAuthCookieOptions());
 
     if (user.requireProfileSetup) {
       return res.redirect("/profile-setup");
+    }
+
+    if (redirectTarget) {
+      return res.redirect(redirectTarget);
     }
 
     if (user.role.name === "ADMIN") {
@@ -2923,7 +2946,8 @@ router.post("/login", async (req: Request, res: Response) => {
       title: "Iniciar Sesión",
       activePage: "login",
       error: "Error interno al iniciar sesión.",
-      success: null
+      success: null,
+      redirect: redirectTarget
     });
   }
 });
@@ -3449,7 +3473,7 @@ router.post("/register", async (req: Request, res: Response) => {
 
     const token = await createAuthSession(user, user.role.name, req);
 
-    res.cookie("token", token, AUTH_COOKIE_OPTIONS);
+    res.cookie("token", token, getAuthCookieOptions());
 
     if (dbRole.name === "PROFESSIONAL") {
       return res.redirect("/dashboard/profesional");
@@ -3491,7 +3515,7 @@ router.post("/api/auth/login", async (req: Request, res: Response) => {
 
     const token = await createAuthSession(user, user.role.name, req);
 
-    res.cookie("token", token, AUTH_COOKIE_OPTIONS);
+    res.cookie("token", token, getAuthCookieOptions());
 
     return res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role.name, nombreCertificado: user.nombreCertificado } });
   } catch (error) {
@@ -3551,7 +3575,7 @@ router.post("/api/auth/register", async (req: Request, res: Response) => {
 
     const token = await createAuthSession(user, user.role.name, req);
 
-    res.cookie("token", token, AUTH_COOKIE_OPTIONS);
+    res.cookie("token", token, getAuthCookieOptions());
 
     // Send welcome email for client (fire-and-forget)
     emailService.sendWelcomeRegistration(email, {
@@ -4025,7 +4049,7 @@ router.get("/api/dashboard/search", async (req: Request, res: Response) => {
 // Logout Route
 router.get("/logout", async (req: Request, res: Response) => {
   await revokeSessionFromToken(req.cookies?.token);
-  res.clearCookie("token");
+  res.clearCookie("token", getAuthCookieClearOptions());
   res.redirect("/");
 });
 

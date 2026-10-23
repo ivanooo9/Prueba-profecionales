@@ -90,6 +90,11 @@ export const CitaRapidaModal: React.FC<CitaRapidaModalProps> = ({
       toast.error("La fecha y hora son requeridas")
       return
     }
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })
+    if (fecha < todayStr) {
+      toast.error("La fecha de la cita no puede ser anterior a hoy")
+      return
+    }
 
     setLoading(true)
     const toastId = toast.loading("Agendando cita rápida...")
@@ -246,6 +251,7 @@ export const CitaRapidaModal: React.FC<CitaRapidaModalProps> = ({
               </Label>
               <Input
                 type="date"
+                min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })}
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
                 required

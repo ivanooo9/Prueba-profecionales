@@ -1,21 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import {
   Users,
-  Search,
   Filter,
   UserPlus,
   Edit2,
   Eye,
   CheckCircle2,
   AlertTriangle,
-  FileSpreadsheet,
+  UploadCloud,
   UserRoundPlus,
 } from 'lucide-react';
 import { DataTable, Column } from '../ui/DataTable';
-import { Activity, AttendanceRecord, Course, Enrollment, GradeItem, Student } from '../../types/teacher';
-import { EnrollmentModal } from './EnrollmentModal';
+import { Activity, AttendanceRecord, Course, Enrollment, GradeItem, Student, AcademicYear } from '../../types/teacher';
+import { EnrollmentModal, EnrollmentResult } from './EnrollmentModal';
 import { StudentFormModal } from './StudentFormModal';
 import { StudentDetailModal } from './StudentDetailModal';
+import { StudentImportModal } from './StudentImportModal';
+import { StudentSearchInput } from '../ui/StudentSearchInput';
+import { matchesStudentQuery } from '../../utils/studentFilter';
 
 export interface StudentManagementViewProps {
   students: Student[];
@@ -23,7 +25,12 @@ export interface StudentManagementViewProps {
   onUpdateStudent: (id: string, updated: Partial<Student>) => Promise<void> | void;
   courses: Course[];
   enrollments: Enrollment[];
-  onAddEnrollment: (studentId: string, courseId: string) => Promise<void>;
+  academicYears?: AcademicYear[];
+  onAddEnrollment: (
+    studentIds: string[] | string,
+    courseId: string,
+    academicYearId?: string | null
+  ) => Promise<EnrollmentResult | void>;
   attendanceHistory: AttendanceRecord[];
   grades: GradeItem[];
   activities: Activity[];
@@ -35,6 +42,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   onUpdateStudent,
   courses,
   enrollments,
+  academicYears = [],
   onAddEnrollment,
   attendanceHistory,
   grades,
@@ -51,49 +59,32 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [isEnrollmentModalOpen, setIsEnrollmentModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
-  const getStudentEnrollments = (studentId: string) =>
-    enrollments.filter(
+  const getStudentActiveEnrollment = (studentId: string): Enrollment | undefined => {
+    const studentEnrs = enrollments.filter(
       (enrollment) => enrollment.studentId === studentId && enrollment.status === 'active'
     );
+    if (studentEnrs.length === 0) return undefined;
+    // Priorizar matrícula del año lectivo más reciente o ID más reciente
+    return studentEnrs.sort((a, b) => Number(b.id) - Number(a.id))[0];
+  };
 
-  const getStudentCourseNames = (studentId: string) =>
-    getStudentEnrollments(studentId)
-      .map((enrollment) => courses.find((course) => course.id === enrollment.courseId)?.name)
-      .filter((name): name is string => Boolean(name));
-
-  const handleExportStudents = () => {
-    const rows = filteredStudents.map((student) => [
-      `${student.firstName} ${student.lastName}`,
-      student.identification,
-      getStudentCourseNames(student.id).join(' | ') || 'Sin matrícula',
-      student.email,
-      student.phone,
-      student.status,
-    ]);
-    const csv = ['Estudiante,Cédula,Cursos,Correo,Teléfono,Estado', ...rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(','))].join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'estudiantes.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+  const getStudentActiveCourseName = (studentId: string): string => {
+    const activeEnr = getStudentActiveEnrollment(studentId);
+    if (!activeEnr) return 'Sin matrícula';
+    const course = courses.find((c) => c.id === activeEnr.courseId);
+    return course ? course.name : 'Sin matrícula';
   };
 
   // Filtered Students List
   const filteredStudents = useMemo(() => {
     return students.filter((student) => {
-      const matchesSearch =
-        `${student.firstName} ${student.lastName}`
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        student.identification.includes(searchTerm) ||
-        student.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = matchesStudentQuery(student, searchTerm);
 
+      const activeEnr = getStudentActiveEnrollment(student.id);
       const matchesCourse =
-        selectedCourseFilter === 'all' || getStudentEnrollments(student.id).some(
-          (enrollment) => enrollment.courseId === selectedCourseFilter
-        );
+        selectedCourseFilter === 'all' || activeEnr?.courseId === selectedCourseFilter;
 
       const matchesStatus =
         selectedStatusFilter === 'all' || student.status === selectedStatusFilter;
@@ -124,7 +115,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       header: 'Curso',
       cell: (item) => (
         <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold text-xs border border-slate-200">
-          {getStudentCourseNames(item.id).join(', ') || 'Sin matrícula'}
+          {getStudentActiveCourseName(item.id)}
         </span>
       ),
     },
@@ -242,9 +233,13 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={handleExportStudents} className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition shadow-xs flex items-center gap-1.5">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Exportar Lista</span>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition shadow-xs flex items-center gap-1.5"
+            title="Importar lista de estudiantes desde Excel o CSV"
+          >
+            <UploadCloud className="w-4 h-4 text-emerald-600" />
+            <span>Importar Excel</span>
           </button>
           <button
             onClick={() => setIsEnrollmentModalOpen(true)}
@@ -269,17 +264,12 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       {/* Filter and Search Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            aria-label="Buscar estudiantes por nombre, identificación o correo"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por nombre, cédula o correo..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
-          />
-        </div>
+        <StudentSearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Buscar por nombre, cédula o correo..."
+          className="w-full sm:w-72"
+        />
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -315,7 +305,11 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       <DataTable
         columns={columns}
         data={filteredStudents}
-        emptyText="No se encontraron estudiantes registrados con los criterios seleccionados."
+        emptyText={
+          searchTerm.trim()
+            ? `No se encontraron estudiantes para "${searchTerm}".`
+            : "No se encontraron estudiantes registrados con los criterios seleccionados."
+        }
         onRowClick={(item) => {
           setViewingStudent(item);
           setIsDetailModalOpen(true);
@@ -357,7 +351,19 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
         students={students}
         courses={courses}
         enrollments={enrollments}
+        academicYears={academicYears}
         onSave={onAddEnrollment}
+      />
+
+      <StudentImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportStudent={async (student) => {
+          await onAddStudent(student);
+        }}
+        onSuccess={() => {
+          setIsImportModalOpen(false);
+        }}
       />
     </div>
   );

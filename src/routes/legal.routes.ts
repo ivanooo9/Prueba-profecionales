@@ -14,8 +14,10 @@ import { LegalCaseClosureController } from "../controllers/legal-case-closure.co
 import {
   requireOrganization,
   requireOrganizationModule,
+  requireOrganizationRole,
 } from "../lib/organization.middleware";
 import { PROFESSIONAL_MODULE_CODE } from "../constants/professional-module.constants";
+import { ORGANIZATION_MEMBER_ROLE } from "../constants/organization.constants";
 
 const router = express.Router();
 
@@ -34,6 +36,29 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 const requireLegalModule = [
   requireAuth,
   requireOrganization,
+  requireOrganizationModule(PROFESSIONAL_MODULE_CODE.LEGAL),
+];
+
+// Middleware para operaciones exclusivas de Abogados Titulares y Administradores (Cierre, Archivo, Honorarios)
+const requireLegalLawyerOrAdmin = [
+  requireAuth,
+  requireOrganizationRole([
+    ORGANIZATION_MEMBER_ROLE.OWNER,
+    ORGANIZATION_MEMBER_ROLE.ADMIN,
+    ORGANIZATION_MEMBER_ROLE.PROFESSIONAL,
+  ]),
+  requireOrganizationModule(PROFESSIONAL_MODULE_CODE.LEGAL),
+];
+
+// Middleware para operaciones financieras/cobranza (Abogados, Administradores y Secretaria)
+const requireLegalFinanceRole = [
+  requireAuth,
+  requireOrganizationRole([
+    ORGANIZATION_MEMBER_ROLE.OWNER,
+    ORGANIZATION_MEMBER_ROLE.ADMIN,
+    ORGANIZATION_MEMBER_ROLE.PROFESSIONAL,
+    ORGANIZATION_MEMBER_ROLE.SECRETARY,
+  ]),
   requireOrganizationModule(PROFESSIONAL_MODULE_CODE.LEGAL),
 ];
 
@@ -116,13 +141,13 @@ router.get(
 
 router.post(
   ["/api/organizations/:id/legal/cases/:caseId/close", "/api/organizations/:orgId/legal/cases/:caseId/close"],
-  requireLegalModule,
+  requireLegalLawyerOrAdmin,
   LegalCaseClosureController.closeCase
 );
 
 router.post(
   ["/api/organizations/:id/legal/cases/:caseId/archive", "/api/organizations/:orgId/legal/cases/:caseId/archive"],
-  requireLegalModule,
+  requireLegalLawyerOrAdmin,
   LegalCaseClosureController.archiveCase
 );
 
@@ -258,7 +283,7 @@ router.put(
 // Archivar documento (conservación histórica sin borrado físico)
 router.post(
   "/api/organizations/:id/legal/cases/:caseId/documents/:documentId/archive",
-  requireLegalModule,
+  requireLegalLawyerOrAdmin,
   LegalDocumentController.archiveDocument
 );
 
@@ -291,7 +316,7 @@ router.get(
 // Crear acuerdo de honorarios
 router.post(
   "/api/organizations/:id/legal/cases/:caseId/fee-agreements",
-  requireLegalModule,
+  requireLegalLawyerOrAdmin,
   LegalFinanceController.createFeeAgreement
 );
 
@@ -305,14 +330,14 @@ router.get(
 // Actualizar acuerdo de honorarios (estructura económica bloqueada si hay pagos)
 router.put(
   "/api/organizations/:id/legal/cases/:caseId/fee-agreements/:agreementId",
-  requireLegalModule,
+  requireLegalLawyerOrAdmin,
   LegalFinanceController.updateFeeAgreement
 );
 
 // Registrar pago o abono a un acuerdo (con control pesimista FOR UPDATE y anti-overpayment)
 router.post(
   "/api/organizations/:id/legal/cases/:caseId/fee-agreements/:agreementId/payments",
-  requireLegalModule,
+  requireLegalFinanceRole,
   LegalFinanceController.recordPayment
 );
 

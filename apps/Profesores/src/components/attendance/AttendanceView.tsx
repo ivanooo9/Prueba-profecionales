@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { DataTable, Column } from '../ui/DataTable';
 import { AttendanceRecord, Course, Student } from '../../types/teacher';
+import { StudentSearchInput } from '../ui/StudentSearchInput';
+import { matchesStudentQuery } from '../../utils/studentFilter';
 
 export interface AttendanceViewProps {
   students: Student[];
@@ -19,14 +21,25 @@ export interface AttendanceViewProps {
 }
 
 export const AttendanceView: React.FC<AttendanceViewProps> = ({
+  students = [],
   attendanceHistory,
   courses,
   onOpenQuickAttendance,
 }) => {
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('');
 
   const filteredHistory = attendanceHistory.filter((item) => {
-    return selectedCourseFilter === 'all' || item.courseId === selectedCourseFilter;
+    const matchesCourse = selectedCourseFilter === 'all' || item.courseId === selectedCourseFilter;
+    if (!matchesCourse) return false;
+
+    if (!attendanceSearchQuery.trim()) return true;
+
+    const studentObj = students.find((s) => s.id === item.studentId);
+    return (
+      matchesStudentQuery({ studentName: item.studentName }, attendanceSearchQuery) ||
+      (studentObj ? matchesStudentQuery(studentObj, attendanceSearchQuery) : false)
+    );
   });
 
   const getCourseAttendance = (courseId: string) => {
@@ -115,28 +128,30 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
       {/* Course Attendance % Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {courses.map((course) => {
-          const percentage = getCourseAttendance(course.id);
-          return (
-            <div key={course.id} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  {course.name} - Asistencia Global
-                </span>
-                <div className="text-2xl font-extrabold font-mono text-emerald-600 mt-1">
-                  {percentage === null ? 'Sin datos' : `${percentage}%`}
+        {courses
+          .filter((c) => c.status !== 'archived')
+          .map((course) => {
+            const percentage = getCourseAttendance(course.id);
+            return (
+              <div key={course.id} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {course.name} - Asistencia Global
+                  </span>
+                  <div className="text-2xl font-extrabold font-mono text-emerald-600 mt-1">
+                    {percentage === null ? 'Sin datos' : `${percentage}%`}
+                  </div>
+                </div>
+                <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 font-extrabold text-xs">
+                  {percentage === null ? 'Pendiente' : percentage >= 80 ? 'Norma OK' : 'Atención'}
                 </div>
               </div>
-              <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 font-extrabold text-xs">
-                {percentage === null ? 'Pendiente' : percentage >= 80 ? 'Norma OK' : 'Atención'}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
           <Filter className="w-4 h-4 text-slate-400" />
           <span>Filtrar por Curso:</span>
@@ -146,18 +161,31 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           >
             <option value="all">Todos los Cursos</option>
-            {courses.map((course) => (
-              <option key={course.id} value={course.id}>{course.name}</option>
-            ))}
+            {courses
+              .filter((course) => course.status !== 'archived')
+              .map((course) => (
+                <option key={course.id} value={course.id}>{course.name}</option>
+              ))}
           </select>
         </div>
+
+        <StudentSearchInput
+          value={attendanceSearchQuery}
+          onChange={setAttendanceSearchQuery}
+          placeholder="Buscar estudiante en asistencia..."
+          className="w-full sm:w-64"
+        />
       </div>
 
       {/* History Table */}
       <DataTable
         columns={columns}
         data={filteredHistory}
-        emptyText="No hay registros históricos de asistencia para el filtro seleccionado."
+        emptyText={
+          attendanceSearchQuery.trim()
+            ? `No se encontraron registros de asistencia para "${attendanceSearchQuery}".`
+            : "No hay registros históricos de asistencia para el filtro seleccionado."
+        }
       />
     </div>
   );

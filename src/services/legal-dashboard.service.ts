@@ -86,6 +86,7 @@ export class LegalDashboardService {
     }
 
     const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const upcomingDeadlinesEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // Ventana canónica: 7 días
 
     // Consultas concurrentes altamente optimizadas sin transacciones de bloqueo
@@ -149,12 +150,11 @@ export class LegalDashboardService {
           },
         },
       }),
-      // 7. Audiencias próximas activas (Programadas a futuro)
+      // 7. Audiencias próximas activas (Programadas)
       db.legalHearing.count({
         where: {
           organizationId,
           status: "Programada",
-          scheduledAt: { gte: now },
         },
       }),
       // 8. Acuerdos de honorarios válidos (no cancelados)
@@ -184,8 +184,8 @@ export class LegalDashboardService {
           status: "activo",
         },
       }),
-      // 12. Próximos eventos (Reutilizando la proyección canónica unificada de F5)
-      LegalCalendarService.getCalendar(organizationId, { from: now }).catch(() => [] as LegalCalendarEntry[]),
+      // 12. Próximos eventos (Reutilizando la proyección canónica unificada de F5 desde inicio de hoy)
+      LegalCalendarService.getCalendar(organizationId, { from: startOfDay }).catch(() => [] as LegalCalendarEntry[]),
     ]);
 
     // Cálculo y normalización de Casos

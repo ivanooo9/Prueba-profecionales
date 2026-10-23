@@ -36,10 +36,14 @@ export const ConsentList: React.FC<ConsentListProps> = ({ patientIdFilter }) => 
   const [consentToSign, setConsentToSign] = useState<DentalConsent | null>(null);
   const [consentToView, setConsentToView] = useState<DentalConsent | null>(null);
 
-  const orgId = dentalService.getOrganizationId() || 11;
+  const orgId = dentalService.getOrganizationId();
   const numPatientId = patientIdFilter ? parseInt(patientIdFilter, 10) : undefined;
 
   const loadConsents = async () => {
+    if (!orgId) {
+      setConsents([]);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -60,6 +64,7 @@ export const ConsentList: React.FC<ConsentListProps> = ({ patientIdFilter }) => 
   }, [patientIdFilter, orgId]);
 
   const handleIssueConsent = async (consent: DentalConsent) => {
+    if (!orgId) return;
     if (!window.confirm(`¿Confirma emitir formalmente el consentimiento "${consent.title}"?\n\nAl emitirlo, el texto y datos del paciente quedarán congelados de forma permanente para su firma.`)) {
       return;
     }
@@ -73,6 +78,7 @@ export const ConsentList: React.FC<ConsentListProps> = ({ patientIdFilter }) => 
   };
 
   const handleCancelConsent = async (consent: DentalConsent) => {
+    if (!orgId) return;
     const reason = window.prompt(
       `Ingrese el motivo obligatorio para cancelar el consentimiento "${consent.title}":`
     );

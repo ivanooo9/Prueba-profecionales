@@ -23,10 +23,11 @@ import {
   FileText,
   Clock,
   Edit3,
-  CalendarPlus,
   AlertTriangle,
   Receipt,
-  FileCheck
+  FileCheck,
+  CheckCircle2,
+  ShieldAlert
 } from 'lucide-react';
 
 interface PatientDetailViewProps {
@@ -181,22 +182,28 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             >
               <Edit3 className="w-3.5 h-3.5" /> Editar
             </button>
-            <button
-              onClick={() => onOpenNewAppointment(patient.id)}
-              className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
-            >
-              <CalendarPlus className="w-4 h-4" /> Agendar cita
-            </button>
           </div>
         </div>
 
-        {patient.medicalNotes && (
-          <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Alerta clínica</div>
-              <p className="text-xs text-amber-900 mt-0.5">{patient.medicalNotes}</p>
+        {patient.medicalNotes ? (
+          <div className="mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 shadow-xs animate-fade-in">
+            <div className="p-1.5 bg-rose-100 text-rose-600 rounded-xl shrink-0 mt-0.5">
+              <ShieldAlert className="w-4 h-4 text-rose-600" />
             </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">Alerta Médica Crítica</span>
+                <span className="px-1.5 py-0.5 text-[9px] font-black uppercase rounded bg-rose-200 text-rose-800">Riesgo Clínico</span>
+              </div>
+              <p className="text-xs font-semibold text-rose-900 mt-0.5 break-words">{patient.medicalNotes}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Sin alergias conocidas registradas</span>
+            </span>
           </div>
         )}
       </div>

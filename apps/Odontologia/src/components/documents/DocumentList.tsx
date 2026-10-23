@@ -17,7 +17,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
   const [title, setTitle] = useState('');
   const [type, setType] = useState<DocumentType>('Radiografía');
   const [description, setDescription] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState<string | number | null>(null);
 
   useEffect(() => {
     dentalService.loadRealDocuments(patientIdFilter).catch(console.error);
@@ -36,22 +38,54 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
 
     setIsSubmitting(true);
     try {
-      await dentalService.createRealDocument(patientIdFilter || 'PAT-001', {
-        title: title.trim(),
-        type,
-        date: new Date().toISOString().split('T')[0],
-        description: description.trim() || null,
-        fileName: `${title.trim().replace(/\s+/g, '_')}.pdf`,
-        fileSize: '1.8 MB',
-      });
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('title', title.trim());
+        formData.append('type', type);
+        formData.append('date', new Date().toISOString().split('T')[0]);
+        if (description.trim()) {
+          formData.append('description', description.trim());
+        }
+        await dentalService.createRealDocument(patientIdFilter || 'PAT-001', formData);
+      } else {
+        await dentalService.createRealDocument(patientIdFilter || 'PAT-001', {
+          title: title.trim(),
+          type,
+          date: new Date().toISOString().split('T')[0],
+          description: description.trim() || null,
+          fileName: `${title.trim().replace(/\s+/g, '_')}.pdf`,
+          fileSize: 1024,
+        });
+      }
 
       setTitle('');
       setDescription('');
+      setSelectedFile(null);
       setIsModalOpen(false);
     } catch (err: any) {
       alert(err.message || 'Error al guardar el documento.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDownloadDocument = async (doc: DocumentItem) => {
+    try {
+      setIsDownloading(doc.id);
+      const blob = await dentalService.downloadRealDocument(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.fileName || `${doc.title.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || 'Error al descargar el archivo físico.');
+    } finally {
+      setIsDownloading(null);
     }
   };
 
@@ -131,11 +165,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
 
               <div className="flex items-center gap-1 shrink-0">
                 <button 
-                  onClick={() => alert(`Simulando descarga de ${doc.fileName || doc.title}`)}
-                  className="p-2 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  title="Descargar archivo"
+                  onClick={() => handleDownloadDocument(doc)}
+                  disabled={isDownloading === doc.id}
+                  className="p-2 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                  title="Descargar archivo físico"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className={`w-4 h-4 ${isDownloading === doc.id ? 'animate-bounce text-cyan-600' : ''}`} />
                 </button>
                 <button
                   onClick={() => handleDeleteDocument(doc.id)}
@@ -163,10 +198,32 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Registrar Ficha de Documento"
-        subtitle="Agregue el título y tipo de estudio radiográfico o consentimiento."
+        subtitle="Suba el archivo digital o radiografía y agregue detalles clínicos."
         maxWidth="md"
       >
         <form onSubmit={handleAddDocument} className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Archivo Digital (PDF, Imagen, Radiografía)</label>
+            <input
+              type="file"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setSelectedFile(f);
+                  if (!title.trim()) {
+                    setTitle(f.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+                  }
+                }
+              }}
+              className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 cursor-pointer border border-slate-200 rounded-lg p-1"
+            />
+            {selectedFile && (
+              <span className="text-[10px] text-cyan-600 font-mono mt-1 block">
+                Seleccionado: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} KB)
+              </span>
+            )}
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Título del Documento *</label>
             <input

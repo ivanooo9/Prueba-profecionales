@@ -283,6 +283,11 @@ export class LegalCaseClosureService {
       throw new Error("No tienes permisos suficientes o membresía activa en esta organización.");
     }
 
+    const allowedRoles = ["OWNER", "ADMIN", "PROFESSIONAL"];
+    if (!allowedRoles.includes(member.role)) {
+      throw new Error("No tienes permisos suficientes para cerrar formalmente el expediente. Se requiere rol de abogado o administrador.");
+    }
+
     return await db.$transaction(async (tx) => {
       // Advisory Lock por caso para serializar cierres concurrentes
       await tx.$executeRaw(
@@ -383,6 +388,11 @@ export class LegalCaseClosureService {
 
     if (!member) {
       throw new Error("No tienes permisos suficientes o membresía activa en esta organización.");
+    }
+
+    const allowedRoles = ["OWNER", "ADMIN", "PROFESSIONAL"];
+    if (!allowedRoles.includes(member.role)) {
+      throw new Error("No tienes permisos suficientes para archivar el expediente. Se requiere rol de abogado o administrador.");
     }
 
     return await db.$transaction(async (tx) => {

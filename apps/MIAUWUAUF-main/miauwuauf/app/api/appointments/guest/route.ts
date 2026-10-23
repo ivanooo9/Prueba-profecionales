@@ -22,6 +22,14 @@ export async function POST(req: Request) {
       )
     }
 
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    if (fecha < todayStr) {
+      return NextResponse.json(
+        { message: "La fecha de la cita no puede ser anterior a hoy" },
+        { status: 400 }
+      )
+    }
+
     // Crear la cita como invitado (sin petId, sin userId)
     const cita = await prisma.appointment.create({
       data: {

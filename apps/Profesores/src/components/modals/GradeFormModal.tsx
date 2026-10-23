@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, GraduationCap, Save } from 'lucide-react';
 import { Course, EvaluationType, GradeItem, Student, Subject } from '../../types/teacher';
 import { getLocalDateString } from '../../utils/date';
+import { StudentSearchInput } from '../ui/StudentSearchInput';
+import { matchesStudentQuery } from '../../utils/studentFilter';
 
 export interface GradeFormModalProps {
   isOpen: boolean;
@@ -28,18 +30,29 @@ export const GradeFormModal: React.FC<GradeFormModalProps> = ({
   const [comments, setComments] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+
+  const filteredStudents = students.filter((student) =>
+    matchesStudentQuery(student, studentSearchQuery)
+  );
 
   const selectedStudent = students.find((student) => student.id === selectedStudentId);
   const availableSubjects = subjects.filter((subject) => subject.courseId === selectedStudent?.courseId);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (isOpen) {
+      setStudentSearchQuery('');
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!students.some((student) => student.id === selectedStudentId)) {
       setSelectedStudentId(students[0]?.id || '');
     }
     if (!availableSubjects.some((subject) => subject.id === selectedSubject)) {
       setSelectedSubject(availableSubjects[0]?.id || '');
     }
-  }, [selectedStudentId, selectedSubject, availableSubjects]);
+  }, [selectedStudentId, selectedSubject, availableSubjects, students]);
 
   if (!isOpen) return null;
 
@@ -115,11 +128,37 @@ export const GradeFormModal: React.FC<GradeFormModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs" aria-busy={isSubmitting}>
           {error && <p role="alert" className="text-xs font-semibold text-rose-700">{error}</p>}
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Estudiante *</label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="student-select" className="block font-bold text-slate-700">
+                Estudiante *
+              </label>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {filteredStudents.length} de {students.length} disponibles
+              </span>
+            </div>
+
+            <StudentSearchInput
+              value={studentSearchQuery}
+              onChange={(val) => {
+                setStudentSearchQuery(val);
+                const matches = students.filter((s) => matchesStudentQuery(s, val));
+                if (matches.length > 0 && !matches.some((m) => m.id === selectedStudentId)) {
+                  const firstMatch = matches[0];
+                  setSelectedStudentId(firstMatch.id);
+                  setSelectedSubject(
+                    subjects.find((subject) => subject.courseId === firstMatch.courseId)?.id || ''
+                  );
+                }
+              }}
+              placeholder="Buscar estudiante por nombre o cédula..."
+              className="w-full"
+            />
+
             <select
+              id="student-select"
               required
-              disabled={isSubmitting || students.length === 0}
+              disabled={isSubmitting || students.length === 0 || filteredStudents.length === 0}
               value={selectedStudentId}
               onChange={(e) => {
                 const nextStudentId = e.target.value;
@@ -127,13 +166,19 @@ export const GradeFormModal: React.FC<GradeFormModalProps> = ({
                 setSelectedStudentId(nextStudentId);
                 setSelectedSubject(subjects.find((subject) => subject.courseId === nextStudent?.courseId)?.id || '');
               }}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
             >
-              {students.map((std) => (
-                <option key={std.id} value={std.id}>
-                  {std.firstName} {std.lastName} ({std.courseName})
+              {filteredStudents.length === 0 ? (
+                <option value="" disabled>
+                  No se encontraron estudiantes para "{studentSearchQuery}"
                 </option>
-              ))}
+              ) : (
+                filteredStudents.map((std) => (
+                  <option key={std.id} value={std.id}>
+                    {std.firstName} {std.lastName} ({std.courseName || 'Sin matrícula'})
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

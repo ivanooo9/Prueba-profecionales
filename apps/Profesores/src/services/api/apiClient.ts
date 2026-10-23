@@ -44,6 +44,10 @@ async function request<T = any>(
   try {
     const response = await fetch(url, config);
 
+    if (response.status === 204) {
+      return { success: true } as ApiResponse<T>;
+    }
+
     let json: any = null;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
@@ -52,6 +56,8 @@ async function request<T = any>(
       const text = await response.text();
       if (!response.ok) {
         json = { success: false, message: text };
+      } else if (!text || text.trim() === '') {
+        json = { success: true };
       } else {
         throw new ApiError(
           'Respuesta inesperada del servidor (contenido no JSON). Verifique la conexión con el backend.',
@@ -112,6 +118,13 @@ export const apiClient = {
     return request<T>(endpoint, {
       method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
+      headers,
+    });
+  },
+
+  delete<T = any>(endpoint: string, headers?: HeadersInit): Promise<ApiResponse<T>> {
+    return request<T>(endpoint, {
+      method: 'DELETE',
       headers,
     });
   },

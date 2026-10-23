@@ -4308,7 +4308,7 @@ export default function AdminPage() {
                         <Input
                           type="date"
                           value={eventoForm.fecha}
-                          min={new Date().toISOString().split('T')[0]}
+                          min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })}
                           onChange={(e) =>
                             setEventoForm({
                               ...eventoForm,

@@ -27,4 +27,7 @@ router.get("/api/organizations", requireAuth, OrganizationController.listUserOrg
 // 3. Obtener detalles de una organización específica (valida membresía en PostgreSQL)
 router.get("/api/organizations/:id", requireAuth, requireOrganization, OrganizationController.getById);
 
+// 4. Listar miembros activos de una organización
+router.get("/api/organizations/:id/members", requireAuth, requireOrganization, OrganizationController.getMembers);
+
 export default router;

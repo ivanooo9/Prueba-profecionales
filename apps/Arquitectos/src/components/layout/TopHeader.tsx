@@ -3,9 +3,15 @@ import {
   Search,
   Bell,
   Menu,
-  Compass
+  Compass,
+  ChevronDown,
+  Check,
+  Plus,
+  Loader2,
+  Building2
 } from 'lucide-react';
 import type { Project } from '../../types';
+import type { ArchitectureOrganization } from '../../types';
 import type { ArchitectNavTab } from './Sidebar';
 import { architectureService } from '../../services/architectureService';
 
@@ -22,6 +28,11 @@ interface TopHeaderProps {
   notifications?: NotificationData[];
   onSelectProject?: (project: Project) => void;
   onQuickAction?: (action: string) => void;
+  organizations?: ArchitectureOrganization[];
+  activeOrganizationId?: number | null;
+  isOrganizationLoading?: boolean;
+  onSelectOrganization?: (organizationId: number) => void;
+  onCreateOrganization?: () => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -29,14 +40,21 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenMobileNav = () => { },
   notifications = [],
   onSelectProject = () => { },
+  organizations = [],
+  activeOrganizationId = null,
+  isOrganizationLoading = false,
+  onSelectOrganization = () => { },
+  onCreateOrganization = () => { },
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Project[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
+  const [isOrgMenuOpen, setIsOrgMenuOpen] = useState<boolean>(false);
 
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const orgMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (searchTerm.trim().length > 1) {
@@ -72,12 +90,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setIsNotifOpen(false);
       }
+      if (orgMenuRef.current && !orgMenuRef.current.contains(event.target as Node)) {
+        setIsOrgMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const safeNotifications = Array.isArray(notifications) ? notifications : [];
+  const currentOrg = organizations.find((o) => o.id === activeOrganizationId);
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 py-3 shadow-xs">
@@ -110,6 +132,99 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
         {/* Lado derecho */}
         <div className="flex items-center gap-3">
+
+          {/* Selector de Organización Enriquecido */}
+          <div className="relative" ref={orgMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsOrgMenuOpen((prev) => !prev)}
+              disabled={isOrganizationLoading}
+              className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/90 px-3 py-1.5 text-xs text-white hover:bg-slate-800 hover:border-slate-600 transition cursor-pointer max-w-44 sm:max-w-64 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Cambiar o crear estudio de arquitectura"
+            >
+              <div className="p-1 rounded-md bg-amber-400/10 text-amber-400">
+                {isOrganizationLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Compass className="w-3.5 h-3.5" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="truncate font-semibold text-[11px]">
+                  {isOrganizationLoading
+                    ? 'Cargando estudios...'
+                    : currentOrg?.name || (organizations.length ? 'Selecciona estudio' : 'Sin estudio')}
+                </p>
+              </div>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${isOrgMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOrgMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3.5 py-2.5 border-b border-slate-800/80 bg-slate-950/40 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Estudios de Arquitectura
+                  </span>
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                    {organizations.length}
+                  </span>
+                </div>
+
+                <div className="max-h-56 overflow-y-auto p-1.5 space-y-1">
+                  {organizations.length > 0 ? (
+                    organizations.map((org) => {
+                      const isSelected = org.id === activeOrganizationId;
+                      return (
+                        <button
+                          key={org.id}
+                          type="button"
+                          onClick={() => {
+                            onSelectOrganization(org.id);
+                            setIsOrgMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-400/15 text-white border border-amber-400/30'
+                              : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <div className="text-xs font-semibold truncate flex items-center gap-1.5">
+                              {org.name}
+                            </div>
+                            <div className="text-[10px] text-slate-400 capitalize">
+                              {org.role ? `Rol: ${org.role.toLowerCase()}` : 'Miembro'}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-amber-400 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="p-3 text-center text-xs text-slate-400">
+                      No tienes estudios de arquitectura disponibles.
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-1.5 border-t border-slate-800 bg-slate-950/40">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOrgMenuOpen(false);
+                      onCreateOrganization();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-xs font-bold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Crear nuevo estudio</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Buscador Global */}
           <div className="relative w-36 sm:w-64 lg:w-80" ref={searchRef}>

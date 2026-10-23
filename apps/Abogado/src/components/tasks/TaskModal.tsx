@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { LegalTask, LegalCase, Priority, TaskStatus } from '../../types';
+import { legalService } from '../../services/legalService';
 
 export interface TaskModalProps {
   isOpen: boolean;
@@ -17,18 +18,37 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   cases,
   defaultCaseId,
 }) => {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const [error, setError] = useState<string | null>(null);
+  const [members, setMembers] = useState<Array<{ id: number; userId: number; name: string; email: string; role: string }>>([]);
+
   const [formData, setFormData] = useState({
     caseId: '',
     caseNumber: '',
     title: '',
     description: '',
-    dueDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date().toLocaleDateString('en-CA'),
     priority: 'Media' as Priority,
     status: 'Pendiente' as TaskStatus,
-    assignedTo: 'Dr. Alejandro Benítez',
+    assignedTo: '',
+    assignedToUserId: null as number | null,
   });
 
   useEffect(() => {
+    if (isOpen) {
+      legalService
+        .getMembers()
+        .then((list) => {
+          if (list && list.length > 0) {
+            setMembers(list);
+          }
+        })
+        .catch((err) => console.error('[TaskModal] Error cargando miembros:', err));
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setError(null);
     if (cases.length > 0) {
       const selected = defaultCaseId
         ? cases.find((c) => c.id === defaultCaseId) || cases[0]
@@ -38,7 +58,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         ...prev,
         caseId: selected.id,
         caseNumber: selected.caseNumber,
-        assignedTo: selected.assignedLawyer,
+        assignedTo: prev.assignedTo || selected.assignedLawyer || '',
+        assignedToUserId: prev.assignedToUserId || selected.responsibleUserId || null,
       }));
     }
   }, [isOpen, defaultCaseId, cases]);
@@ -58,6 +79,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.caseId) return;
+    if (formData.dueDate && formData.dueDate < todayStr) {
+      setError('La fecha límite no puede ser anterior a hoy.');
+      return;
+    }
+    setError(null);
     onSave(formData);
     onClose();
   };
@@ -71,6 +97,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+            {error}
+          </div>
+        )}
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">
             Expediente Vinculado *
@@ -108,8 +139,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             <label className="block text-xs font-bold text-slate-700 mb-1">Fecha Límite</label>
             <input
               type="date"
+              min={todayStr}
               value={formData.dueDate}
-              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              onChange={(e) => {
+                setError(null);
+                setFormData({ ...formData, dueDate: e.target.value });
+              }}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono"
             />
           </div>
@@ -131,12 +166,42 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Responsable</label>
-          <input
-            type="text"
-            value={formData.assignedTo}
-            onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-          />
+          <select
+            value={formData.assignedToUserId ? String(formData.assignedToUserId) : formData.assignedTo}
+            onChange={(e) => {
+              const val = e.target.value;
+              const matched = members.find((m) => String(m.userId) === val || m.name === val);
+              if (matched) {
+                setFormData({
+                  ...formData,
+                  assignedTo: matched.name,
+                  assignedToUserId: matched.userId,
+                });
+              } else {
+                setFormData({
+                  ...formData,
+                  assignedTo: val,
+                  assignedToUserId: null,
+                });
+              }
+            }}
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
+          >
+            {members.length > 0 ? (
+              members.map((m) => (
+                <option key={m.id} value={String(m.userId)}>
+                  {m.name} ({m.role})
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="Abogado Asignado">Abogado Asignado</option>
+                {formData.assignedTo && formData.assignedTo !== 'Abogado Asignado' && (
+                  <option value={formData.assignedTo}>{formData.assignedTo}</option>
+                )}
+              </>
+            )}
+          </select>
         </div>
 
         <div>

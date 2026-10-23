@@ -43,6 +43,11 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cita || !fecha || !hora || submitting) return
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })
+    if (fecha < todayStr) {
+      alert("La fecha no puede ser anterior a hoy")
+      return
+    }
     setSubmitting(true)
     try {
       await Promise.resolve(onReschedule(String(cita.id), fecha, hora))
@@ -76,7 +81,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
               <Input
                 type="date"
                 value={fecha}
-                min={new Date().toISOString().split('T')[0]}
+                min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' })}
                 onChange={(e) => setFecha(e.target.value)}
                 required
                 className="h-14 border-[3px] border-foreground rounded-2xl bg-white shadow-[4px_4px_0px_0px_#000000] focus:shadow-none focus:translate-x-1 focus:translate-y-1 transition-all font-bold text-lg"

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { LegalCase, Client, LegalArea, CaseStatus, Priority } from '../../types';
 import { generateNextCaseCode } from '../../services/caseCode';
+import { legalService } from '../../services/legalService';
 
 export interface CaseModalProps {
   isOpen: boolean;
@@ -25,8 +26,11 @@ export const CaseModal: React.FC<CaseModalProps> = ({
   newlyCreatedClientId,
 }) => {
   const [validationMessage, setValidationMessage] = useState('');
+  const [members, setMembers] = useState<Array<{ id: number; userId: number; name: string; email: string; role: string }>>([]);
   const [formData, setFormData] = useState({
     caseNumber: '',
+    judicialProcessNumber: '',
+    opposingParty: '',
     title: '',
     clientId: '',
     clientName: '',
@@ -34,7 +38,8 @@ export const CaseModal: React.FC<CaseModalProps> = ({
     legalArea: 'Civil' as LegalArea,
     status: 'Nuevo' as CaseStatus,
     priority: 'Media' as Priority,
-    assignedLawyer: 'Dr. Alejandro Benítez',
+    assignedLawyer: '',
+    responsibleUserId: null as number | null,
     courtName: '',
     judgeName: '',
     startDate: new Date().toISOString().split('T')[0],
@@ -44,9 +49,32 @@ export const CaseModal: React.FC<CaseModalProps> = ({
   });
 
   useEffect(() => {
+    if (isOpen) {
+      legalService
+        .getMembers()
+        .then((list) => {
+          if (list && list.length > 0) {
+            setMembers(list);
+            if (!initialCase && !formData.assignedLawyer) {
+              const eligible = list.find((m) => ['OWNER', 'ADMIN', 'PROFESSIONAL'].includes(m.role)) || list[0];
+              setFormData((prev) => ({
+                ...prev,
+                assignedLawyer: eligible.name,
+                responsibleUserId: eligible.userId,
+              }));
+            }
+          }
+        })
+        .catch((err) => console.error('[CaseModal] Error cargando miembros:', err));
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (initialCase) {
       setFormData({
         caseNumber: initialCase.caseNumber,
+        judicialProcessNumber: initialCase.judicialProcessNumber || '',
+        opposingParty: initialCase.opposingParty || '',
         title: initialCase.title,
         clientId: initialCase.clientId,
         clientName: initialCase.clientName,
@@ -54,7 +82,8 @@ export const CaseModal: React.FC<CaseModalProps> = ({
         legalArea: initialCase.legalArea,
         status: initialCase.status,
         priority: initialCase.priority,
-        assignedLawyer: initialCase.assignedLawyer,
+        assignedLawyer: initialCase.assignedLawyer || '',
+        responsibleUserId: initialCase.responsibleUserId ?? null,
         courtName: initialCase.courtName,
         judgeName: initialCase.judgeName || '',
         startDate: initialCase.startDate,
@@ -65,6 +94,8 @@ export const CaseModal: React.FC<CaseModalProps> = ({
     } else {
       setFormData({
         caseNumber: generateNextCaseCode(cases),
+        judicialProcessNumber: '',
+        opposingParty: '',
         title: '',
         clientId: '',
         clientName: '',
@@ -72,7 +103,8 @@ export const CaseModal: React.FC<CaseModalProps> = ({
         legalArea: 'Civil',
         status: 'Nuevo',
         priority: 'Media',
-        assignedLawyer: 'Dr. Alejandro Benítez',
+        assignedLawyer: members[0]?.name || '',
+        responsibleUserId: members[0]?.userId || null,
         courtName: 'Unidad Judicial Civil del Cantón Quito',
         judgeName: '',
         startDate: new Date().toISOString().split('T')[0],
@@ -130,7 +162,12 @@ export const CaseModal: React.FC<CaseModalProps> = ({
     }
 
     setValidationMessage('');
-    onSave({ ...formData, caseNumber: normalizedCaseNumber });
+    onSave({
+      ...formData,
+      caseNumber: normalizedCaseNumber,
+      judicialProcessNumber: formData.judicialProcessNumber?.trim() || null,
+      opposingParty: formData.opposingParty?.trim() || undefined,
+    });
     onClose();
   };
 
@@ -143,11 +180,11 @@ export const CaseModal: React.FC<CaseModalProps> = ({
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Case Number & Legal Area */}
+        {/* Identificadores: Código Interno & No. Juicio SATJE */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Código interno del caso *
+              Código Interno del Despacho *
             </label>
             <input
               type="text"
@@ -159,22 +196,17 @@ export const CaseModal: React.FC<CaseModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Área Jurídica *
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span>No. Juicio SATJE (Función Judicial)</span>
+              <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
             </label>
-            <select
-              value={formData.legalArea}
-              onChange={(e) => setFormData({ ...formData, legalArea: e.target.value as LegalArea })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-            >
-              <option value="Civil">Civil</option>
-              <option value="Penal">Penal</option>
-              <option value="Laboral">Laboral</option>
-              <option value="Familia">Familia</option>
-              <option value="Mercantil">Mercantil</option>
-              <option value="Administrativo">Administrativo</option>
-              <option value="Constitucional">Constitucional</option>
-            </select>
+            <input
+              type="text"
+              value={formData.judicialProcessNumber}
+              onChange={(e) => setFormData({ ...formData, judicialProcessNumber: e.target.value })}
+              placeholder="Ej. 17230-2026-00412G"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
           </div>
         </div>
 
@@ -193,11 +225,47 @@ export const CaseModal: React.FC<CaseModalProps> = ({
           />
         </div>
 
-        {/* Client & Process Type */}
+        {/* Área Jurídica & Procedimiento COGEP */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Cliente Asociado *
+              Área Jurídica *
+            </label>
+            <select
+              value={formData.legalArea}
+              onChange={(e) => setFormData({ ...formData, legalArea: e.target.value as LegalArea })}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+            >
+              <option value="Civil">Civil</option>
+              <option value="Penal">Penal</option>
+              <option value="Laboral">Laboral</option>
+              <option value="Familia">Familia</option>
+              <option value="Mercantil">Mercantil</option>
+              <option value="Administrativo">Administrativo</option>
+              <option value="Constitucional">Constitucional</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Vía / Tipo de Procedimiento (COGEP) *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.processType}
+              onChange={(e) => setFormData({ ...formData, processType: e.target.value })}
+              placeholder="Ej. Ordinario, Sumario, Ejecutivo, Monitorio, Contencioso"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Sujetos Procesales: Cliente (Actor) & Contraparte (Demandado) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Cliente Patrocinado (Actor / Accionante) *
             </label>
             <select
               aria-required="true"
@@ -230,15 +298,15 @@ export const CaseModal: React.FC<CaseModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Tipo de Trámite / Proceso *
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Contraparte Procesal (Demandado / Accionado)</span>
+              <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
             </label>
             <input
               type="text"
-              required
-              value={formData.processType}
-              onChange={(e) => setFormData({ ...formData, processType: e.target.value })}
-              placeholder="Ej. Sumario Laboral, Ordinario Civil, Contencioso"
+              value={formData.opposingParty}
+              onChange={(e) => setFormData({ ...formData, opposingParty: e.target.value })}
+              placeholder="Ej. IESS / SRI / Empresa ABC S.A."
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
           </div>
@@ -308,12 +376,40 @@ export const CaseModal: React.FC<CaseModalProps> = ({
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Abogado Responsable</label>
             <select
-              value={formData.assignedLawyer}
-              onChange={(e) => setFormData({ ...formData, assignedLawyer: e.target.value })}
+              value={formData.responsibleUserId ? String(formData.responsibleUserId) : formData.assignedLawyer}
+              onChange={(e) => {
+                const val = e.target.value;
+                const matchedMember = members.find((m) => String(m.userId) === val || m.name === val);
+                if (matchedMember) {
+                  setFormData({
+                    ...formData,
+                    assignedLawyer: matchedMember.name,
+                    responsibleUserId: matchedMember.userId,
+                  });
+                } else {
+                  setFormData({
+                    ...formData,
+                    assignedLawyer: val,
+                    responsibleUserId: null,
+                  });
+                }
+              }}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
             >
-              <option value="Dr. Alejandro Benítez">Dr. Alejandro Benítez</option>
-              <option value="Dra. Gabriela Paredes">Dra. Gabriela Paredes</option>
+              {members.length > 0 ? (
+                members.map((m) => (
+                  <option key={m.id} value={String(m.userId)}>
+                    {m.name} ({m.role})
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Abogado del Despacho">Abogado del Despacho</option>
+                  {formData.assignedLawyer && formData.assignedLawyer !== 'Abogado del Despacho' && (
+                    <option value={formData.assignedLawyer}>{formData.assignedLawyer}</option>
+                  )}
+                </>
+              )}
             </select>
           </div>
         </div>

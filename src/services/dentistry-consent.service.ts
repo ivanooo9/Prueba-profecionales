@@ -657,9 +657,8 @@ export class DentistryConsentService {
   ) {
     return db.$transaction(async (tx) => {
       // 1. Cerrojo de concurrencia a nivel de transacción
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('dental_consent_' || ${organizationId}::text || '_' || ${id}::text))`
-      );
+      const lockKey = `dental_consent_${organizationId}_${id}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
       // 2. Consultar el consentimiento bajo el cerrojo
       const consent = await tx.dentalConsent.findUnique({
@@ -738,9 +737,8 @@ export class DentistryConsentService {
 
     return db.$transaction(async (tx) => {
       // 1. Cerrojo de concurrencia
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('dental_consent_' || ${organizationId}::text || '_' || ${id}::text))`
-      );
+      const lockKey = `dental_consent_${organizationId}_${id}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
       // 2. Consultar el consentimiento bajo cerrojo
       const consent = await tx.dentalConsent.findUnique({

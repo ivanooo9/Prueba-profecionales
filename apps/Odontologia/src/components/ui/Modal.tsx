@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -7,7 +8,7 @@ interface ModalProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -39,49 +40,47 @@ export const Modal: React.FC<ModalProps> = ({
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
-    '2xl': 'max-w-2xl'
-  }[maxWidth];
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+  }[maxWidth] || 'max-w-lg';
 
-  return (
-      <div
-        className="fixed inset-0 z-50 overflow-y-auto"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-      {/* Backdrop */}
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-slate-900/70 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      onClick={onClose}
+    >
+      {/* Modal Dialog Card: Centered directly in the viewport */}
       <div 
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Dialog */}
-      <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-6">
-        <div 
-          className={`w-full ${maxWidthClasses} h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] transform overflow-hidden rounded-2xl bg-white text-left align-middle shadow-xl transition-all border border-slate-200 animate-fade-in flex flex-col`}
-        >
-          {/* Header */}
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
-            <div>
-              <h3 id="modal-title" className="text-lg font-bold text-slate-900">{title}</h3>
-              {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar modal"
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        className={`relative w-full ${maxWidthClasses} my-auto max-h-[88vh] bg-white text-left shadow-2xl border border-slate-200 rounded-2xl flex flex-col overflow-hidden animate-fade-in`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Pinned at top */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/80">
+          <div>
+            <h3 id="modal-title" className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
+            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar modal"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Content */}
-          <div className="p-6 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {children}
-          </div>
+        {/* Content - Smooth inner scroll */}
+        <div className="p-6 overflow-y-auto max-h-[calc(88vh-75px)] overscroll-contain">
+          {children}
         </div>
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

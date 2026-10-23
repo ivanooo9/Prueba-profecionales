@@ -9,9 +9,10 @@ import rateLimit from "express-rate-limit";
 import { db } from "./lib/db";
 import { validateSessionToken } from "./lib/auth";
 import { setupSocketIO } from "./lib/socket";
-import { ensureDefaultAdminOnStartup } from "./lib/bootstrap/ensure-default-admin";
+import { ensureDefaultAdminOnStartup, runStartupMaintenance } from "./lib/bootstrap/ensure-default-admin";
 import { cachedFetch, cacheKeyFactory as cacheKey, closeRedis } from "./lib/cache";
 import { LegalReminderProcessorService } from "./services/legal-reminder-processor.service";
+import { createCorsMiddleware, getAllowedFrontendOrigins, isAllowedRequestOrigin } from "./lib/cors";
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +22,17 @@ export { toTitleCase };
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === "production";
+const allowedFrontendOrigins = getAllowedFrontendOrigins();
+const configuredProxyHops = process.env.TRUST_PROXY_HOPS;
+
+if (isProduction || configuredProxyHops !== undefined) {
+  const trustProxyHops = configuredProxyHops === undefined ? 1 : Number(configuredProxyHops);
+  if (!Number.isSafeInteger(trustProxyHops) || trustProxyHops < 0) {
+    throw new Error("TRUST_PROXY_HOPS must be a non-negative integer.");
+  }
+  app.set("trust proxy", trustProxyHops);
+}
 
 // 1. Helmet Security Headers Configuration
 // We maintain Helmet's protections against MIME-sniffing, Clickjacking, and Referrer leakage while keeping EJS inline script compatibility.
@@ -33,6 +45,12 @@ app.use(
     xFrameOptions: { action: "sameorigin" }
   })
 );
+
+app.use(createCorsMiddleware(allowedFrontendOrigins));
+
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok", service: "profesionales-core" });
+});
 
 // 2. Request Body Limit (50MB to support large base64-encoded images in forms)
 app.use(express.json({ limit: "50mb" }));
@@ -60,36 +78,63 @@ app.use("/api/auth/", authRateLimiter);
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
 
-// 4. JWT Auth Middleware
+// 4. JWT Auth Middleware con resolución determinista y detección de conflicto de identidad
 app.use(async (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies.token;
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1]?.trim() : null;
+  const cookieToken = req.cookies?.token || null;
+
   res.locals.user = null;
   (req as any).user = null;
-  res.locals.isImpersonating = req.cookies.is_impersonating === "true";
-  res.locals.impersonatorAdminName = req.cookies.impersonator_admin_name || "Administrador";
+  res.locals.isImpersonating = req.cookies?.is_impersonating === "true";
+  res.locals.impersonatorAdminName = req.cookies?.impersonator_admin_name || "Administrador";
 
-  if (token) {
-    try {
-      const user = await validateSessionToken(token);
+  try {
+    let resolvedUser: any = null;
 
-      if (user) {
-        (req as any).user = user;
-        res.locals.user = user;
+    if (bearerToken && cookieToken && bearerToken !== cookieToken) {
+      // Ambos mecanismos presentes con tokens diferentes: validar identidades
+      const userFromBearer = await validateSessionToken(bearerToken);
+      const userFromCookie = await validateSessionToken(cookieToken);
 
-        if (
-          user.requireProfileSetup &&
-          req.path !== "/profile-setup" &&
-          req.path !== "/logout" &&
-          !req.path.startsWith("/api/") &&
-          !req.path.includes(".")
-        ) {
-          return res.redirect("/profile-setup");
+      if (userFromBearer && userFromCookie && userFromBearer.id !== userFromCookie.id) {
+        // Conflicto de identidad: cabecera explícita y cookie corresponden a usuarios distintos
+        if (req.path.startsWith("/api/")) {
+          return res.status(401).json({
+            success: false,
+            error: "Conflicto de identidad: Las credenciales del encabezado Authorization y de la cookie corresponden a usuarios distintos.",
+            code: "AUTH_IDENTITY_CONFLICT",
+          });
         }
+        resolvedUser = userFromCookie;
+      } else {
+        resolvedUser = userFromBearer || userFromCookie;
       }
-    } catch (error) {
-      console.error("Error in auth middleware:", error);
+    } else {
+      const activeToken = bearerToken || cookieToken;
+      if (activeToken) {
+        resolvedUser = await validateSessionToken(activeToken);
+      }
     }
+
+    if (resolvedUser) {
+      (req as any).user = resolvedUser;
+      res.locals.user = resolvedUser;
+
+      if (
+        resolvedUser.requireProfileSetup &&
+        req.path !== "/profile-setup" &&
+        req.path !== "/logout" &&
+        !req.path.startsWith("/api/") &&
+        !req.path.includes(".")
+      ) {
+        return res.redirect("/profile-setup");
+      }
+    }
+  } catch (error) {
+    console.error("Error in auth middleware:", error);
   }
+
   next();
 });
 
@@ -98,7 +143,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   try {
     const systemConfig = await cachedFetch(cacheKey.systemConfig.singleton(), async () => {
       let config = await db.systemConfig.findFirst();
-      if (!config) {
+      if (!config && !isProduction) {
         config = await db.systemConfig.create({
           data: {
             id: 1,
@@ -118,7 +163,13 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
       }
       return config;
     });
-    res.locals.systemConfig = systemConfig;
+    res.locals.systemConfig = systemConfig || {
+      systemName: "Profesionales Ecuador",
+      primaryColor: "#0A3C84",
+      secondaryColor: "#0a66c2",
+      fontFamily: "Outfit",
+      headingFontFamily: "Outfit"
+    };
   } catch (error) {
     console.error("Error loading global systemConfig:", error);
     res.locals.systemConfig = {
@@ -203,9 +254,25 @@ app.use(architectureRouter);
 app.use(academicRouter);
 app.use("/student", studentRouter);
 
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === "/api" || req.path.startsWith("/api/")) {
+    return res.status(404).json({ success: false, error: "Ruta API no encontrada." });
+  }
+  next();
+});
+
 // 7. Error Handling Middleware (Prevents server from crashing under unhandled route runtime errors)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error("Unhandled server exception:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  if (req.path === "/api" || req.path.startsWith("/api/")) {
+    const status = Number.isInteger(err?.status) && err.status >= 400 && err.status < 600
+      ? err.status
+      : 500;
+    return res.status(status).json({ success: false, error: "Error interno del servidor." });
+  }
   res.status(500).render("pagina-cms", {
     title: "Error 500",
     activePage: "error",
@@ -224,7 +291,25 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 // Create HTTP Server for Socket.io
 const server = http.createServer(app);
-const io = new SocketIOServer(server);
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: [...allowedFrontendOrigins],
+    credentials: true,
+  },
+  allowRequest: (req, callback) => {
+    const origin = req.headers.origin;
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    const forwardedProtocol = req.headers["x-forwarded-proto"];
+    const protocol = typeof forwardedProtocol === "string"
+      ? forwardedProtocol.split(",")[0].trim()
+      : (req.socket as any).encrypted ? "https" : "http";
+    callback(null, isAllowedRequestOrigin(origin, allowedFrontendOrigins, protocol, req.headers.host));
+  },
+});
 
 // Share io with Express routers
 app.set("io", io);
@@ -235,20 +320,27 @@ setupSocketIO(io);
 let reminderInterval: NodeJS.Timeout | null = null;
 
 async function startServer() {
-  try {
-    await ensureDefaultAdminOnStartup();
-  } catch (error) {
-    console.error("Error ensuring default admin on startup:", error);
-    process.exit(1);
+  if (!isProduction) {
+    try {
+      await runStartupMaintenance();
+      await ensureDefaultAdminOnStartup();
+    } catch (error) {
+      console.error("Error ensuring local startup data:", error);
+      process.exit(1);
+    }
+  } else {
+    console.log("[Monolith Server] Startup provisioning and maintenance skipped in production.");
   }
 
   server.listen(PORT, async () => {
     console.log(`[Monolith Server] running securely in ${process.env.NODE_ENV || 'development'} mode on http://localhost:${PORT}`);
-    try {
-      await ensureDefaultCarousels();
-      await ensureDefaultTemplates();
-    } catch (error) {
-      console.error("Error seeding default data on startup:", error);
+    if (!isProduction) {
+      try {
+        await ensureDefaultCarousels();
+        await ensureDefaultTemplates();
+      } catch (error) {
+        console.error("Error seeding default data on startup:", error);
+      }
     }
 
     // Intervalo ligero in-process para materializar recordatorios vencidos

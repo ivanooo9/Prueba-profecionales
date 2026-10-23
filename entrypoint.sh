@@ -18,12 +18,12 @@ _prisma_db_push_norm="$(printf '%s' "${PRISMA_DB_PUSH:-}" | tr '[:upper:]' '[:lo
 
 if [ "$_prisma_db_push_norm" = "true" ]; then
   echo "[entrypoint] PRISMA_DB_PUSH=true; running prisma db push..."
-  npx prisma db push --accept-data-loss
+  npx prisma db push
 elif [ -d "/app/prisma/migrations" ] && find /app/prisma/migrations -mindepth 1 -maxdepth 1 -type d | grep -q .; then
   echo "[entrypoint] Running prisma migrate deploy..."
   if ! npx prisma migrate deploy; then
-    echo "[entrypoint] WARNING: prisma migrate deploy failed (e.g., P3005 database schema mismatch). Falling back to automatic prisma db push..."
-    npx prisma db push --accept-data-loss
+    echo "[entrypoint] ERROR: prisma migrate deploy failed. Aborting startup to prevent data loss or schema corruption." >&2
+    exit 1
   fi
 else
   echo "[entrypoint] No versioned migrations found; skipping Prisma sync. Set PRISMA_DB_PUSH=true to run prisma db push explicitly."

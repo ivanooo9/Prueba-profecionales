@@ -19,12 +19,212 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function requireAcademicAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user || res.locals.user;
+  const isGlobalAdmin = user?.role?.name === "ADMIN";
+  const member = (req as any).organizationMember || res.locals.organizationMember;
+
+  if (isGlobalAdmin) {
+    return next();
+  }
+
+  if (member && (member.role === "OWNER" || member.role === "ADMIN")) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    error: "Acceso denegado: se requieren permisos administrativos para esta operación.",
+  });
+}
+
 // Middleware compuesto para el módulo TEACHING (Profesores / Gestión Académica)
 const requireTeachingModule = [
   requireAuth,
   requireOrganization,
   requireOrganizationModule(PROFESSIONAL_MODULE_CODE.TEACHING),
 ];
+
+// -------------------------------------------------------------
+// AÑOS LECTIVOS (AcademicYear - FASE 3/4)
+// -------------------------------------------------------------
+
+// Registrar nuevo año lectivo (ADMIN/OWNER)
+router.post(
+  "/api/organizations/:id/academic/years",
+  requireTeachingModule,
+  requireAcademicAdmin,
+  AcademicController.createAcademicYear
+);
+
+// Listar años lectivos
+router.get(
+  "/api/organizations/:id/academic/years",
+  requireTeachingModule,
+  AcademicController.getAcademicYears
+);
+
+// Detalle de un año lectivo
+router.get(
+  "/api/organizations/:id/academic/years/:yearId",
+  requireTeachingModule,
+  AcademicController.getAcademicYearById
+);
+
+// Actualizar año lectivo (ADMIN/OWNER)
+router.put(
+  "/api/organizations/:id/academic/years/:yearId",
+  requireTeachingModule,
+  requireAcademicAdmin,
+  AcademicController.updateAcademicYear
+);
+
+// Cambiar estado de año lectivo (ADMIN/OWNER)
+router.patch(
+  "/api/organizations/:id/academic/years/:yearId/status",
+  requireTeachingModule,
+  requireAcademicAdmin,
+  AcademicController.changeAcademicYearStatus
+);
+
+// -------------------------------------------------------------
+// PERIODOS ACADÉMICOS (AcademicPeriod - FASE 3/4)
+// -------------------------------------------------------------
+
+// Registrar nuevo periodo académico (ADMIN/OWNER)
+router.post(
+  "/api/organizations/:id/academic/periods",
+  requireTeachingModule,
+  requireAcademicAdmin,
+  AcademicController.createAcademicPeriod
+);
+
+// Listar periodos académicos
+router.get(
+  "/api/organizations/:id/academic/periods",
+  requireTeachingModule,
+  AcademicController.getAcademicPeriods
+);
+
+// Detalle de un periodo académico
+router.get(
+  "/api/organizations/:id/academic/periods/:periodId",
+  requireTeachingModule,
+  AcademicController.getAcademicPeriodById
+);
+
+// Actualizar periodo académico (ADMIN/OWNER)
+router.put(
+  "/api/organizations/:id/academic/periods/:periodId",
+  requireTeachingModule,
+  requireAcademicAdmin,
+  AcademicController.updateAcademicPeriod
+);
+
+// Diagnóstico de preparación de cierre de periodo académico (ADMIN/OWNER)
+router.get(
+  "/api/organizations/:id/academic/periods/:periodId/closure-readiness",
+  requireTeachingModule,
+  requireAcademicAdmin,
+  AcademicController.getPeriodClosureReadiness
+);
+
+// Cambiar estado de periodo académico (ADMIN/OWNER)
+router.patch(
+  "/api/organizations/:id/academic/periods/:periodId/status",
+  requireTeachingModule,
+  requireAcademicAdmin,
+  AcademicController.changeAcademicPeriodStatus
+);
+
+// -------------------------------------------------------------
+// ESQUEMAS DE EVALUACIÓN (AcademicEvaluationScheme - FASE 3/4)
+// -------------------------------------------------------------
+
+// Registrar nuevo esquema de evaluación
+router.post(
+  "/api/organizations/:id/academic/evaluation-schemes",
+  requireTeachingModule,
+  AcademicController.createEvaluationScheme
+);
+
+// Listar esquemas de evaluación
+router.get(
+  "/api/organizations/:id/academic/evaluation-schemes",
+  requireTeachingModule,
+  AcademicController.getEvaluationSchemes
+);
+
+// Detalle de un esquema de evaluación
+router.get(
+  "/api/organizations/:id/academic/evaluation-schemes/:schemeId",
+  requireTeachingModule,
+  AcademicController.getEvaluationSchemeById
+);
+
+// Actualizar esquema de evaluación
+router.put(
+  "/api/organizations/:id/academic/evaluation-schemes/:schemeId",
+  requireTeachingModule,
+  AcademicController.updateEvaluationScheme
+);
+
+// Validar esquema de evaluación (100% estricto -> VALID)
+router.post(
+  "/api/organizations/:id/academic/evaluation-schemes/:schemeId/validate",
+  requireTeachingModule,
+  AcademicController.validateEvaluationScheme
+);
+
+// Bloquear esquema de evaluación (LOCKED)
+router.patch(
+  "/api/organizations/:id/academic/evaluation-schemes/:schemeId/lock",
+  requireTeachingModule,
+  AcademicController.lockEvaluationScheme
+);
+
+// Cerrar esquema de evaluación (CLOSED)
+router.patch(
+  "/api/organizations/:id/academic/evaluation-schemes/:schemeId/close",
+  requireTeachingModule,
+  AcademicController.closeEvaluationScheme
+);
+
+// -------------------------------------------------------------
+// CATEGORÍAS DE EVALUACIÓN (AcademicEvaluationCategory - FASE 3/4)
+// -------------------------------------------------------------
+
+// Crear categoría en un esquema (<= 100% techo)
+router.post(
+  "/api/organizations/:id/academic/evaluation-schemes/:schemeId/categories",
+  requireTeachingModule,
+  AcademicController.createEvaluationCategory
+);
+
+// Actualizar categoría de evaluación
+router.put(
+  "/api/organizations/:id/academic/categories/:categoryId",
+  requireTeachingModule,
+  AcademicController.updateEvaluationCategory
+);
+
+// Eliminar categoría de evaluación
+router.delete(
+  "/api/organizations/:id/academic/categories/:categoryId",
+  requireTeachingModule,
+  AcademicController.deleteEvaluationCategory
+);
+
+// -------------------------------------------------------------
+// SÁBANA / MATRIZ DE CALIFICACIONES (Grades Matrix - FASE 3/4)
+// -------------------------------------------------------------
+
+// Consultar sábana de calificaciones por periodo y materia
+router.get(
+  "/api/organizations/:id/academic/grades/matrix",
+  requireTeachingModule,
+  AcademicController.getPeriodGradesMatrix
+);
 
 // -------------------------------------------------------------
 // CURSOS (AcademicCourse)
@@ -58,11 +258,32 @@ router.put(
   AcademicController.updateCourse
 );
 
-// Archivar lógicamente un curso (DELETE funcional = 0)
+// Archivar lógicamente un curso
 router.patch(
   "/api/organizations/:id/academic/courses/:courseId/archive",
   requireTeachingModule,
   AcademicController.archiveCourse
+);
+
+// Reactivar un curso archivado
+router.patch(
+  "/api/organizations/:id/academic/courses/:courseId/reactivate",
+  requireTeachingModule,
+  AcademicController.reactivateCourse
+);
+
+// Consultar dependencias de un curso antes de eliminar o archivar
+router.get(
+  "/api/organizations/:id/academic/courses/:courseId/dependencies",
+  requireTeachingModule,
+  AcademicController.getCourseDependencies
+);
+
+// Eliminar definitivamente un curso (Solo si no tiene dependencias)
+router.delete(
+  "/api/organizations/:id/academic/courses/:courseId",
+  requireTeachingModule,
+  AcademicController.deleteCourse
 );
 
 // -------------------------------------------------------------
@@ -95,6 +316,31 @@ router.patch(
   "/api/organizations/:id/academic/subjects/:subjectId/inactivate",
   requireTeachingModule,
   AcademicController.inactivateSubject
+);
+
+// -------------------------------------------------------------
+// HORARIOS SEMANALES POR MATERIA (AcademicSubjectScheduleSlot - FASE 11.2)
+// -------------------------------------------------------------
+
+// Consultar horario semanal de una materia (con historial opcional)
+router.get(
+  "/api/organizations/:id/academic/subjects/:subjectId/schedule",
+  requireTeachingModule,
+  AcademicController.getSubjectSchedule
+);
+
+// Guardar o versionar horario semanal de una materia
+router.put(
+  "/api/organizations/:id/academic/subjects/:subjectId/schedule",
+  requireTeachingModule,
+  AcademicController.saveSubjectSchedule
+);
+
+// Consultar matriz de horario semanal de un curso completo
+router.get(
+  "/api/organizations/:id/academic/courses/:courseId/schedule",
+  requireTeachingModule,
+  AcademicController.getCourseSchedule
 );
 
 // -------------------------------------------------------------
@@ -223,6 +469,19 @@ router.post(
   "/api/organizations/:id/academic/sessions/:sessionId/attendance",
   requireTeachingModule,
   AcademicController.saveAttendanceBatch
+);
+
+// Rectificación administrativa de asistencias cerradas con justificación y auditoría
+router.post(
+  "/api/organizations/:id/academic/sessions/:sessionId/attendance/rectify",
+  requireTeachingModule,
+  AcademicController.rectifyAttendanceBatch
+);
+
+router.post(
+  "/api/organizations/:id/academic/attendance/rectify",
+  requireTeachingModule,
+  AcademicController.rectifyAttendanceBatch
 );
 
 // Consultar lista de asistencia de una sesión específica

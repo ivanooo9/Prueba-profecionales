@@ -17,6 +17,7 @@ import {
 } from '../types';
 
 import { architectureApi } from './api/architectureApi';
+import { getTodayCalendarDate } from '../utils/dateUtils';
 
 const STORAGE_KEYS = {
   ORG_ID: 'arquitectos_org_id'
@@ -24,8 +25,29 @@ const STORAGE_KEYS = {
 
 type Listener = () => void;
 
+export type ArchitectureSyncStatus = 'idle' | 'loading' | 'success' | 'error';
+
+export interface ArchitectureSyncState {
+  organizationId: number | null;
+  status: ArchitectureSyncStatus;
+  error: string | null;
+}
+
+export function hasActiveArchitectureModule(
+  modules: Array<{ status: string; module: { code: string } }>
+): boolean {
+  return modules.some((item) => item.module.code === 'ARCHITECTURE' && item.status === 'ACTIVE');
+}
+
 class ArchitectureService {
+  private readonly api: typeof architectureApi;
   private organizationId: number | null = null;
+  private syncSequence = 0;
+  private syncState: ArchitectureSyncState = {
+    organizationId: null,
+    status: 'idle',
+    error: null,
+  };
   private clients: Client[] = [];
   private projects: Project[] = [];
   private tasks: Task[] = [];
@@ -39,7 +61,8 @@ class ArchitectureService {
   private listeners: Set<Listener> = new Set();
   private isInitialized: boolean = false;
 
-  constructor() {
+  constructor(api: typeof architectureApi = architectureApi) {
+    this.api = api;
     this.initOrgId();
     this.loadState();
   }
@@ -68,6 +91,10 @@ class ArchitectureService {
     return this.organizationId;
   }
 
+  public getSyncState(): ArchitectureSyncState {
+    return { ...this.syncState };
+  }
+
   public requireOrgId(): number {
     if (!this.organizationId) {
       throw new Error('No hay una organización activa seleccionada para el estudio de arquitectura.');
@@ -75,12 +102,31 @@ class ArchitectureService {
     return this.organizationId;
   }
 
-  public setOrganizationId(orgId: number) {
-    this.organizationId = orgId;
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.ORG_ID, String(orgId));
+  public setOrganizationId(orgId: number | null) {
+    if (this.organizationId !== orgId) {
+      this.organizationId = orgId;
+      this.clients = [];
+      this.projects = [];
+      this.tasks = [];
+      this.deliverables = [];
+      this.meetings = [];
+      this.documents = [];
+      this.budgets = [];
+      this.activities = [];
+      this.alerts = [];
+      this.syncState = { organizationId: orgId, status: orgId ? 'idle' : 'success', error: null };
+      this.notify();
+    } else {
+      this.organizationId = orgId;
     }
-    this.syncFromApi().catch((e) => console.error('Error al cambiar de organización:', e));
+    if (typeof localStorage !== 'undefined') {
+      if (orgId === null) {
+        localStorage.removeItem(STORAGE_KEYS.ORG_ID);
+      } else {
+        localStorage.setItem(STORAGE_KEYS.ORG_ID, String(orgId));
+      }
+    }
+    return this.syncFromApi();
   }
 
   private loadState() {
@@ -120,30 +166,34 @@ class ArchitectureService {
     documents: DocumentMetadata[];
     budgets: Budget[];
   }> {
-    if (!this.organizationId) {
+    const organizationId = this.organizationId;
+    const requestId = ++this.syncSequence;
+
+    if (!organizationId) {
+      this.clearOrganizationData();
+      this.syncState = { organizationId: null, status: 'success', error: null };
       this.isInitialized = true;
       this.notify();
-      return {
-        clients: [],
-        projects: [],
-        tasks: [],
-        deliverables: [],
-        meetings: [],
-        documents: [],
-        budgets: [],
-      };
+      return this.getDataSnapshot();
     }
+
+    this.syncState = { organizationId, status: 'loading', error: null };
+    this.notify();
+
     try {
-      const orgId = this.organizationId;
       const [apiClients, apiProjects, apiTasks, apiDeliverables, apiMeetings, apiDocuments, apiBudgets] = await Promise.all([
-        architectureApi.getClients(orgId),
-        architectureApi.getProjects(orgId, { includeArchived: true }),
-        architectureApi.getTasks(orgId),
-        architectureApi.getDeliverables(orgId),
-        architectureApi.getMeetings(orgId),
-        architectureApi.getDocuments(orgId),
-        architectureApi.getBudgets(orgId),
+        this.api.getClients(organizationId),
+        this.api.getProjects(organizationId, { includeArchived: true }),
+        this.api.getTasks(organizationId),
+        this.api.getDeliverables(organizationId),
+        this.api.getMeetings(organizationId),
+        this.api.getDocuments(organizationId),
+        this.api.getBudgets(organizationId),
       ]);
+
+      if (!this.isCurrentSync(requestId, organizationId)) {
+        return this.getDataSnapshot();
+      }
 
       if (Array.isArray(apiClients)) {
         this.clients = apiClients;
@@ -168,20 +218,51 @@ class ArchitectureService {
       }
 
       this.isInitialized = true;
+      this.syncState = { organizationId, status: 'success', error: null };
       this.notify();
-      return {
-        clients: this.clients,
-        projects: this.projects,
-        tasks: this.tasks,
-        deliverables: this.deliverables,
-        meetings: this.meetings,
-        documents: this.documents,
-        budgets: this.budgets,
-      };
+      return this.getDataSnapshot();
     } catch (error) {
+      if (!this.isCurrentSync(requestId, organizationId)) {
+        return this.getDataSnapshot();
+      }
+
+      this.syncState = {
+        organizationId,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Error al sincronizar la organización.',
+      };
+      this.notify();
       console.error('[architectureService] Error al sincronizar con API Core:', error);
       throw error;
     }
+  }
+
+  private isCurrentSync(requestId: number, organizationId: number): boolean {
+    return requestId === this.syncSequence && organizationId === this.organizationId;
+  }
+
+  private clearOrganizationData(): void {
+    this.clients = [];
+    this.projects = [];
+    this.tasks = [];
+    this.deliverables = [];
+    this.meetings = [];
+    this.documents = [];
+    this.budgets = [];
+    this.activities = [];
+    this.alerts = [];
+  }
+
+  private getDataSnapshot() {
+    return {
+      clients: [...this.clients],
+      projects: [...this.projects],
+      tasks: [...this.tasks],
+      deliverables: [...this.deliverables],
+      meetings: [...this.meetings],
+      documents: [...this.documents],
+      budgets: [...this.budgets],
+    };
   }
 
   // --- CLIENTES (ArchitectureClient) ---
@@ -241,6 +322,10 @@ class ArchitectureService {
   }
 
   public async saveProject(project: Partial<Project>): Promise<Project> {
+    const todayStr = getTodayCalendarDate();
+    if (project.targetDeliveryDate && project.targetDeliveryDate < todayStr) {
+      throw new Error('La fecha estimada de entrega no puede ser anterior a hoy.');
+    }
     const orgId = this.requireOrgId();
     let saved: Project;
     const isExisting = Boolean(
@@ -263,7 +348,7 @@ class ArchitectureService {
         location: project.location || null,
         approxAreaM2: project.approxAreaM2 ? Number(project.approxAreaM2) : null,
         levelsCount: project.levelsCount ? Number(project.levelsCount) : null,
-        leadArchitectUserId: project.leadArchitectUserId || 1,
+        leadArchitectUserId: project.leadArchitectUserId,
         startDate: project.startDate || null,
         targetDeliveryDate: project.targetDeliveryDate || null,
         status: project.status || 'Planificación',
@@ -317,6 +402,25 @@ class ArchitectureService {
     await this.archiveProject(id, 'Archivado desde panel de control');
   }
 
+  public async createProjectStage(
+    projectId: string | number,
+    data: { name: string; startDate?: string; dueDate?: string; notes?: string; progress?: number; status?: string }
+  ): Promise<Project | undefined> {
+    const orgId = this.requireOrgId();
+    const updatedProject = await architectureApi.createStage(
+      orgId,
+      projectId,
+      data
+    );
+
+    const idx = this.projects.findIndex((p) => String(p.id) === String(projectId));
+    if (idx !== -1) {
+      this.projects[idx] = updatedProject;
+    }
+    this.saveState();
+    return updatedProject;
+  }
+
   public async updateProjectStage(
     projectId: string | number,
     stageId: string | number,
@@ -324,6 +428,7 @@ class ArchitectureService {
   ): Promise<Project | undefined> {
     const orgId = this.requireOrgId();
     const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name;
     if (updates.progress !== undefined) payload.progress = updates.progress;
     if (updates.status !== undefined) payload.status = updates.status;
     if (updates.startDate !== undefined) payload.startDate = updates.startDate;
@@ -345,6 +450,25 @@ class ArchitectureService {
     return updatedProject;
   }
 
+  public async deleteProjectStage(
+    projectId: string | number,
+    stageId: string | number
+  ): Promise<Project | undefined> {
+    const orgId = this.requireOrgId();
+    const updatedProject = await architectureApi.deleteStage(
+      orgId,
+      projectId,
+      stageId
+    );
+
+    const idx = this.projects.findIndex((p) => String(p.id) === String(projectId));
+    if (idx !== -1) {
+      this.projects[idx] = updatedProject;
+    }
+    this.saveState();
+    return updatedProject;
+  }
+
   // --- TASKS (ArchitectureTask) ---
   public getTasks(): Task[] {
     return [...this.tasks];
@@ -355,6 +479,10 @@ class ArchitectureService {
   }
 
   public async saveTask(task: Partial<Task>): Promise<Task> {
+    const todayStr = getTodayCalendarDate();
+    if (task.dueDate && task.dueDate < todayStr) {
+      throw new Error('La fecha límite no puede ser anterior a hoy.');
+    }
     const orgId = this.requireOrgId();
     let saved: Task;
     const isExisting = Boolean(
@@ -409,6 +537,10 @@ class ArchitectureService {
   }
 
   public async saveDeliverable(deliv: Partial<Deliverable>): Promise<Deliverable> {
+    const todayStr = getTodayCalendarDate();
+    if (deliv.dueDate && deliv.dueDate < todayStr) {
+      throw new Error('La fecha límite no puede ser anterior a hoy.');
+    }
     const orgId = this.requireOrgId();
     let saved: Deliverable;
     const isExisting = Boolean(
@@ -452,6 +584,10 @@ class ArchitectureService {
   }
 
   public async saveMeeting(meeting: Partial<Meeting>): Promise<Meeting> {
+    const todayStr = getTodayCalendarDate();
+    if (meeting.date && meeting.date < todayStr) {
+      throw new Error('La fecha de la reunión no puede ser anterior a hoy.');
+    }
     const orgId = this.requireOrgId();
     let saved: Meeting;
     const isExisting = Boolean(
@@ -469,6 +605,7 @@ class ArchitectureService {
     } else {
       const payload: any = {
         projectId: Number(meeting.projectId),
+        clientId: meeting.clientId ? Number(meeting.clientId) : undefined,
         title: meeting.title,
         date: meeting.date,
         time: meeting.time,
@@ -611,6 +748,19 @@ class ArchitectureService {
     const idx = this.budgets.findIndex((b) => String(b.id) === String(budgetId));
     if (idx !== -1) {
       this.budgets[idx] = updated;
+    }
+    this.notify();
+    return updated;
+  }
+
+  public async updateBudgetWithItems(budgetId: string | number, data: Partial<Budget>): Promise<Budget> {
+    const orgId = this.requireOrgId();
+    const updated = await architectureApi.updateBudgetWithItems(orgId, budgetId, data);
+    const idx = this.budgets.findIndex((b) => String(b.id) === String(budgetId));
+    if (idx !== -1) {
+      this.budgets[idx] = updated;
+    } else {
+      this.budgets.unshift(updated);
     }
     this.notify();
     return updated;

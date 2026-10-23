@@ -65,6 +65,7 @@ export interface ApiPatient {
 export interface CreateDentistryPatientInput {
   name: string;
   idNumber?: string | null;
+  idType?: 'CEDULA' | 'PASAPORTE' | string | null;
   birthDate?: string | null;
   gender?: string | null;
   bloodType?: string | null;
@@ -78,6 +79,7 @@ export interface CreateDentistryPatientInput {
 export interface UpdateDentistryPatientInput {
   name?: string;
   idNumber?: string | null;
+  idType?: 'CEDULA' | 'PASAPORTE' | string | null;
   birthDate?: string | null;
   gender?: string | null;
   bloodType?: string | null;
@@ -293,6 +295,16 @@ export const dentistryApi = {
     return res.data!;
   },
 
+  async seedDefaultProcedures(
+    organizationId: number
+  ): Promise<{ createdCount: number; skippedCount: number; totalCount: number }> {
+    const res = await apiClient.post<{ createdCount: number; skippedCount: number; totalCount: number }>(
+      `/api/organizations/${organizationId}/dentistry/procedures/seed`,
+      {}
+    );
+    return res.data!;
+  },
+
   /**
    * Planes de tratamiento del paciente (READ-ONLY, sin efectos colaterales).
    */
@@ -302,6 +314,27 @@ export const dentistryApi = {
   ): Promise<DentalTreatmentPlan[]> {
     const res = await apiClient.get<DentalTreatmentPlan[]>(
       `/api/organizations/${organizationId}/dentistry/patients/${patientId}/treatment-plans`
+    );
+    return res.data || [];
+  },
+
+  /**
+   * Obtiene los planes de tratamiento de la organización con soporte de paginación y filtros.
+   */
+  async getAllTreatmentPlans(
+    organizationId: number,
+    options?: { page?: number; limit?: number; search?: string; status?: string; patientId?: number | string }
+  ): Promise<DentalTreatmentPlan[]> {
+    const params = new URLSearchParams();
+    if (options?.page) params.set('page', String(options.page));
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.search) params.set('search', options.search);
+    if (options?.status) params.set('status', options.status);
+    if (options?.patientId) params.set('patientId', String(options.patientId));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+
+    const res = await apiClient.get<DentalTreatmentPlan[]>(
+      `/api/organizations/${organizationId}/dentistry/treatment-plans${qs}`
     );
     return res.data || [];
   },
@@ -413,6 +446,27 @@ export const dentistryApi = {
   ): Promise<DentalBudget[]> {
     const res = await apiClient.get<DentalBudget[]>(
       `/api/organizations/${organizationId}/dentistry/patients/${patientId}/budgets`
+    );
+    return res.data || [];
+  },
+
+  /**
+   * Obtiene los presupuestos formales de la organización con soporte de paginación y filtros.
+   */
+  async getAllBudgets(
+    organizationId: number,
+    options?: { page?: number; limit?: number; search?: string; status?: string; patientId?: number | string }
+  ): Promise<DentalBudget[]> {
+    const params = new URLSearchParams();
+    if (options?.page) params.set('page', String(options.page));
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.search) params.set('search', options.search);
+    if (options?.status) params.set('status', options.status);
+    if (options?.patientId) params.set('patientId', String(options.patientId));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+
+    const res = await apiClient.get<DentalBudget[]>(
+      `/api/organizations/${organizationId}/dentistry/budgets${qs}`
     );
     return res.data || [];
   },
@@ -735,6 +789,18 @@ export const dentistryApi = {
       ...doc,
       date: typeof doc.date === 'string' ? doc.date.split('T')[0] : new Date(doc.date).toISOString().split('T')[0],
     };
+  },
+
+  /**
+   * Descarga el archivo binario del documento clínico asegurando aislamiento multi-tenant.
+   */
+  async downloadDocument(
+    organizationId: number,
+    documentId: number | string
+  ): Promise<Blob> {
+    return apiClient.downloadBlob(
+      `/api/organizations/${organizationId}/dentistry/documents/${documentId}/download`
+    );
   },
 
   /**
@@ -1110,6 +1176,9 @@ export interface ApiDentalRecord {
   chiefComplaint?: string | null;
   evaluationNotes?: string | null;
   diagnosisSummary?: string | null;
+  allergies?: string | null;
+  medicalBackground?: string | null;
+  currentMedication?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1119,5 +1188,8 @@ export interface SaveDentalRecordInput {
   chiefComplaint?: string | null;
   evaluationNotes?: string | null;
   diagnosisSummary?: string | null;
+  allergies?: string | null;
+  medicalBackground?: string | null;
+  currentMedication?: string | null;
 }
 

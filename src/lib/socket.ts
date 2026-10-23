@@ -1,6 +1,9 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { validateSessionToken } from "./auth";
 
+type SocketUser = NonNullable<Awaited<ReturnType<typeof validateSessionToken>>>;
+type SocketSessionValidator = (token: string) => Promise<SocketUser | null>;
+
 /**
  * Parse raw Cookie header into key-value object
  */
@@ -11,33 +14,64 @@ function parseCookies(cookieHeader: string): Record<string, string> {
     const parts = cookieStr.split("=");
     const name = parts.shift()?.trim();
     if (name) {
-      list[name] = decodeURIComponent(parts.join("=").trim());
+      try {
+        list[name] = decodeURIComponent(parts.join("=").trim());
+      } catch {
+        list[name] = "";
+      }
     }
   });
   return list;
 }
 
+export function canAccessSocketRoom(user: SocketUser | null, roomName: unknown): roomName is string {
+  if (!user || typeof roomName !== "string" || roomName.length === 0 || roomName.length >= 50) {
+    return false;
+  }
+
+  const roleName = user.role?.name;
+  return roomName === `user_${user.id}` || (Boolean(roleName) && roomName === `role_${roleName}`);
+}
+
+export async function authorizeSocketConnection(
+  socket: Socket,
+  next: (error?: Error) => void,
+  validateSession: SocketSessionValidator = validateSessionToken,
+): Promise<void> {
+  try {
+    const cookies = parseCookies(socket.handshake.headers.cookie || "");
+    const authToken = socket.handshake.auth?.token;
+    const token = cookies.token || (typeof authToken === "string" ? authToken : undefined);
+
+    if (!token) {
+      (socket as any).user = null;
+      next();
+      return;
+    }
+
+    const user = await validateSession(token);
+    if (!user) {
+      next(new Error("unauthorized"));
+      return;
+    }
+
+    (socket as any).user = user;
+    next();
+  } catch (error) {
+    console.warn("Socket session validation failed:", error);
+    next(new Error("unauthorized"));
+  }
+}
+
 /**
  * Configure Socket.IO Server with session room management
  */
-export function setupSocketIO(io: SocketIOServer) {
-  io.use(async (socket: Socket, next) => {
-    try {
-      const rawCookie = socket.handshake.headers.cookie || "";
-      const cookies = parseCookies(rawCookie);
-      const token = cookies.token || socket.handshake.auth?.token;
-
-      if (token) {
-        const user = await validateSessionToken(token);
-        if (user) {
-          (socket as any).user = user;
-        }
-      }
-      next();
-    } catch (err) {
-      console.warn("Socket auth middleware fallback:", err);
-      next();
-    }
+export function setupSocketIO(
+  io: SocketIOServer,
+  validateSession: SocketSessionValidator = validateSessionToken,
+) {
+  io.use((socket: Socket, next) => {
+    void authorizeSocketConnection(socket, next, validateSession);
   });
 
   io.on("connection", (socket: Socket) => {
@@ -55,15 +89,15 @@ export function setupSocketIO(io: SocketIOServer) {
       }
     }
 
-    // Allow joining specific public rooms (conversatorios, cursos, etc)
+    // Keep the existing room events but only allow the socket's own private rooms.
     socket.on("join_room", (roomName: string) => {
-      if (typeof roomName === "string" && roomName.length < 50) {
+      if (canAccessSocketRoom(user || null, roomName)) {
         socket.join(roomName);
       }
     });
 
     socket.on("leave_room", (roomName: string) => {
-      if (typeof roomName === "string" && roomName.length < 50) {
+      if (canAccessSocketRoom(user || null, roomName)) {
         socket.leave(roomName);
       }
     });

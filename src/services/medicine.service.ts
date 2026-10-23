@@ -217,6 +217,129 @@ export interface UpdateAppointmentInput {
 
 export class MedicineService {
   /**
+   * Valida rigurosamente la autorización clínica y habilitación médica del usuario para firmar registros médicos.
+   * Reglas de negocio obligatorias:
+   * 1. Usuario activo en la plataforma.
+   * 2. Miembro activo en la organización con rol autorizado (OWNER o PROFESSIONAL).
+   * 3. Roles de soporte (ASSISTANT, SECRETARY) o puramente administrativos (ADMIN) bloqueados con 403.
+   * 4. Habilitación profesional médica acreditada: Perfil profesional activo con status "APROBADO"
+   *    y especialidad correspondiente a la rama de Salud y Medicina.
+   * 5. Aplica para ambas categorías (OWNER y PROFESSIONAL): el rol de organización no sustituye la habilitación verificada.
+   */
+  static async validateMedicalSigner(
+    organizationId: number,
+    userId: number,
+    client: any = db
+  ): Promise<{ userId: number; name: string }> {
+    if (!userId || typeof userId !== "number") {
+      const err = new Error("No autenticado. No se pudo identificar al usuario responsable de la firma.");
+      (err as any).statusCode = 401;
+      throw err;
+    }
+
+    // 1. Obtener usuario e información de habilitación profesional
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+        professionalProfile: {
+          include: {
+            specialties: {
+              include: {
+                specialty: {
+                  include: {
+                    profession: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user || user.status !== "ACTIVE") {
+      const err = new Error("El usuario firmante no existe o se encuentra inactivo en la plataforma.");
+      (err as any).statusCode = 403;
+      throw err;
+    }
+
+    // 2. Verificar membresía activa en la organización
+    const membership = await client.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId,
+        },
+      },
+    });
+
+    if (!membership || membership.status !== "ACTIVE") {
+      const err = new Error(
+        `El usuario firmante no es un miembro activo de la organización (Org ID: ${organizationId}).`
+      );
+      (err as any).statusCode = 403;
+      throw err;
+    }
+
+    // 3. Verificar que no tenga rol de soporte o administrativo sin facultades clínicas
+    const forbiddenRoles = ["ASSISTANT", "SECRETARY", "ADMIN"];
+    if (forbiddenRoles.includes(membership.role)) {
+      const err = new Error(
+        `El rol '${membership.role}' no cuenta con facultades clínicas para firmar registros médicos o recetas.`
+      );
+      (err as any).statusCode = 403;
+      throw err;
+    }
+
+    const allowedRoles = ["OWNER", "PROFESSIONAL"];
+    if (!allowedRoles.includes(membership.role)) {
+      const err = new Error(
+        `El rol '${membership.role}' no está autorizado para emitir firmas médicas.`
+      );
+      (err as any).statusCode = 403;
+      throw err;
+    }
+
+    // 4. Validación de Habilitación Profesional Médica Acreditada
+    // Aplica para ambas categorías (OWNER y PROFESSIONAL): el rol no sustituye la habilitación verificada
+    const profile = user.professionalProfile;
+    if (!profile || profile.status !== "APROBADO") {
+      const err = new Error(
+        "Acceso denegado: El usuario no cuenta con una habilitación profesional médica verificada y aprobada (perfil profesional pendiente de aprobación o inexistente)."
+      );
+      (err as any).statusCode = 403;
+      throw err;
+    }
+
+    const hasMedicalSpecialty = profile.specialties?.some((s: any) => {
+      const profName = s.specialty?.profession?.nombre?.toLowerCase() || "";
+      const specName = s.specialty?.nombre?.toLowerCase() || "";
+      return profName.includes("salud") || profName.includes("medicina") || specName.includes("medicina");
+    });
+
+    if (!hasMedicalSpecialty) {
+      const err = new Error(
+        "Acceso denegado: El perfil profesional del usuario no corresponde a la profesión médica requerida para emitir firmas clínicas."
+      );
+      (err as any).statusCode = 403;
+      throw err;
+    }
+
+    const doctorName = user.name?.trim() || user.email?.trim();
+    if (!doctorName) {
+      const err = new Error("No se pudo determinar el nombre del profesional médico para estampar la firma.");
+      (err as any).statusCode = 422;
+      throw err;
+    }
+
+    return {
+      userId: user.id,
+      name: doctorName,
+    };
+  }
+
+  /**
    * Registra un nuevo paciente en la organización.
    * Multi-tenancy estricto: el paciente se asocia a la organización autenticada.
    */
@@ -586,6 +709,10 @@ export class MedicineService {
       const isSigned = data.status === MEDICAL_CONSULTATION_STATUS.SIGNED;
       const now = new Date();
 
+      if (isSigned && (!data.signedBy || !data.signedBy.trim())) {
+        throw new Error("La firma de la consulta requiere la identidad verificada del profesional médico firmante.");
+      }
+
       const consultation = await tx.medicalConsultation.create({
         data: {
           organizationId,
@@ -600,7 +727,7 @@ export class MedicineService {
           cie10Code: data.cie10Code?.trim() || null,
           cie10Description: data.cie10Description?.trim() || null,
           status: data.status || MEDICAL_CONSULTATION_STATUS.DRAFT,
-          signedBy: isSigned ? (data.signedBy?.trim() || "Profesional Médico") : null,
+          signedBy: isSigned ? data.signedBy!.trim() : null,
           signedAt: isSigned ? now : null,
         },
       });
@@ -710,8 +837,22 @@ export class MedicineService {
     organizationId: number,
     consultationId: number,
     data: UpdateConsultationInput,
-    client: any = db
+    clientOrUserId?: any,
+    maybeUserId?: number
   ) {
+    let client: any = db;
+    let userId: number | undefined = undefined;
+
+    if (typeof clientOrUserId === "number") {
+      userId = clientOrUserId;
+      client = db;
+    } else if (clientOrUserId && typeof clientOrUserId === "object") {
+      client = clientOrUserId;
+      userId = maybeUserId;
+    } else {
+      userId = maybeUserId;
+    }
+
     if (data.status !== undefined && !Object.values(MEDICAL_CONSULTATION_STATUS).includes(data.status as any)) {
       throw new Error("Estado de consulta inválido.");
     }
@@ -737,8 +878,17 @@ export class MedicineService {
           throw new Error("Esta consulta ya se encuentra firmada (doble firma no permitida).");
         }
 
-        // Anulación explícita de consulta firmada
+        // Anulación explícita de consulta firmada: exige autorización clínica rigurosa
         if (data.status === MEDICAL_CONSULTATION_STATUS.CANCELLED) {
+          if (!userId) {
+            const err = new Error("No autenticado. Se requiere la identidad del profesional médico para anular una consulta firmada.");
+            (err as any).statusCode = 401;
+            throw err;
+          }
+
+          // Validación estricta de autorización clínica para anular documento médico legal
+          await MedicineService.validateMedicalSigner(organizationId, userId, tx);
+
           // No permitir alterar campos clínicos al anular
           const modifiesClinical =
             (data.reason !== undefined && data.reason.trim() !== existing.reason) ||
@@ -754,10 +904,18 @@ export class MedicineService {
             throw new Error("No se pueden modificar los campos clínicos de una consulta firmada al anularla.");
           }
 
-          await tx.medicalConsultation.update({
-            where: { id: consultationId },
+          const updateResult = await tx.medicalConsultation.updateMany({
+            where: {
+              id: consultationId,
+              organizationId,
+              status: MEDICAL_CONSULTATION_STATUS.SIGNED,
+            },
             data: { status: MEDICAL_CONSULTATION_STATUS.CANCELLED },
           });
+
+          if (updateResult.count === 0) {
+            throw new Error("No se pudo cancelar la consulta médica: ya no se encuentra firmada o ha sido modificada concurrentemente.");
+          }
 
           return MedicineService.getConsultationById(organizationId, consultationId, tx);
         }
@@ -768,9 +926,14 @@ export class MedicineService {
 
       // 3. Estado DRAFT: actualización de campos o transición a SIGNED / CANCELLED
       const isSigningNow = data.status === MEDICAL_CONSULTATION_STATUS.SIGNED;
+      const isCancellingNow = data.status === MEDICAL_CONSULTATION_STATUS.CANCELLED;
       const now = new Date();
 
       if (isSigningNow) {
+        if (!data.signedBy || !data.signedBy.trim()) {
+          throw new Error("La firma de la consulta requiere la identidad verificada del profesional médico firmante.");
+        }
+
         // Transición atómica a SIGNED condicionada a que siga en estado DRAFT
         const updateResult = await tx.medicalConsultation.updateMany({
           where: {
@@ -787,7 +950,7 @@ export class MedicineService {
             cie10Code: data.cie10Code !== undefined ? (data.cie10Code?.trim() || null) : undefined,
             cie10Description: data.cie10Description !== undefined ? (data.cie10Description?.trim() || null) : undefined,
             status: MEDICAL_CONSULTATION_STATUS.SIGNED,
-            signedBy: data.signedBy?.trim() || existing.signedBy || "Profesional Médico",
+            signedBy: data.signedBy.trim(),
             signedAt: now,
           },
         });
@@ -795,6 +958,24 @@ export class MedicineService {
         if (updateResult.count === 0) {
           throw new Error("No se pudo firmar la consulta: ya no se encuentra en estado borrador o ha sido modificada concurrentemente.");
         }
+      } else if (isCancellingNow) {
+        // Transición atómica de DRAFT a CANCELLED
+        const updateResult = await tx.medicalConsultation.updateMany({
+          where: {
+            id: consultationId,
+            organizationId,
+            status: MEDICAL_CONSULTATION_STATUS.DRAFT,
+          },
+          data: {
+            status: MEDICAL_CONSULTATION_STATUS.CANCELLED,
+          },
+        });
+
+        if (updateResult.count === 0) {
+          throw new Error("No se pudo cancelar la consulta: ya no se encuentra en estado borrador o ha sido modificada concurrentemente.");
+        }
+
+        return MedicineService.getConsultationById(organizationId, consultationId, tx);
       } else {
         if (data.reason !== undefined && data.reason.trim() === "") {
           throw new Error("El motivo de consulta no puede quedar vacío.");
@@ -875,35 +1056,57 @@ export class MedicineService {
       throw new Error("La receta debe incluir al menos un medicamento.");
     }
 
+    const patientId = Number(data.patientId);
+    if (!patientId || isNaN(patientId)) {
+      throw new Error("ID de paciente inválido.");
+    }
+
     const patient = await client.patient.findFirst({
-      where: { id: data.patientId, organizationId },
+      where: { id: patientId, organizationId },
     });
 
     if (!patient) {
       throw new Error("Paciente no encontrado en esta organización.");
     }
 
-    if (data.consultationId) {
+    let parsedConsultationId: number | null = null;
+    if (data.consultationId !== undefined && data.consultationId !== null && (data.consultationId as any) !== "") {
+      const cid = Number(data.consultationId);
+      if (isNaN(cid)) {
+        throw new Error("ID de consulta inválido.");
+      }
+      parsedConsultationId = cid;
+
       const consultation = await client.medicalConsultation.findFirst({
-        where: { id: data.consultationId, organizationId },
+        where: {
+          id: parsedConsultationId,
+          organizationId,
+          patientId: patientId,
+        },
       });
       if (!consultation) {
-        throw new Error("Consulta asociada no encontrada en esta organización.");
+        throw new Error(
+          "La consulta asociada no pertenece al paciente especificado o no existe en esta organización."
+        );
       }
     }
 
     const isSigned = data.status === MEDICAL_PRESCRIPTION_STATUS.SIGNED;
     const now = new Date();
 
+    if (isSigned && (!data.signedBy || !data.signedBy.trim())) {
+      throw new Error("La emisión de la receta firmada requiere la identidad verificada del profesional médico firmante.");
+    }
+
     const prescription = await client.medicalPrescription.create({
       data: {
         organizationId,
-        patientId: data.patientId,
-        consultationId: data.consultationId || null,
+        patientId: patientId,
+        consultationId: parsedConsultationId,
         diagnosis: data.diagnosis?.trim() || null,
         generalInstructions: data.generalInstructions?.trim() || null,
         status: data.status || MEDICAL_PRESCRIPTION_STATUS.DRAFT,
-        signedBy: isSigned ? (data.signedBy?.trim() || "Profesional Médico") : null,
+        signedBy: isSigned ? data.signedBy!.trim() : null,
         signedAt: isSigned ? now : null,
         items: {
           create: data.items.map((item) => ({
@@ -991,30 +1194,157 @@ export class MedicineService {
   }
 
   /**
-   * Actualiza el estado de una receta (SIGNED, CANCELLED).
+   * Actualiza el estado de una receta médica (SIGNED, CANCELLED) con garantía estricta de inmutabilidad:
+   * 1. Una receta CANCELLED es terminal: no se puede reactivar ni modificar.
+   * 2. Una receta SIGNED es inmutable: no puede volver a DRAFT ni ser re-firmada. Solo permite anulación formal (CANCELLED).
+   * 3. Transición a SIGNED requiere identidad médica verificada y se ejecuta atómicamente con updateMany sobre estado DRAFT.
    */
   static async updatePrescriptionStatus(
     organizationId: number,
     prescriptionId: number,
     status: string,
     signedBy?: string,
-    client: any = db
+    clientOrUserId?: any,
+    maybeUserId?: number
   ) {
+    let client: any = db;
+    let userId: number | undefined = undefined;
+
+    if (typeof clientOrUserId === "number") {
+      userId = clientOrUserId;
+      client = db;
+    } else if (clientOrUserId && typeof clientOrUserId === "object") {
+      client = clientOrUserId;
+      userId = maybeUserId;
+    } else {
+      userId = maybeUserId;
+    }
+
+    if (!Object.values(MEDICAL_PRESCRIPTION_STATUS).includes(status as any)) {
+      throw new Error(
+        `Estado de receta inválido: '${status}'. Estados permitidos: ${Object.values(MEDICAL_PRESCRIPTION_STATUS).join(", ")}`
+      );
+    }
+
     const existing = await client.medicalPrescription.findFirst({
       where: { id: prescriptionId, organizationId },
+      include: { items: true },
     });
 
     if (!existing) {
       throw new Error("Receta no encontrada en esta organización.");
     }
 
+    // 1. Estado terminal CANCELLED: inmutable, no se puede reactivar ni cambiar a ningún estado
+    if (existing.status === MEDICAL_PRESCRIPTION_STATUS.CANCELLED) {
+      throw new Error("No se puede reactivar ni modificar una receta médica que ha sido cancelada.");
+    }
+
+    // 2. Estado SIGNED: registro médico legal e inmutable
+    if (existing.status === MEDICAL_PRESCRIPTION_STATUS.SIGNED) {
+      // Bloquear doble firma
+      if (status === MEDICAL_PRESCRIPTION_STATUS.SIGNED) {
+        throw new Error("Esta receta médica ya se encuentra firmada (doble firma no permitida).");
+      }
+
+      // Bloquear reversión a DRAFT
+      if (status === MEDICAL_PRESCRIPTION_STATUS.DRAFT) {
+        throw new Error("Una receta médica firmada no puede regresar a estado borrador.");
+      }
+
+      // Permitir anulación formal (CANCELLED) con autorización clínica requerida
+      if (status === MEDICAL_PRESCRIPTION_STATUS.CANCELLED) {
+        if (!userId) {
+          const err = new Error("No autenticado. Se requiere la identidad del profesional médico para anular una receta firmada.");
+          (err as any).statusCode = 401;
+          throw err;
+        }
+
+        // Validación estricta de autorización clínica para anular documento médico legal
+        await MedicineService.validateMedicalSigner(organizationId, userId, client);
+
+        const updateResult = await client.medicalPrescription.updateMany({
+          where: {
+            id: prescriptionId,
+            organizationId,
+            status: MEDICAL_PRESCRIPTION_STATUS.SIGNED,
+          },
+          data: { status: MEDICAL_PRESCRIPTION_STATUS.CANCELLED },
+        });
+
+        if (updateResult.count === 0) {
+          throw new Error("No se pudo cancelar la receta médica: ya no se encuentra en estado firmada o ha sido modificada concurrentemente.");
+        }
+
+        return client.medicalPrescription.findUnique({
+          where: { id: prescriptionId },
+          include: { items: true },
+        });
+      }
+
+      throw new Error("No se puede editar una receta médica que ya ha sido firmada.");
+    }
+
+    // 3. Estado DRAFT: transición a SIGNED o a CANCELLED
     const now = new Date();
+
+    if (status === MEDICAL_PRESCRIPTION_STATUS.SIGNED) {
+      if (!signedBy || !signedBy.trim()) {
+        throw new Error("La firma de la receta requiere la identidad verificada del profesional médico firmante.");
+      }
+
+      // Actualización atómica condicionada a que siga en estado DRAFT (previene carreras / dobles firmas concurrentes)
+      const updateResult = await client.medicalPrescription.updateMany({
+        where: {
+          id: prescriptionId,
+          organizationId,
+          status: MEDICAL_PRESCRIPTION_STATUS.DRAFT,
+        },
+        data: {
+          status: MEDICAL_PRESCRIPTION_STATUS.SIGNED,
+          signedBy: signedBy.trim(),
+          signedAt: now,
+        },
+      });
+
+      if (updateResult.count === 0) {
+        throw new Error(
+          "No se pudo firmar la receta: ya no se encuentra en estado borrador o ha sido modificada concurrentemente."
+        );
+      }
+
+      return client.medicalPrescription.findUnique({
+        where: { id: prescriptionId },
+        include: { items: true },
+      });
+    }
+
+    if (status === MEDICAL_PRESCRIPTION_STATUS.CANCELLED) {
+      // Si la receta estaba en borrador, anularla atómicamente condicionada a DRAFT
+      const updateResult = await client.medicalPrescription.updateMany({
+        where: {
+          id: prescriptionId,
+          organizationId,
+          status: MEDICAL_PRESCRIPTION_STATUS.DRAFT,
+        },
+        data: { status: MEDICAL_PRESCRIPTION_STATUS.CANCELLED },
+      });
+
+      if (updateResult.count === 0) {
+        throw new Error("No se pudo cancelar la receta: ya no se encuentra en estado borrador o ha sido modificada concurrentemente.");
+      }
+
+      return client.medicalPrescription.findUnique({
+        where: { id: prescriptionId },
+        include: { items: true },
+      });
+    }
+
+    // Transición DRAFT u otra
     return client.medicalPrescription.update({
       where: { id: prescriptionId },
       data: {
         status,
-        signedBy: status === MEDICAL_PRESCRIPTION_STATUS.SIGNED ? (signedBy?.trim() || existing.signedBy || "Profesional Médico") : undefined,
-        signedAt: status === MEDICAL_PRESCRIPTION_STATUS.SIGNED ? now : undefined,
       },
       include: {
         items: true,
@@ -1169,6 +1499,9 @@ export class MedicineService {
     let finalFileName = data.fileName || null;
 
     if (data.file && data.file.trim()) {
+      if (data.file.length > 15 * 1024 * 1024) {
+        throw new Error("El archivo excede el tamaño máximo permitido de 10 MB.");
+      }
       try {
         finalFileUrl = await uploadBase64ToCloudinary(
           data.file,
@@ -1176,7 +1509,8 @@ export class MedicineService {
           finalFileName || `Lab_${patient.id}_${Date.now()}`
         );
       } catch (uploadErr: any) {
-        console.warn("[MedicineService.createLaboratoryResult] Error subiendo archivo a Cloudinary:", uploadErr.message);
+        console.error("[MedicineService.createLaboratoryResult] Error subiendo archivo a Cloudinary:", uploadErr.message);
+        throw new Error(`Error en el servicio de almacenamiento al procesar el archivo: ${uploadErr.message || "Fallo en la carga remota"}`);
       }
     }
 
@@ -1265,6 +1599,9 @@ export class MedicineService {
     let finalFileName = data.fileName || null;
 
     if (data.file && data.file.trim()) {
+      if (data.file.length > 15 * 1024 * 1024) {
+        throw new Error("El archivo excede el tamaño máximo permitido de 10 MB.");
+      }
       try {
         finalFileUrl = await uploadBase64ToCloudinary(
           data.file,
@@ -1272,7 +1609,8 @@ export class MedicineService {
           finalFileName || `Image_${patient.id}_${Date.now()}`
         );
       } catch (uploadErr: any) {
-        console.warn("[MedicineService.createImagingStudy] Error subiendo archivo a Cloudinary:", uploadErr.message);
+        console.error("[MedicineService.createImagingStudy] Error subiendo archivo a Cloudinary:", uploadErr.message);
+        throw new Error(`Error en el servicio de almacenamiento al procesar la imagenología: ${uploadErr.message || "Fallo en la carga remota"}`);
       }
     }
 
@@ -1441,6 +1779,9 @@ export class MedicineService {
     const finalFileName = data.fileName.trim();
 
     if (data.file && data.file.trim()) {
+      if (data.file.length > 15 * 1024 * 1024) {
+        throw new Error("El archivo excede el tamaño máximo permitido de 10 MB.");
+      }
       try {
         finalFileUrl = await uploadBase64ToCloudinary(
           data.file,
@@ -1448,7 +1789,8 @@ export class MedicineService {
           finalFileName.replace(/\.[^/.]+$/, "") + `_${Date.now()}`
         );
       } catch (uploadErr: any) {
-        console.warn("[MedicineService.createDocument] Error subiendo archivo a Cloudinary:", uploadErr.message);
+        console.error("[MedicineService.createDocument] Error subiendo archivo a Cloudinary:", uploadErr.message);
+        throw new Error(`Error en el servicio de almacenamiento al procesar el documento: ${uploadErr.message || "Fallo en la carga remota"}`);
       }
     }
 

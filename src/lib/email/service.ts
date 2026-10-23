@@ -128,27 +128,10 @@ export class EmailService {
 
         let tokenPathToUpdate: string | null = null;
 
-        // Si no están todas en variables de entorno, buscar archivos JSON en disco
-        if (!clientId || !clientSecret || !refreshToken) {
-          const findJsonFile = (filename: string): string | null => {
-            const possiblePaths = [
-              path.join(process.cwd(), "src", "services", filename),
-              path.join(process.cwd(), "dist", "services", filename),
-              path.join(process.cwd(), filename),
-              path.join(__dirname, "..", "..", "services", filename),
-              path.join(__dirname, "..", "..", "..", "src", "services", filename),
-              path.join(__dirname, "..", "services", filename),
-            ];
-            for (const p of possiblePaths) {
-              if (fs.existsSync(p)) return p;
-            }
-            return null;
-          };
-
-          const secretPath = findJsonFile("client_secret.json");
-          const tokenPath = findJsonFile("token.json");
-
-          if (secretPath) {
+        // Opcional: si se especifica una ruta externa explícita mediante variable de entorno
+        if ((!clientId || !clientSecret || !refreshToken) && process.env.GOOGLE_CREDENTIALS_FILE) {
+          const secretPath = process.env.GOOGLE_CREDENTIALS_FILE;
+          if (fs.existsSync(secretPath)) {
             try {
               const secretContent = JSON.parse(fs.readFileSync(secretPath, "utf8"));
               const configObj = secretContent.web || secretContent.installed || secretContent;
@@ -158,18 +141,20 @@ export class EmailService {
                 redirectUri = configObj.redirect_uris[0];
               }
             } catch (err) {
-              console.warn("[EmailService] Error parsing client_secret.json:", err);
+              console.warn("[EmailService] Error parsing GOOGLE_CREDENTIALS_FILE:", err);
             }
           }
-
-          if (tokenPath) {
+        }
+        if ((!refreshToken || !accessToken) && process.env.GOOGLE_TOKEN_FILE) {
+          const tokenPath = process.env.GOOGLE_TOKEN_FILE;
+          if (fs.existsSync(tokenPath)) {
             try {
               tokenPathToUpdate = tokenPath;
               const tokenContent = JSON.parse(fs.readFileSync(tokenPath, "utf8"));
               if (tokenContent.refresh_token) refreshToken = tokenContent.refresh_token;
               if (tokenContent.access_token) accessToken = tokenContent.access_token;
             } catch (err) {
-              console.warn("[EmailService] Error parsing token.json:", err);
+              console.warn("[EmailService] Error parsing GOOGLE_TOKEN_FILE:", err);
             }
           }
         }

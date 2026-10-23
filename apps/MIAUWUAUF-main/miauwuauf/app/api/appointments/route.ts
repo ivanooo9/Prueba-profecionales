@@ -42,6 +42,15 @@ export async function POST(req: Request) {
   try {
     const data = await req.json()
     
+    // Validar que la fecha de la cita no sea en el pasado
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    if (data.fecha && data.fecha < todayStr) {
+      return NextResponse.json(
+        { message: "La fecha de la cita no puede ser anterior a hoy" },
+        { status: 400 }
+      )
+    }
+
     // Si el que crea la cita es un veterinario, se auto-asigna. Si es un usuario, debe proveer vetId
     const finalVetId = session.user.role === "veterinario" ? session.user.id : data.vetId;
 

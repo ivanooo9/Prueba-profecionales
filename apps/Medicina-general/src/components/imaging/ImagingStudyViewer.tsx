@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { ImagingStudy } from '../../types/clinical.types';
 import { clinicalStore } from '../../services/clinical/clinicalStore';
+import { PdfViewerModal } from '../documents/PdfViewerModal';
 
 export interface ImagingStudyViewerProps {
   imagingStudies: ImagingStudy[];
@@ -18,6 +19,7 @@ export interface ImagingStudyViewerProps {
 }
 
 export const ImagingStudyViewer: React.FC<ImagingStudyViewerProps> = ({ imagingStudies, patientId }) => {
+  const [selectedDoc, setSelectedDoc] = useState<{ url: string; name: string; title: string } | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [studyType, setStudyType] = useState('Radiografía convencional');
   const [bodyPart, setBodyPart] = useState('');
@@ -294,16 +296,21 @@ export const ImagingStudyViewer: React.FC<ImagingStudyViewerProps> = ({ imagingS
 
                 <div className="flex items-center gap-2">
                   {study.fileUrl && (
-                    <a
-                      href={study.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedDoc({
+                          url: study.fileUrl!,
+                          name: study.fileName || 'estudio_imagen.pdf',
+                          title: `Estudio de Imagen - ${study.studyType} (${study.bodyPart})`,
+                        })
+                      }
                       className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[11px] font-bold flex items-center gap-1 transition"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       <span>{study.fileName || 'Ver Estudio / Archivo'}</span>
                       <ExternalLink className="w-3 h-3 ml-0.5" />
-                    </a>
+                    </button>
                   )}
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
                     {study.status}
@@ -330,6 +337,15 @@ export const ImagingStudyViewer: React.FC<ImagingStudyViewerProps> = ({ imagingS
           ))}
         </div>
       )}
+
+      {/* Visor de PDF / Imagen Integrado */}
+      <PdfViewerModal
+        isOpen={Boolean(selectedDoc)}
+        onClose={() => setSelectedDoc(null)}
+        fileUrl={selectedDoc?.url || null}
+        fileName={selectedDoc?.name || 'estudio.pdf'}
+        title={selectedDoc?.title || 'Estudio de Imagenología'}
+      />
     </div>
   );
 };

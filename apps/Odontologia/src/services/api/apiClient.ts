@@ -84,30 +84,45 @@ export const apiClient = {
   },
 
   post<T = any>(endpoint: string, body?: any, headers?: HeadersInit): Promise<ApiResponse<T>> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     return request<T>(endpoint, {
       method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
       headers,
     });
   },
 
   put<T = any>(endpoint: string, body?: any, headers?: HeadersInit): Promise<ApiResponse<T>> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     return request<T>(endpoint, {
       method: 'PUT',
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
       headers,
     });
   },
 
   patch<T = any>(endpoint: string, body?: any, headers?: HeadersInit): Promise<ApiResponse<T>> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     return request<T>(endpoint, {
       method: 'PATCH',
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
       headers,
     });
   },
 
   delete<T = any>(endpoint: string, headers?: HeadersInit): Promise<ApiResponse<T>> {
     return request<T>(endpoint, { method: 'DELETE', headers });
+  },
+
+  async downloadBlob(endpoint: string): Promise<Blob> {
+    const url = `${BASE_URL}${endpoint}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new ApiError(`Error al descargar archivo (${response.status})`, response.status);
+    }
+    return response.blob();
   },
 };

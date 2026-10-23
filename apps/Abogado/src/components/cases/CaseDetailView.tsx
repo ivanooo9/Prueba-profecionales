@@ -22,6 +22,14 @@ import {
   CreditCard,
   Receipt,
   Trash2,
+  Copy,
+  ExternalLink,
+  Check,
+  Edit,
+  User,
+  Mail,
+  Phone,
+  Info,
 } from 'lucide-react';
 import {
   LegalCase,
@@ -57,6 +65,7 @@ export interface CaseDetailViewProps {
   onOpenNewDocument: (caseId: string) => void;
   onAddActivity: (caseId: string, activity: { type: CaseActivity['type']; title: string; description: string; performedBy: string }) => void;
   onToggleTask: (taskId: string) => void;
+  onEditCase?: (caseItem: LegalCase) => void;
 }
 
 export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
@@ -75,8 +84,12 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   onOpenNewDocument,
   onAddActivity,
   onToggleTask,
+  onEditCase,
 }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'deadlines' | 'hearings' | 'tasks' | 'documents' | 'timeline' | 'finances'>('info');
+  const [copiedCaratula, setCopiedCaratula] = useState(false);
+  const [copiedSatje, setCopiedSatje] = useState(false);
+  const [copiedDescription, setCopiedDescription] = useState(false);
 
   // Fee agreements & payments state
   const [feeAgreements, setFeeAgreements] = useState<LegalFeeAgreement[]>([]);
@@ -84,6 +97,8 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   const [showNewAgreementModal, setShowNewAgreementModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAgreementForPayment, setSelectedAgreementForPayment] = useState<LegalFeeAgreement | null>(null);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [isSubmittingAgreement, setIsSubmittingAgreement] = useState(false);
 
   const [agreementForm, setAgreementForm] = useState({
     title: '',
@@ -100,6 +115,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
     reference: '',
     notes: '',
     paidAt: new Date().toISOString().split('T')[0],
+    clientOperationId: '',
   });
 
   // Closure & Archive state (Fase 8)
@@ -209,6 +225,8 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
 
   const handleCreateAgreement = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingAgreement) return;
+
     if (!agreementForm.title.trim()) {
       alert('El título del acuerdo es obligatorio');
       return;
@@ -228,6 +246,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
       }
     }
 
+    setIsSubmittingAgreement(true);
     try {
       await legalService.addFeeAgreement(caseItem.id, agreementForm);
       setShowNewAgreementModal(false);
@@ -242,24 +261,29 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
       await loadAgreements();
     } catch (err: any) {
       alert(err.message || 'Error al crear acuerdo');
+    } finally {
+      setIsSubmittingAgreement(false);
     }
   };
 
   const handleOpenPaymentModal = (agreement: LegalFeeAgreement) => {
     setSelectedAgreementForPayment(agreement);
+    // Generar clave de idempotencia estable por operación lógica de pago
+    const stableIdempotencyKey = `pay_${agreement.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     setPaymentForm({
       amount: String(agreement.balance),
       method: 'TRANSFERENCIA',
       reference: '',
       notes: '',
       paidAt: new Date().toISOString().split('T')[0],
+      clientOperationId: stableIdempotencyKey,
     });
     setShowPaymentModal(true);
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAgreementForPayment) return;
+    if (!selectedAgreementForPayment || isSubmittingPayment) return;
     const amountNum = parseFloat(String(paymentForm.amount));
     if (isNaN(amountNum) || amountNum <= 0) {
       alert('El monto del pago debe ser mayor a 0');
@@ -270,19 +294,24 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
       return;
     }
 
+    setIsSubmittingPayment(true);
     try {
       await legalService.recordFeePayment(caseItem.id, String(selectedAgreementForPayment.id), {
         amount: amountNum,
+        paymentMethod: paymentForm.method,
         method: paymentForm.method,
         reference: paymentForm.reference,
         notes: paymentForm.notes,
         paidAt: paymentForm.paidAt,
+        idempotencyKey: paymentForm.clientOperationId,
       });
       setShowPaymentModal(false);
       setSelectedAgreementForPayment(null);
       await loadAgreements();
     } catch (err: any) {
       alert(err.message || 'Error al registrar el pago');
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -308,23 +337,106 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
     });
   };
 
+  // Copy actions for Ecuadorian legal practice
+  const handleCopySatje = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!caseItem.judicialProcessNumber) return;
+    navigator.clipboard.writeText(caseItem.judicialProcessNumber);
+    setCopiedSatje(true);
+    setTimeout(() => setCopiedSatje(false), 2000);
+  };
+
+  const handleCopyCaratula = () => {
+    const lines = [
+      `SEÑOR(A) JUEZ(A) DE LA ${caseItem.courtName ? caseItem.courtName.toUpperCase() : 'UNIDAD JUDICIAL'}`,
+      `JUICIO No.: ${caseItem.judicialProcessNumber || caseItem.caseNumber}`,
+      `ACTOR / ACCIONANTE: ${caseItem.clientName}${client?.identification ? ` (C.C./RUC: ${client.identification})` : ''}`,
+      `DEMANDADO / ACCIONADO: ${caseItem.opposingParty || 'CONTRAPARTE POR DETERMINAR'}`,
+      `MATERIA / VÍA PROCESAL: ${caseItem.legalArea.toUpperCase()} - ${caseItem.processType.toUpperCase()}`,
+      `CUANTÍA: ${caseItem.claimAmount || 'INDETERMINADA'}`,
+      `ABOGADO PATROCINADOR: ${caseItem.assignedLawyer.toUpperCase()}`,
+      `CASILLERO ELECTRÓNICO / CONTACTO: ${client?.email || 'defensa@despacho.ec'}`
+    ];
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopiedCaratula(true);
+    setTimeout(() => setCopiedCaratula(false), 2500);
+  };
+
+  const handleCopyDescription = () => {
+    if (!caseItem.description) return;
+    navigator.clipboard.writeText(caseItem.description);
+    setCopiedDescription(true);
+    setTimeout(() => setCopiedDescription(false), 2000);
+  };
+
+  // Financial calculations
+  const totalAgreed = feeAgreements.reduce((sum, a) => sum + (Number(a.total) || 0), 0);
+  const totalPaid = feeAgreements.reduce((sum, a) => sum + (Number(a.paidAmount) || 0), 0);
+  const totalBalance = Math.max(0, totalAgreed - totalPaid);
+  const collectionPercentage = totalAgreed > 0 ? Math.round((totalPaid / totalAgreed) * 100) : 0;
+
+  // Urgent pending deadlines
+  const pendingDeadlines = [...deadlines]
+    .filter((d) => d.status === 'Pendiente' || d.status === 'En progreso')
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const nextDeadline = pendingDeadlines[0];
+
+  const getDeadlineDiffDays = (dueDate: string) => {
+    const target = new Date(dueDate + 'T23:59:59').getTime();
+    const now = new Date().getTime();
+    return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+  };
+
+  // Upcoming scheduled hearings
+  const upcomingHearings = [...hearings]
+    .filter((h) => h.status === 'Programada')
+    .sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`).getTime() - new Date(`${b.date}T${b.time || '00:00'}`).getTime());
+  const nextHearing = upcomingHearings[0];
+
   return (
     <div className="space-y-6">
       {/* Top Header Navigation */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs w-fit"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 text-slate-500" />
           <span>Volver al listado de casos</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Quick Action: Copiar Carátula para Escrito */}
+          <button
+            onClick={handleCopyCaratula}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition shadow-xs border ${
+              copiedCaratula
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Copiar encabezado formal para escritos judiciales en Word"
+          >
+            {copiedCaratula ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+            <span>{copiedCaratula ? '¡Carátula Copiada!' : 'Copiar Carátula'}</span>
+          </button>
+
+          {/* Edit Case Button */}
+          {onEditCase && (
+            <button
+              onClick={() => onEditCase(caseItem)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition shadow-xs"
+              title="Modificar datos del expediente, juzgado, cuantía o número SATJE"
+            >
+              <Edit className="w-3.5 h-3.5 text-slate-500" />
+              <span>Editar Caso</span>
+            </button>
+          )}
+
+          {/* Close / Archive Case Button */}
           {caseItem.status !== 'Cerrado' && caseItem.status !== 'Archivado' && (
             <button
               onClick={handleOpenCloseModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition shadow-xs"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Cerrar Expediente</span>
@@ -334,7 +446,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           {caseItem.status === 'Cerrado' && (
             <button
               onClick={handleOpenArchiveModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition shadow-xs"
             >
               <History className="w-3.5 h-3.5" />
               <span>Archivar Expediente</span>
@@ -350,74 +462,129 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
 
           <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
 
-          <label className="text-xs font-semibold text-slate-500">Cambiar Estado:</label>
-          <select
-            value={caseItem.status}
-            onChange={(e) => {
-              const val = e.target.value as CaseStatus;
-              if (val === 'Cerrado') {
-                handleOpenCloseModal();
-              } else if (val === 'Archivado') {
-                handleOpenArchiveModal();
-              } else {
-                onUpdateStatus(caseItem.id, val);
-              }
-            }}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none shadow-xs"
-          >
-            <option value="Nuevo">Nuevo</option>
-            <option value="En proceso">En proceso</option>
-            <option value="En espera">En espera</option>
-            <option value="Audiencia">Audiencia</option>
-            <option value="Cerrado">Cerrado</option>
-            <option value="Archivado">Archivado</option>
-          </select>
+          {/* Quick status selector */}
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] font-semibold text-slate-500">Estado:</label>
+            <select
+              value={caseItem.status}
+              onChange={(e) => {
+                const val = e.target.value as CaseStatus;
+                if (val === 'Cerrado') {
+                  handleOpenCloseModal();
+                } else if (val === 'Archivado') {
+                  handleOpenArchiveModal();
+                } else {
+                  onUpdateStatus(caseItem.id, val);
+                }
+              }}
+              className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none shadow-xs"
+            >
+              <option value="Nuevo">Nuevo</option>
+              <option value="En proceso">En proceso</option>
+              <option value="En espera">En espera</option>
+              <option value="Audiencia">Audiencia</option>
+              <option value="Cerrado">Cerrado</option>
+              <option value="Archivado">Archivado</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Case Main Header Card */}
       <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-xs font-mono font-semibold text-slate-800 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 border-b border-slate-100 pb-6 mb-6">
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono font-bold text-slate-800 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
                 EXP: {caseItem.caseNumber}
               </span>
+
+              {caseItem.judicialProcessNumber ? (
+                <div className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-900 px-3 py-1 rounded-lg text-xs font-mono font-bold">
+                  <span>SATJE: {caseItem.judicialProcessNumber}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopySatje}
+                    className="p-0.5 hover:text-indigo-600 transition"
+                    title="Copiar número de juicio SATJE"
+                  >
+                    {copiedSatje ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-indigo-500" />}
+                  </button>
+                  <a
+                    href="https://procesosjudiciales.funcionjudicial.gob.ec/busqueda-filtros"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-0.5 hover:text-indigo-600 transition text-indigo-500"
+                    title="Consultar en portal web de la Función Judicial (SATJE)"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              ) : (
+                <span className="text-xs text-slate-500 bg-slate-50 border border-dashed border-slate-200 px-2.5 py-1 rounded-lg italic">
+                  SATJE: Pendiente de sorteo
+                </span>
+              )}
+
               <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
                 {caseItem.legalArea}
+              </span>
+              <span className="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                {caseItem.processType}
               </span>
               <StatusBadge status={caseItem.status} />
               <PriorityBadge priority={caseItem.priority} />
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
               {caseItem.title}
             </h1>
 
-            <p className="text-xs text-slate-500 flex items-center gap-1.5">
-              <Building className="w-4 h-4 text-slate-600 shrink-0" />
-              <span>{caseItem.courtName}</span>
+            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+              <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                <span>{caseItem.courtName || 'Unidad Judicial no especificada'}</span>
+              </span>
               {caseItem.judgeName && (
                 <>
-                  &bull; <span>Juez: <strong>{caseItem.judgeName}</strong></span>
+                  <span className="text-slate-300">&bull;</span>
+                  <span className="flex items-center gap-1 text-slate-600">
+                    <Gavel className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>Juez / Ponente: <strong className="text-slate-800">{caseItem.judgeName}</strong></span>
+                  </span>
                 </>
               )}
-            </p>
+            </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-100/80 border border-slate-200 space-y-2 shrink-0 md:w-64">
-            <div className="text-[10px] uppercase font-bold text-slate-600 tracking-wider">
-              Cliente Patrocinado
+          {/* Quick Subject Summary Box */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 shrink-0 lg:w-72">
+            <div>
+              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center justify-between">
+                <span>Cliente Patrocinado</span>
+                <span className="text-[9px] bg-slate-200/80 text-slate-700 px-1.5 py-0.5 rounded font-mono">ACTOR</span>
+              </div>
+              <div className="font-extrabold text-xs text-slate-900 mt-1">{caseItem.clientName}</div>
+              {client && (
+                <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  {client.identificationType.toUpperCase()}: {client.identification}
+                </div>
+              )}
             </div>
-            <div className="font-extrabold text-xs text-slate-900">{caseItem.clientName}</div>
-            {client && (
-              <div className="text-[11px] text-slate-500 font-mono">
-                {client.identificationType.toUpperCase()}: {client.identification}
+
+            {caseItem.opposingParty && (
+              <div className="pt-2 border-t border-slate-200/80">
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center justify-between">
+                  <span>Contraparte</span>
+                  <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono">DEMANDADO</span>
+                </div>
+                <div className="font-bold text-xs text-slate-800 mt-0.5">{caseItem.opposingParty}</div>
               </div>
             )}
-            <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
+
+            <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
               <span className="text-slate-500">Abogado:</span>
-              <span className="font-semibold text-slate-900">{caseItem.assignedLawyer}</span>
+              <span className="font-bold text-slate-900 truncate max-w-[150px]">{caseItem.assignedLawyer}</span>
             </div>
           </div>
         </div>
@@ -496,36 +663,410 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
 
       {/* Tab Content Panels */}
       <div>
-        {/* 1. INFORMACIÓN GENERAL */}
+        {/* 1. FICHA INFORMACIÓN / DASHBOARD EJECUTIVO DEL EXPEDIENTE */}
         {activeTab === 'info' && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 space-y-6 shadow-xs">
-            <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-              Detalles Generales del Expediente Digital
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Tipo de Trámite</span>
-                <p className="font-extrabold text-slate-900 mt-1">{caseItem.processType}</p>
+          <div className="space-y-6">
+            {/* BLOQUE A: SUJETOS PROCESALES Y RADICACIÓN JUDICIAL */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Scale className="w-4 h-4 text-slate-700" />
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Sujetos Procesales y Radicación Judicial
+                  </h3>
+                </div>
+                {onEditCase && (
+                  <button
+                    onClick={() => onEditCase(caseItem)}
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Modificar Ficha</span>
+                  </button>
+                )}
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Cuantía Reclamada</span>
-                <p className="font-mono font-extrabold text-slate-900 mt-1">
-                  {caseItem.claimAmount || 'Sin cuantía indeterminada'}
-                </p>
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                {/* Actor / Patrocinado */}
+                <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Sujeto Activo (Actor)
+                    </span>
+                    <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold">
+                      PATROCINADO
+                    </span>
+                  </div>
+                  <div className="font-extrabold text-sm text-slate-900">{caseItem.clientName}</div>
+                  <div className="text-[11px] text-slate-600 space-y-1">
+                    {client && (
+                      <p className="font-mono text-slate-700">
+                        {client.identificationType.toUpperCase()}: <strong>{client.identification}</strong>
+                      </p>
+                    )}
+                    {client?.email && (
+                      <p className="flex items-center gap-1 truncate text-slate-600" title={client.email}>
+                        <Mail className="w-3 h-3 shrink-0 text-slate-400" />
+                        <span>{client.email}</span>
+                      </p>
+                    )}
+                    {client?.phone && (
+                      <p className="flex items-center gap-1 text-slate-600">
+                        <Phone className="w-3 h-3 shrink-0 text-slate-400" />
+                        <span>{client.phone}</span>
+                      </p>
+                    )}
+                    {client?.address && (
+                      <p className="flex items-start gap-1 text-slate-500 pt-1 border-t border-slate-200/60">
+                        <MapPin className="w-3 h-3 shrink-0 text-slate-400 mt-0.5" />
+                        <span className="line-clamp-2">{client.address}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Fecha de Presentación</span>
-                <p className="font-mono font-bold text-slate-900 mt-1">{caseItem.startDate}</p>
+                {/* Demandado / Contraparte */}
+                <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Sujeto Pasivo (Demandado)
+                    </span>
+                    <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-bold">
+                      CONTRAPARTE
+                    </span>
+                  </div>
+                  <div className="font-extrabold text-sm text-slate-900">
+                    {caseItem.opposingParty || 'Por determinar / citar'}
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    {caseItem.opposingParty
+                      ? 'Parte procesal demandada en la controversia sustanciada ante la Función Judicial.'
+                      : 'No se ha registrado una contraparte específica. Puede asignarla editando el expediente.'}
+                  </p>
+                  <div className="pt-2 border-t border-slate-200/60 text-[11px] text-slate-600">
+                    <span className="text-slate-400">Patrocinio propio:</span>{' '}
+                    <strong className="text-slate-800">{caseItem.assignedLawyer}</strong>
+                  </div>
+                </div>
+
+                {/* Radicación Judicial y Procedimiento */}
+                <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Radicación Judicial
+                    </span>
+                    <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold">
+                      COGEP
+                    </span>
+                  </div>
+                  <div className="font-extrabold text-xs text-slate-900 leading-snug">
+                    {caseItem.courtName || 'Unidad Judicial no especificada'}
+                  </div>
+                  <div className="text-[11px] text-slate-600 space-y-1">
+                    <p>
+                      <span className="text-slate-400">Juez / Ponente:</span>{' '}
+                      <strong className="text-slate-800">{caseItem.judgeName || 'Por sortear en SATJE'}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-400">Vía Procesal:</span>{' '}
+                      <span className="font-bold text-slate-800">{caseItem.processType}</span>
+                    </p>
+                    <p>
+                      <span className="text-slate-400">Materia:</span>{' '}
+                      <span className="font-semibold text-slate-800">{caseItem.legalArea}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 mb-2">Resumen Jurídico / Pretensiones</h4>
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 leading-relaxed">
-                {caseItem.description}
+            {/* BLOQUE B: ALERTAS PROCESALES INMEDIATAS (TÉRMINOS FATALES Y AUDIENCIAS) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Alerta de Término Fatal */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col justify-between space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-800">
+                      <Clock className="w-4 h-4 text-slate-600" />
+                      <span>Próximo Término Perentorio</span>
+                    </div>
+                    {nextDeadline && (() => {
+                      const diff = getDeadlineDiffDays(nextDeadline.dueDate);
+                      if (diff < 0) {
+                        return (
+                          <span className="text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-black animate-pulse">
+                            VENCIDO HACE {Math.abs(diff)} DÍAS
+                          </span>
+                        );
+                      }
+                      if (diff === 0) {
+                        return (
+                          <span className="text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-black animate-pulse">
+                            ¡VENCE HOY!
+                          </span>
+                        );
+                      }
+                      if (diff <= 3) {
+                        return (
+                          <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-extrabold">
+                            ¡VENCE EN {diff} DÍAS!
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">
+                          En {diff} días
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  {nextDeadline ? (
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-xs text-slate-900">{nextDeadline.description}</span>
+                        <PriorityBadge priority={nextDeadline.priority} />
+                      </div>
+                      <div className="text-[11px] text-slate-500 flex items-center justify-between">
+                        <span>Vencimiento: <strong className="font-mono text-slate-800">{nextDeadline.dueDate}</strong></span>
+                        <span>Resp: <strong className="text-slate-800">{nextDeadline.responsible}</strong></span>
+                      </div>
+                      {nextDeadline.notes && (
+                        <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded border border-slate-100">
+                          {nextDeadline.notes}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/80 text-xs text-emerald-800 flex items-center gap-2.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-emerald-900">Sin plazos fatales pendientes</div>
+                        <p className="text-[11px] text-emerald-700 mt-0.5">Todos los términos del expediente se encuentran al día.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-slate-400">Total plazos registrados: {deadlines.length}</span>
+                  <button
+                    onClick={() => setActiveTab('deadlines')}
+                    className="font-bold text-slate-900 hover:text-blue-600 transition inline-flex items-center gap-1 text-[11px]"
+                  >
+                    <span>Ver todos los plazos &rarr;</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Alerta de Próxima Audiencia */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col justify-between space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-800">
+                      <Gavel className="w-4 h-4 text-slate-600" />
+                      <span>Próxima Diligencia / Audiencia</span>
+                    </div>
+                    {nextHearing && (
+                      <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">
+                        {nextHearing.type}
+                      </span>
+                    )}
+                  </div>
+
+                  {nextHearing ? (
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-xs text-slate-900">{nextHearing.title}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200">
+                          {nextHearing.mode}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                        <strong>{nextHearing.date}</strong> a las <strong>{nextHearing.time || 'Hora por definir'}</strong>
+                      </div>
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{nextHearing.location}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center gap-2.5">
+                      <Calendar className="w-5 h-5 text-slate-400 shrink-0" />
+                      <div>
+                        <div className="font-bold text-slate-800">Sin audiencias programadas</div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Expediente a la espera de auto judicial de convocatoria.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-slate-400">Total audiencias: {hearings.length}</span>
+                  <button
+                    onClick={() => setActiveTab('hearings')}
+                    className="font-bold text-slate-900 hover:text-blue-600 transition inline-flex items-center gap-1 text-[11px]"
+                  >
+                    <span>Ver todas las audiencias &rarr;</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* BLOQUE C: RESUMEN FINANCIERO EJECUTIVO (HONORARIOS Y RECAUDACIÓN) */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-slate-700" />
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Resumen Financiero del Expediente
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setActiveTab('finances')}
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Gestionar Honorarios &rarr;</span>
+                </button>
+              </div>
+
+              {feeAgreements.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-slate-400 font-bold uppercase text-[10px]">Total Pactado</span>
+                      <p className="font-mono font-black text-sm text-slate-900 mt-1">
+                        $ {totalAgreed.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80">
+                      <span className="text-emerald-700 font-bold uppercase text-[10px]">Cobrado / Recaudado</span>
+                      <p className="font-mono font-black text-sm text-emerald-800 mt-1">
+                        $ {totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80">
+                      <span className="text-amber-700 font-bold uppercase text-[10px]">Saldo Pendiente</span>
+                      <p className="font-mono font-black text-sm text-amber-900 mt-1">
+                        $ {totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-slate-400 font-bold uppercase text-[10px]">Tasa de Cobranza</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="font-mono font-black text-sm text-slate-900">{collectionPercentage}%</span>
+                        <div className="flex-1 bg-slate-200 h-2 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${collectionPercentage === 100 ? 'bg-emerald-500' : 'bg-slate-900'}`}
+                            style={{ width: `${Math.min(100, collectionPercentage)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="text-slate-600">
+                    <p className="font-semibold text-slate-800">No se ha establecido un acuerdo formal de honorarios para este caso.</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Registre el contrato o pacto de honorarios para llevar el control de facturación y cobro.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab('finances');
+                      setShowNewAgreementModal(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition shadow-xs shrink-0"
+                  >
+                    + Pactar Honorarios
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* BLOQUE D: OBJETO DE LA CONTROVERSIA, CUANTÍA Y RESUMEN JURÍDICO */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-slate-700" />
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Objeto de la Controversia y Pretensiones
+                  </h3>
+                </div>
+                {caseItem.description && (
+                  <button
+                    onClick={handleCopyDescription}
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-900 flex items-center gap-1 transition"
+                  >
+                    {copiedDescription ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedDescription ? 'Copiado' : 'Copiar Síntesis'}</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Vía / Tipo de Trámite</span>
+                  <p className="font-bold text-slate-900 mt-1">{caseItem.processType}</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Cuantía Determinada</span>
+                  <p className="font-mono font-bold text-slate-900 mt-1">
+                    {caseItem.claimAmount || 'Indeterminada'}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Fecha de Presentación / Hechos</span>
+                  <p className="font-mono font-bold text-slate-900 mt-1">{caseItem.startDate}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 mb-2">Fundamentación Jurídica y Hechos de la Demanda</h4>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 leading-relaxed whitespace-pre-line font-normal">
+                  {caseItem.description || 'Sin resumen registrado para este caso.'}
+                </div>
+              </div>
+            </div>
+
+            {/* BLOQUE E: CARÁTULA OFICIAL PARA ESCRITOS JUDICIALES */}
+            <div className="bg-slate-900 rounded-2xl p-6 text-white space-y-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">
+                    Encabezado Formal para Escritos Procesales (Word)
+                  </h4>
+                </div>
+                <button
+                  onClick={handleCopyCaratula}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs ${
+                    copiedCaratula
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                  }`}
+                >
+                  {copiedCaratula ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedCaratula ? '¡Copiado al Portapapeles!' : 'Copiar Carátula'}</span>
+                </button>
+              </div>
+
+              <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 leading-relaxed overflow-x-auto space-y-1">
+                <div>SEÑOR(A) JUEZ(A) DE LA {caseItem.courtName ? caseItem.courtName.toUpperCase() : 'UNIDAD JUDICIAL'}</div>
+                <div>JUICIO No.: <span className="text-amber-400 font-bold">{caseItem.judicialProcessNumber || caseItem.caseNumber}</span></div>
+                <div>ACTOR: {caseItem.clientName}{client?.identification ? ` (C.C./RUC: ${client.identification})` : ''}</div>
+                <div>DEMANDADO: {caseItem.opposingParty || 'CONTRAPARTE POR DETERMINAR'}</div>
+                <div>MATERIA / VÍA: {caseItem.legalArea.toUpperCase()} - {caseItem.processType.toUpperCase()}</div>
+                <div>CUANTÍA: {caseItem.claimAmount || 'INDETERMINADA'}</div>
+                <div>ABOGADO PATROCINADOR: {caseItem.assignedLawyer.toUpperCase()}</div>
+                <div>CASILLERO / CONTACTO: {client?.email || 'defensa@despacho.ec'}</div>
               </div>
             </div>
           </div>
@@ -1250,9 +1791,10 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs"
+                  disabled={isSubmittingAgreement}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs"
                 >
-                  Crear Convenio
+                  {isSubmittingAgreement ? 'Creando Convenio...' : 'Crear Convenio'}
                 </button>
               </div>
             </form>
@@ -1359,9 +1901,10 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs"
+                  disabled={isSubmittingPayment}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs flex items-center gap-1.5"
                 >
-                  Registrar Pago
+                  {isSubmittingPayment ? 'Registrando Pago...' : 'Registrar Pago'}
                 </button>
               </div>
             </form>

@@ -14,7 +14,7 @@ export interface AuthenticatedUser {
  * Extracts organization ID from params, headers, query, or body.
  */
 export function extractOrganizationId(req: Request): number | null {
-  const paramId = req.params.organizationId || req.params.id;
+  const paramId = req.params.organizationId || req.params.orgId || req.params.id;
   const headerId = req.headers["x-organization-id"];
   const queryId = req.query.organizationId;
   const bodyId = req.body?.organizationId;

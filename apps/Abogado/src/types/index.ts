@@ -41,17 +41,21 @@ export type Priority = 'Baja' | 'Media' | 'Alta' | 'Urgente';
 
 export interface LegalCase {
   id: string;
-  caseNumber: string; // ej. 17230-2025-00412
+  caseNumber: string; // ej. CAS-2026-0001
+  internalCaseNumber?: string;
+  judicialProcessNumber?: string | null; // ej. 17230-2026-00412G (SATJE / Función Judicial)
   title: string;
   clientId: string;
   clientName: string;
-  processType: string; // ej. Ordonario, Sumario, Ejecutivo, Monitorio, Constitucional
+  processType: string; // ej. Ordinario, Sumario, Ejecutivo, Monitorio, Constitucional
   legalArea: LegalArea;
   status: CaseStatus;
   priority: Priority;
   assignedLawyer: string;
+  responsibleUserId?: number | null;
   courtName: string; // ej. Unidad Judicial Civil de Quito
   judgeName?: string;
+  opposingParty?: string; // Demandado / Contraparte
   startDate: string;
   expectedEndDate?: string;
   closedDate?: string;
@@ -121,6 +125,7 @@ export interface LegalTask {
   priority: Priority;
   status: TaskStatus;
   assignedTo: string;
+  assignedToUserId?: number | null;
   createdAt: string;
 }
 

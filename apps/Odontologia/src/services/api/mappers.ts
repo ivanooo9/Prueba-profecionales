@@ -87,6 +87,7 @@ export function mapApiPatientToDentalPatient(api: ApiPatient): Patient {
     names,
     surnames,
     identification: api.idNumber || '',
+    idType: api.idNumber && /^\d{10}$/.test(api.idNumber) ? 'CEDULA' : 'PASAPORTE',
     birthDate: api.birthDate ? api.birthDate.split('T')[0] : '',
     gender: mappedGender,
     phone: api.phone || '',
@@ -98,7 +99,15 @@ export function mapApiPatientToDentalPatient(api: ApiPatient): Patient {
       relationship: api.emergencyContact?.relationship || 'Familiar',
     },
     anamnesis,
-    medicalNotes: api.record?.allergies ? `Alergias registradas: ${api.record.allergies}` : undefined,
+    medicalNotes: (() => {
+      const rawAllergies = (api.record?.allergies || '').trim();
+      if (!rawAllergies) return undefined;
+      // Si el texto explícitamente dice que no tiene o niega alergias, no es una alerta clínica
+      if (/^(ningun[oa]|niega|sin alergia|no refiere|no presenta|negativ[oa]|no\b)/i.test(rawAllergies)) {
+        return undefined;
+      }
+      return rawAllergies.startsWith('Alergias') ? rawAllergies : `Alergias: ${rawAllergies}`;
+    })(),
     status: mappedStatus,
     createdAt: api.createdAt ? api.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
   };
@@ -126,6 +135,7 @@ export function mapDentalPatientToApiInput(
   return {
     name,
     idNumber: patient.identification ? patient.identification.trim() : null,
+    idType: patient.idType || (patient.identification && /^\d{10}$/.test(patient.identification.trim()) ? 'CEDULA' : 'PASAPORTE'),
     birthDate: patient.birthDate ? patient.birthDate : null,
     gender,
     bloodType: patient.anamnesis?.bloodType ? patient.anamnesis.bloodType.trim() : null,
@@ -154,6 +164,9 @@ export function mapDentalPatientToApiUpdate(
 
   if (updates.identification !== undefined) {
     result.idNumber = updates.identification ? updates.identification.trim() : null;
+    result.idType = updates.idType || (updates.identification && /^\d{10}$/.test(updates.identification.trim()) ? 'CEDULA' : 'PASAPORTE');
+  } else if (updates.idType !== undefined) {
+    result.idType = updates.idType;
   }
 
   if (updates.birthDate !== undefined) {

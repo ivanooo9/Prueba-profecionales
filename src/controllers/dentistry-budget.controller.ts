@@ -3,6 +3,42 @@ import { DentistryBudgetService } from "../services/dentistry-budget.service";
 
 export class DentistryBudgetController {
   /**
+   * Obtiene la lista de presupuestos formales de toda la organización (READ-ONLY) con soporte de paginación y búsqueda.
+   */
+  public static async getOrganizationBudgets(req: Request, res: Response) {
+    try {
+      const org = (req as any).organization || res.locals.organization;
+      if (!org?.id) {
+        return res.status(400).json({ success: false, error: "Organización no identificada." });
+      }
+
+      const { search, status, patientId, page, limit, skip, take } = req.query;
+      const result = await DentistryBudgetService.getOrganizationBudgets(org.id, {
+        search: typeof search === "string" ? search : undefined,
+        status: typeof status === "string" ? status : undefined,
+        patientId: patientId ? parseInt(String(patientId), 10) : undefined,
+        page: page ? parseInt(String(page), 10) : undefined,
+        limit: limit ? parseInt(String(limit), 10) : undefined,
+        skip: skip ? parseInt(String(skip), 10) : undefined,
+        take: take ? parseInt(String(take), 10) : undefined,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: result.budgets,
+        pagination: result.pagination,
+        total: result.pagination.total,
+      });
+    } catch (error: any) {
+      console.error("[DentistryBudgetController.getOrganizationBudgets] Error:", error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Error al obtener presupuestos de la organización.",
+      });
+    }
+  }
+
+  /**
    * Obtiene la lista de presupuestos formales del paciente (READ-ONLY).
    */
   public static async getBudgets(req: Request, res: Response) {

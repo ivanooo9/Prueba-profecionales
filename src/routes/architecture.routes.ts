@@ -68,6 +68,12 @@ router.delete(
 // -------------------------------------------------------------
 
 router.get(
+  "/api/organizations/:id/architecture/assignable-users",
+  requireArchitectureModule,
+  ArchitectureController.getAssignableOrganizationMembers
+);
+
+router.get(
   "/api/organizations/:id/architecture/projects",
   requireArchitectureModule,
   ArchitectureController.getProjects
@@ -107,10 +113,22 @@ router.post(
 // ETAPAS (ArchitectureProjectStage)
 // -------------------------------------------------------------
 
+router.post(
+  "/api/organizations/:id/architecture/projects/:projectId/stages",
+  requireArchitectureModule,
+  ArchitectureController.createStage
+);
+
 router.put(
   "/api/organizations/:id/architecture/projects/:projectId/stages/:stageId",
   requireArchitectureModule,
   ArchitectureController.updateStage
+);
+
+router.delete(
+  "/api/organizations/:id/architecture/projects/:projectId/stages/:stageId",
+  requireArchitectureModule,
+  ArchitectureController.deleteStage
 );
 
 // -------------------------------------------------------------
@@ -404,6 +422,19 @@ router.put(
   "/api/organizations/:id/architecture/projects/:projectId/budgets/:budgetId",
   requireArchitectureModule,
   ArchitectureController.updateBudget
+);
+
+// Guardado transaccional de presupuesto + rubros
+router.put(
+  "/api/organizations/:id/architecture/budgets/:budgetId/commit",
+  requireArchitectureModule,
+  ArchitectureController.updateBudgetWithItems
+);
+
+router.put(
+  "/api/organizations/:id/architecture/projects/:projectId/budgets/:budgetId/commit",
+  requireArchitectureModule,
+  ArchitectureController.updateBudgetWithItems
 );
 
 // Aprobar presupuesto (concurrencia controlada por lock)

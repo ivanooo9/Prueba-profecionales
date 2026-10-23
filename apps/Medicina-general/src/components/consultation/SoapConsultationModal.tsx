@@ -35,10 +35,12 @@ export const SoapConsultationModal: React.FC<SoapModalProps> = ({
   const state = useClinicalStore((currentState) => currentState);
   const activeOrgId = state.activeOrganization?.id;
 
+  const [persistedConsultationId, setPersistedConsultationId] = useState<string | null>(null);
+
   const targetAppointment = appointmentId
     ? state.appointments.find((apt) => String(apt.id) === String(appointmentId))
     : undefined;
-  const effectiveConsultationId = consultationId || targetAppointment?.consultationId || null;
+  const effectiveConsultationId = persistedConsultationId || consultationId || targetAppointment?.consultationId || null;
   const isExisting = Boolean(effectiveConsultationId);
 
   // Buscar la consulta en el store si existe
@@ -104,11 +106,17 @@ export const SoapConsultationModal: React.FC<SoapModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setPersistedConsultationId(null);
+    }
+  }, [isOpen]);
+
   // Carga asíncrona de consulta existente desde la API para garantizar datos completos de PostgreSQL
   useEffect(() => {
     let isCancelled = false;
 
-    if (isOpen && isExisting && effectiveConsultationId && activeOrgId) {
+    if (isOpen && isExisting && effectiveConsultationId && activeOrgId && !persistedConsultationId) {
       if (!initialConsultation) {
         setIsLoading(true);
       }
@@ -189,6 +197,12 @@ export const SoapConsultationModal: React.FC<SoapModalProps> = ({
 
   const saveConsultation = async (targetStatus: Consultation['status']) => {
     if (!patient || !reason.trim() || isSaving) return;
+
+    if (targetStatus === 'SIGNED' && !state.currentUser?.name) {
+      setErrorMessage('Se requiere una sesión activa con el nombre del profesional para firmar la consulta.');
+      return;
+    }
+
     setIsSaving(true);
     setErrorMessage(null);
 
@@ -244,7 +258,7 @@ export const SoapConsultationModal: React.FC<SoapModalProps> = ({
           status: targetStatus,
           createdBy: initialConsultation?.createdBy || 'Profesional Médico',
           createdAt: initialConsultation?.createdAt || now,
-          signedBy: targetStatus === 'SIGNED' ? (state.currentUser?.name || 'Dr. Roberto Silva') : undefined,
+          signedBy: targetStatus === 'SIGNED' ? (state.currentUser?.name || 'Profesional Médico') : undefined,
           signedAt: targetStatus === 'SIGNED' ? now : undefined,
           vitalSignsId: vitalSigns?.id || initialConsultation?.vitalSignsId,
           diagnosisIds: diagnosis ? [diagnosis.id] : initialConsultation?.diagnosisIds || [],
@@ -273,13 +287,14 @@ export const SoapConsultationModal: React.FC<SoapModalProps> = ({
           status: targetStatus,
           createdBy: state.currentUser?.name || 'Profesional Médico',
           createdAt: now,
-          signedBy: targetStatus === 'SIGNED' ? (state.currentUser?.name || 'Dr. Roberto Silva') : undefined,
+          signedBy: targetStatus === 'SIGNED' ? (state.currentUser?.name || 'Profesional Médico') : undefined,
           signedAt: targetStatus === 'SIGNED' ? now : undefined,
           vitalSignsId: vitalSigns?.id,
           diagnosisIds: diagnosis ? [diagnosis.id] : [],
         };
 
         const created = await clinicalStore.addConsultation(newConsultation, vitalSigns, diagnosis);
+        setPersistedConsultationId(created.id);
 
         if (appointmentId) {
           await clinicalStore.updateAppointment(appointmentId, {
@@ -292,6 +307,89 @@ export const SoapConsultationModal: React.FC<SoapModalProps> = ({
     } catch (err: any) {
       console.error('Error al guardar consulta:', err);
       setErrorMessage(err.message || 'Error al guardar la consulta.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenPrescriptionWithDraft = async () => {
+    if (!patient || isSaving) return;
+
+    if (effectiveConsultationId) {
+      onOpenPrescription?.(patient.id, effectiveConsultationId);
+      return;
+    }
+
+    setIsSaving(true);
+    setErrorMessage(null);
+
+    const now = new Date().toISOString();
+    const diagnosisText = cie10.trim();
+    const [cie10Code, ...descriptionParts] = diagnosisText.split(' - ');
+    const diagnosisDescription = descriptionParts.join(' - ').trim() || cie10Code.trim();
+
+    const tempId = `cns-${Date.now()}`;
+    const diagnosis: Diagnosis | undefined = diagnosisText
+      ? {
+          id: `diag-${tempId}`,
+          patientId: patient.id,
+          consultationId: tempId,
+          cie10Code: cie10Code.trim(),
+          description: diagnosisDescription,
+          type: 'PRIMARY',
+          status: 'ACTIVE',
+          diagnosedAt: now,
+        }
+      : undefined;
+
+    const bloodPressureValues = parseBloodPressure();
+    const vitalSigns: VitalSigns | undefined = bloodPressure || heartRate || temperature || weight
+      ? {
+          id: `vital-${tempId}`,
+          patientId: patient.id,
+          consultationId: tempId,
+          bloodPressureSystolic: bloodPressureValues.systolic,
+          bloodPressureDiastolic: bloodPressureValues.diastolic,
+          heartRate: parseNumber(heartRate),
+          temperatureC: parseNumber(temperature),
+          weightKg: parseNumber(weight),
+          measuredAt: now,
+        }
+      : undefined;
+
+    const draftConsultation: Consultation = {
+      id: tempId,
+      patientId: patient.id,
+      date: now,
+      reason: reason.trim() || 'Consulta médica en curso',
+      subjective: subjective.trim(),
+      objective: objective.trim(),
+      assessment: diagnosisDescription || undefined,
+      plan: plan.trim(),
+      cie10Code: cie10Code.trim() || undefined,
+      cie10Description: diagnosisDescription || undefined,
+      status: 'DRAFT',
+      createdBy: state.currentUser?.name || 'Profesional Médico',
+      createdAt: now,
+      vitalSignsId: vitalSigns?.id,
+      diagnosisIds: diagnosis ? [diagnosis.id] : [],
+    };
+
+    try {
+      const created = await clinicalStore.addConsultation(draftConsultation, vitalSigns, diagnosis);
+      if (created?.id) {
+        setPersistedConsultationId(created.id);
+        if (appointmentId) {
+          await clinicalStore.updateAppointment(appointmentId, {
+            consultationId: created.id,
+            status: 'IN_CONSULTATION',
+          }).catch((err) => console.warn('[SoapConsultationModal] Error actualizando cita vinculada:', err));
+        }
+        onOpenPrescription?.(patient.id, created.id);
+      }
+    } catch (err: any) {
+      console.error('[SoapConsultationModal] Error guardando borrador previo a receta:', err);
+      setErrorMessage(err.message || 'Error al vincular consulta con la receta.');
     } finally {
       setIsSaving(false);
     }
@@ -440,7 +538,7 @@ export const SoapConsultationModal: React.FC<SoapModalProps> = ({
                 </span>
                 <button
                   type="button"
-                  onClick={() => patient && onOpenPrescription?.(patient.id, effectiveConsultationId || undefined)}
+                  onClick={handleOpenPrescriptionWithDraft}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100 text-xs font-bold flex items-center justify-between transition cursor-pointer"
                 >
                   <div className="flex items-center gap-2">

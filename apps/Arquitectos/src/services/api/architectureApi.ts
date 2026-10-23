@@ -13,9 +13,75 @@ import type {
   CalendarEvent,
   DashboardData,
   ReportsSummary,
+  ArchitectureOrganization,
+  ArchitectureAssignableUser,
 } from '../../types';
 
 export const architectureApi = {
+  async getAssignableUsers(organizationId: number): Promise<ArchitectureAssignableUser[]> {
+    const response = await apiClient.get<ArchitectureAssignableUser[]>(
+      `/api/organizations/${organizationId}/architecture/assignable-users`
+    );
+    if (!response.success || !Array.isArray(response.data)) {
+      throw new Error(response.error || response.message || 'No se pudieron cargar los responsables disponibles.');
+    }
+    return response.data;
+  },
+
+  async getUserOrganizations(moduleCode = 'ARCHITECTURE'): Promise<ArchitectureOrganization[]> {
+    const query = moduleCode ? `?module=${encodeURIComponent(moduleCode)}` : '';
+    const response = await apiClient.get<any[]>(`/api/organizations${query}`);
+    if (!response.success || !Array.isArray(response.data)) {
+      throw new Error(response.error || response.message || 'No se pudieron cargar las organizaciones.');
+    }
+
+    return response.data.map((item: any) => {
+      const organization = item.organization || item;
+      return {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        type: organization.type,
+        status: organization.status,
+        role: item.role,
+        memberStatus: item.status,
+      };
+    });
+  },
+
+  async createOrganization(data: { name: string; type?: string }): Promise<ArchitectureOrganization> {
+    const response = await apiClient.post<any>('/api/organizations', {
+      name: data.name,
+      type: data.type || 'OFFICE',
+      moduleCode: 'ARCHITECTURE',
+    });
+    if (!response.success || !response.data) {
+      throw new Error(response.error || response.message || 'No se pudo crear el estudio arquitectónico.');
+    }
+
+    const createdOrg = response.data.organization || response.data;
+    const membership = response.data.membership;
+    return {
+      id: createdOrg.id,
+      name: createdOrg.name,
+      slug: createdOrg.slug,
+      type: createdOrg.type,
+      status: createdOrg.status,
+      role: membership?.role || 'OWNER',
+      memberStatus: membership?.status || 'ACTIVE',
+    };
+  },
+
+  async getOrganizationModules(organizationId: number): Promise<{ status: string; module: { code: string } }[]> {
+    const response = await apiClient.get<{ status: string; module: { code: string } }[]>(
+      `/api/organizations/${organizationId}/modules`
+    );
+    if (!response.success || !Array.isArray(response.data)) {
+      throw new Error(response.error || response.message || 'No se pudieron validar los módulos de la organización.');
+    }
+    return response.data;
+  },
+
   // --- CLIENTES ---
   async getClients(
     organizationId: number,
@@ -125,17 +191,42 @@ export const architectureApi = {
   },
 
   // --- ETAPAS ---
+  async createStage(
+    organizationId: number,
+    projectId: string | number,
+    data: { name: string; startDate?: string; dueDate?: string; notes?: string; progress?: number; status?: string }
+  ): Promise<Project> {
+    const res = await apiClient.post<Project>(
+      `/api/organizations/${organizationId}/architecture/projects/${projectId}/stages`,
+      data
+    );
+    if (!res.data) throw new Error(res.error || 'Error al crear la etapa del proyecto');
+    return res.data;
+  },
+
   async updateStage(
     organizationId: number,
     projectId: string | number,
     stageId: string | number,
-    data: { status?: string; progress?: number; startDate?: string; dueDate?: string; notes?: string }
+    data: { name?: string; status?: string; progress?: number; startDate?: string; dueDate?: string; notes?: string }
   ): Promise<Project> {
     const res = await apiClient.put<Project>(
       `/api/organizations/${organizationId}/architecture/projects/${projectId}/stages/${stageId}`,
       data
     );
     if (!res.data) throw new Error(res.error || 'Error al actualizar la etapa del proyecto');
+    return res.data;
+  },
+
+  async deleteStage(
+    organizationId: number,
+    projectId: string | number,
+    stageId: string | number
+  ): Promise<Project> {
+    const res = await apiClient.delete<Project>(
+      `/api/organizations/${organizationId}/architecture/projects/${projectId}/stages/${stageId}`
+    );
+    if (!res.data) throw new Error(res.error || 'Error al eliminar la etapa del proyecto');
     return res.data;
   },
 
@@ -474,6 +565,19 @@ export const architectureApi = {
       data
     );
     if (!res.data) throw new Error(res.error || 'Error al actualizar el presupuesto');
+    return res.data;
+  },
+
+  async updateBudgetWithItems(
+    organizationId: number,
+    budgetId: string | number,
+    data: Partial<Budget>
+  ): Promise<Budget> {
+    const res = await apiClient.put<Budget>(
+      `/api/organizations/${organizationId}/architecture/budgets/${budgetId}/commit`,
+      data
+    );
+    if (!res.data) throw new Error(res.error || 'Error al guardar presupuesto y rubros');
     return res.data;
   },
 

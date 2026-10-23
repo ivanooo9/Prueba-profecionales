@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import { ArchitectureService } from "../services/architecture.service";
+import { getArchitectureUserId } from "./architecture-auth";
+import { handleArchitectureError } from "./architecture-error";
+
+export { handleArchitectureError } from "./architecture-error";
 
 // Middleware Multer para subida de planos y documentos técnicos (hasta 50 MB)
 export const architectureUploadMiddleware = multer({
@@ -23,9 +27,18 @@ export class ArchitectureController {
     return null;
   }
 
-  private static getUserId(req: Request, res: Response): number {
-    const user = (req as any).user || res.locals.user;
-    return user?.id || 1;
+  public static async getAssignableOrganizationMembers(req: Request, res: Response) {
+    try {
+      const orgId = ArchitectureController.getOrgId(req, res);
+      if (!orgId) {
+        return res.status(400).json({ success: false, error: "Organización no identificada." });
+      }
+
+      const members = await ArchitectureService.listAssignableOrganizationMembers(orgId);
+      return res.status(200).json({ success: true, data: members });
+    } catch (error: any) {
+      return handleArchitectureError(res, error, "Error al obtener miembros asignables.");
+    }
   }
 
   private static extractFilePayload(req: Request): {
@@ -102,11 +115,7 @@ export class ArchitectureController {
         data: clients,
       });
     } catch (error: any) {
-      console.error("[ArchitectureController.getClients] Error:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Error al obtener clientes.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener clientes.");
     }
   }
 
@@ -125,12 +134,7 @@ export class ArchitectureController {
       const client = await ArchitectureService.getClientById(orgId, clientId);
       return res.status(200).json({ success: true, data: client });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al obtener el cliente.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener el cliente.");
     }
   }
 
@@ -141,7 +145,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const client = await ArchitectureService.createClient(orgId, userId, req.body);
 
       return res.status(201).json({
@@ -150,14 +155,7 @@ export class ArchitectureController {
         message: "Cliente creado exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("obligatorio") ||
-        error.message?.includes("Ya existe");
-      const status = isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al crear el cliente.",
-      });
+      return handleArchitectureError(res, error, "Error al crear el cliente.");
     }
   }
 
@@ -180,16 +178,7 @@ export class ArchitectureController {
         message: "Cliente actualizado exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("vacío") ||
-        error.message?.includes("Ya existe") ||
-        error.message?.includes("inválido");
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al actualizar el cliente.",
-      });
+      return handleArchitectureError(res, error, "Error al actualizar el cliente.");
     }
   }
 
@@ -212,12 +201,7 @@ export class ArchitectureController {
         message: "Cliente inactivado exitosamente.",
       });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al inactivar el cliente.",
-      });
+      return handleArchitectureError(res, error, "Error al inactivar el cliente.");
     }
   }
 
@@ -249,11 +233,7 @@ export class ArchitectureController {
         data: projects,
       });
     } catch (error: any) {
-      console.error("[ArchitectureController.getProjects] Error:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Error al obtener proyectos.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener proyectos.");
     }
   }
 
@@ -272,12 +252,7 @@ export class ArchitectureController {
       const project = await ArchitectureService.getProjectById(orgId, projectId);
       return res.status(200).json({ success: true, data: project });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al obtener el proyecto.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener el proyecto.");
     }
   }
 
@@ -288,7 +263,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const project = await ArchitectureService.createProject(orgId, userId, req.body);
 
       return res.status(201).json({
@@ -297,16 +273,7 @@ export class ArchitectureController {
         message: "Proyecto creado exitosamente con sus 6 etapas base.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("obligatorio") ||
-        error.message?.includes("no existe") ||
-        error.message?.includes("no autorizado") ||
-        error.message?.includes("no es un miembro activo");
-      const status = isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al crear el proyecto.",
-      });
+      return handleArchitectureError(res, error, "Error al crear el proyecto.");
     }
   }
 
@@ -329,16 +296,7 @@ export class ArchitectureController {
         message: "Proyecto actualizado exitosamente.",
       });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrado");
-      const isValidation =
-        error.message?.includes("archivado") ||
-        error.message?.includes("no autorizado") ||
-        error.message?.includes("obligatorio");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al actualizar el proyecto.",
-      });
+      return handleArchitectureError(res, error, "Error al actualizar el proyecto.");
     }
   }
 
@@ -354,7 +312,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "ID de proyecto inválido." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const archived = await ArchitectureService.archiveProject(
         orgId,
         projectId,
@@ -368,12 +327,7 @@ export class ArchitectureController {
         message: "Proyecto archivado exitosamente.",
       });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al archivar el proyecto.",
-      });
+      return handleArchitectureError(res, error, "Error al archivar el proyecto.");
     }
   }
 
@@ -396,18 +350,41 @@ export class ArchitectureController {
         message: "Proyecto restaurado exitosamente.",
       });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al restaurar el proyecto.",
-      });
+      return handleArchitectureError(res, error, "Error al restaurar el proyecto.");
     }
   }
 
   // -------------------------------------------------------------
   // ETAPAS (ArchitectureProjectStage)
   // -------------------------------------------------------------
+  public static async createStage(req: Request, res: Response) {
+    try {
+      const orgId = ArchitectureController.getOrgId(req, res);
+      if (!orgId) {
+        return res.status(400).json({ success: false, error: "Organización no identificada." });
+      }
+
+      const projectId = parseInt(String(req.params.projectId), 10);
+      if (isNaN(projectId) || projectId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de proyecto inválido." });
+      }
+
+      const updatedProject = await ArchitectureService.createStage(
+        orgId,
+        projectId,
+        req.body
+      );
+
+      return res.status(201).json({
+        success: true,
+        data: updatedProject,
+        message: "Etapa creada exitosamente.",
+      });
+    } catch (error: any) {
+      return handleArchitectureError(res, error, "Error al crear la etapa.");
+    }
+  }
+
   public static async updateStage(req: Request, res: Response) {
     try {
       const orgId = ArchitectureController.getOrgId(req, res);
@@ -434,13 +411,36 @@ export class ArchitectureController {
         message: "Etapa actualizada exitosamente.",
       });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrada") || error.message?.includes("no encontrado");
-      const isValidation = error.message?.includes("número entero entre 0 y 100");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al actualizar la etapa.",
+      return handleArchitectureError(res, error, "Error al actualizar la etapa.");
+    }
+  }
+
+  public static async deleteStage(req: Request, res: Response) {
+    try {
+      const orgId = ArchitectureController.getOrgId(req, res);
+      if (!orgId) {
+        return res.status(400).json({ success: false, error: "Organización no identificada." });
+      }
+
+      const projectId = parseInt(String(req.params.projectId), 10);
+      const stageId = parseInt(String(req.params.stageId), 10);
+      if (isNaN(projectId) || isNaN(stageId) || projectId <= 0 || stageId <= 0) {
+        return res.status(400).json({ success: false, error: "IDs de proyecto o etapa inválidos." });
+      }
+
+      const updatedProject = await ArchitectureService.deleteStage(
+        orgId,
+        projectId,
+        stageId
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: updatedProject,
+        message: "Etapa eliminada exitosamente.",
       });
+    } catch (error: any) {
+      return handleArchitectureError(res, error, "Error al eliminar la etapa.");
     }
   }
 
@@ -468,11 +468,7 @@ export class ArchitectureController {
 
       return res.status(200).json({ success: true, data: tasks });
     } catch (error: any) {
-      console.error("[ArchitectureController.getTasks] Error:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Error al obtener tareas.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener tareas.");
     }
   }
 
@@ -491,12 +487,7 @@ export class ArchitectureController {
       const task = await ArchitectureService.getTaskById(orgId, taskId);
       return res.status(200).json({ success: true, data: task });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrada");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al obtener la tarea.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener la tarea.");
     }
   }
 
@@ -507,7 +498,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const projectId = req.params.projectId ? parseInt(String(req.params.projectId), 10) : req.body.projectId;
 
       const task = await ArchitectureService.createTask(orgId, userId, {
@@ -521,19 +513,7 @@ export class ArchitectureController {
         message: "Tarea creada exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("obligatorio") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("inválido") ||
-        error.message?.includes("no pertenece") ||
-        error.message?.includes("no existe") ||
-        error.message?.includes("no es un miembro activo");
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al crear la tarea.",
-      });
+      return handleArchitectureError(res, error, "Error al crear la tarea.");
     }
   }
 
@@ -556,19 +536,7 @@ export class ArchitectureController {
         message: "Tarea actualizada exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("vacío") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("inválido") ||
-        error.message?.includes("no pertenece") ||
-        error.message?.includes("no existe") ||
-        error.message?.includes("no es un miembro activo");
-      const isNotFound = error.message?.includes("no encontrada");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al actualizar la tarea.",
-      });
+      return handleArchitectureError(res, error, "Error al actualizar la tarea.");
     }
   }
 
@@ -591,13 +559,7 @@ export class ArchitectureController {
         message: "Estado de tarea actualizado exitosamente.",
       });
     } catch (error: any) {
-      const isValidation = error.message?.includes("archivado");
-      const isNotFound = error.message?.includes("no encontrada");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al cambiar estado de la tarea.",
-      });
+      return handleArchitectureError(res, error, "Error al cambiar estado de la tarea.");
     }
   }
 
@@ -626,11 +588,7 @@ export class ArchitectureController {
 
       return res.status(200).json({ success: true, data: deliverables });
     } catch (error: any) {
-      console.error("[ArchitectureController.getDeliverables] Error:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Error al obtener entregables.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener entregables.");
     }
   }
 
@@ -649,12 +607,7 @@ export class ArchitectureController {
       const deliverable = await ArchitectureService.getDeliverableById(orgId, deliverableId);
       return res.status(200).json({ success: true, data: deliverable });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al obtener el entregable.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener el entregable.");
     }
   }
 
@@ -665,7 +618,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const projectId = req.params.projectId ? parseInt(String(req.params.projectId), 10) : req.body.projectId;
 
       const deliverable = await ArchitectureService.createDeliverable(orgId, userId, {
@@ -679,19 +633,7 @@ export class ArchitectureController {
         message: "Entregable registrado exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("obligatorio") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("inválido") ||
-        error.message?.includes("no pertenece") ||
-        error.message?.includes("no existe") ||
-        error.message?.includes("no es un miembro activo");
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al registrar el entregable.",
-      });
+      return handleArchitectureError(res, error, "Error al registrar el entregable.");
     }
   }
 
@@ -714,19 +656,7 @@ export class ArchitectureController {
         message: "Entregable actualizado exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("vacío") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("inválido") ||
-        error.message?.includes("no pertenece") ||
-        error.message?.includes("no existe") ||
-        error.message?.includes("no es un miembro activo");
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al actualizar el entregable.",
-      });
+      return handleArchitectureError(res, error, "Error al actualizar el entregable.");
     }
   }
 
@@ -754,11 +684,7 @@ export class ArchitectureController {
 
       return res.status(200).json({ success: true, data: meetings });
     } catch (error: any) {
-      console.error("[ArchitectureController.getMeetings] Error:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Error al obtener reuniones.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener reuniones.");
     }
   }
 
@@ -777,12 +703,7 @@ export class ArchitectureController {
       const meeting = await ArchitectureService.getMeetingById(orgId, meetingId);
       return res.status(200).json({ success: true, data: meeting });
     } catch (error: any) {
-      const isNotFound = error.message?.includes("no encontrada");
-      const status = isNotFound ? 404 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al obtener la reunión.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener la reunión.");
     }
   }
 
@@ -793,7 +714,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const projectId = req.params.projectId ? parseInt(String(req.params.projectId), 10) : req.body.projectId;
 
       const meeting = await ArchitectureService.createMeeting(orgId, userId, {
@@ -807,19 +729,7 @@ export class ArchitectureController {
         message: "Reunión agendada exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("obligatorio") ||
-        error.message?.includes("obligatoria") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("inválido") ||
-        error.message?.includes("no está autorizado") ||
-        error.message?.includes("no es un miembro activo");
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al agendar la reunión.",
-      });
+      return handleArchitectureError(res, error, "Error al agendar la reunión.");
     }
   }
 
@@ -842,18 +752,7 @@ export class ArchitectureController {
         message: "Reunión actualizada exitosamente.",
       });
     } catch (error: any) {
-      const isValidation =
-        error.message?.includes("vacío") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("inválido") ||
-        error.message?.includes("no está autorizado") ||
-        error.message?.includes("no es un miembro activo");
-      const isNotFound = error.message?.includes("no encontrada");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al actualizar la reunión.",
-      });
+      return handleArchitectureError(res, error, "Error al actualizar la reunión.");
     }
   }
 
@@ -888,11 +787,7 @@ export class ArchitectureController {
 
       return res.status(200).json({ success: true, data: documents });
     } catch (error: any) {
-      console.error("[ArchitectureController.getDocuments] Error:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Error al obtener documentos.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener documentos.");
     }
   }
 
@@ -911,12 +806,7 @@ export class ArchitectureController {
       const doc = await ArchitectureService.getDocumentById(orgId, documentId);
       return res.status(200).json({ success: true, data: doc });
     } catch (error: any) {
-      console.error("[ArchitectureController.getDocumentById] Error:", error);
-      const isNotFound = error.message?.includes("no encontrado");
-      return res.status(isNotFound ? 404 : 500).json({
-        success: false,
-        error: error.message || "Error al obtener el documento.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener el documento.");
     }
   }
 
@@ -927,7 +817,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
 
       const projectId = req.params.projectId
         ? parseInt(String(req.params.projectId), 10)
@@ -973,20 +864,7 @@ export class ArchitectureController {
         message: "Documento creado exitosamente.",
       });
     } catch (error: any) {
-      console.error("[ArchitectureController.createDocument] Error:", error);
-      const isValidation =
-        error.message?.includes("obligatorio") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("no pertenece") ||
-        error.message?.includes("permitido") ||
-        error.message?.includes("excede el tamaño") ||
-        error.message?.includes("vacío");
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al crear el documento.",
-      });
+      return handleArchitectureError(res, error, "Error al crear el documento.");
     }
   }
 
@@ -1023,17 +901,7 @@ export class ArchitectureController {
         message: "Documento actualizado exitosamente.",
       });
     } catch (error: any) {
-      console.error("[ArchitectureController.updateDocument] Error:", error);
-      const isValidation =
-        error.message?.includes("vacío") ||
-        error.message?.includes("archivado") ||
-        error.message?.includes("no pertenece");
-      const isNotFound = error.message?.includes("no encontrado");
-      const status = isNotFound ? 404 : isValidation ? 400 : 500;
-      return res.status(status).json({
-        success: false,
-        error: error.message || "Error al actualizar el documento.",
-      });
+      return handleArchitectureError(res, error, "Error al actualizar el documento.");
     }
   }
 
@@ -1044,7 +912,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
 
       const documentId = parseInt(String(req.params.documentId || req.params.id), 10);
       if (isNaN(documentId) || documentId <= 0) {
@@ -1119,12 +988,7 @@ export class ArchitectureController {
       const versions = await ArchitectureService.listDocumentVersions(orgId, documentId);
       return res.status(200).json({ success: true, data: versions });
     } catch (error: any) {
-      console.error("[ArchitectureController.getDocumentVersions] Error:", error);
-      const isNotFound = error.message?.includes("no encontrado");
-      return res.status(isNotFound ? 404 : 500).json({
-        success: false,
-        error: error.message || "Error al obtener versiones del documento.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener versiones del documento.");
     }
   }
 
@@ -1145,12 +1009,7 @@ export class ArchitectureController {
       const version = await ArchitectureService.getDocumentVersion(orgId, documentId, versionId);
       return res.status(200).json({ success: true, data: version });
     } catch (error: any) {
-      console.error("[ArchitectureController.getDocumentVersion] Error:", error);
-      const isNotFound = error.message?.includes("no encontrada");
-      return res.status(isNotFound ? 404 : 500).json({
-        success: false,
-        error: error.message || "Error al obtener la versión del documento.",
-      });
+      return handleArchitectureError(res, error, "Error al obtener la versión del documento.");
     }
   }
 
@@ -1188,13 +1047,7 @@ export class ArchitectureController {
 
       return res.status(200).send(fileInfo.buffer);
     } catch (error: any) {
-      console.error("[ArchitectureController.downloadDocumentVersion] Error:", error);
-      const isNotFound =
-        error.message?.includes("no encontrado") || error.message?.includes("no encontrada");
-      return res.status(isNotFound ? 404 : 403).json({
-        success: false,
-        error: error.message || "Error al descargar el archivo técnico.",
-      });
+      return handleArchitectureError(res, error, "Error al descargar el archivo técnico.");
     }
   }
 
@@ -1222,9 +1075,7 @@ export class ArchitectureController {
 
       return res.status(200).json({ success: true, data: budgets });
     } catch (error: any) {
-      console.error("[ArchitectureController.listBudgets] Error:", error);
-      const status = error.statusCode || 500;
-      return res.status(status).json({ success: false, error: error.message || "Error al listar presupuestos." });
+      return handleArchitectureError(res, error, "Error al listar presupuestos.");
     }
   }
 
@@ -1243,9 +1094,7 @@ export class ArchitectureController {
       const budget = await ArchitectureService.getBudgetById(orgId, budgetId);
       return res.status(200).json({ success: true, data: budget });
     } catch (error: any) {
-      console.error("[ArchitectureController.getBudgetById] Error:", error);
-      const status = error.statusCode || (error.message?.includes("no encontrad") ? 404 : 500);
-      return res.status(status).json({ success: false, error: error.message || "Error al obtener el presupuesto." });
+      return handleArchitectureError(res, error, "Error al obtener el presupuesto.");
     }
   }
 
@@ -1256,7 +1105,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const projectId = req.body.projectId || req.params.projectId
         ? parseInt(String(req.body.projectId || req.params.projectId), 10)
         : undefined;
@@ -1268,12 +1118,7 @@ export class ArchitectureController {
 
       return res.status(201).json({ success: true, data: budget });
     } catch (error: any) {
-      console.error("[ArchitectureController.createBudget] Error:", error);
-      const status = error.statusCode || (
-        error.message?.includes("archivado") || error.message?.includes("obligatorio") ? 400 :
-        error.message?.includes("Ya existe") ? 409 : 500
-      );
-      return res.status(status).json({ success: false, error: error.message || "Error al crear presupuesto." });
+      return handleArchitectureError(res, error, "Error al crear presupuesto.");
     }
   }
 
@@ -1284,7 +1129,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const budgetId = parseInt(String(req.params.budgetId || req.params.id), 10);
       if (isNaN(budgetId) || budgetId <= 0) {
         return res.status(400).json({ success: false, error: "ID de presupuesto inválido." });
@@ -1293,13 +1139,28 @@ export class ArchitectureController {
       const budget = await ArchitectureService.updateBudget(orgId, userId, budgetId, req.body);
       return res.status(200).json({ success: true, data: budget });
     } catch (error: any) {
-      console.error("[ArchitectureController.updateBudget] Error:", error);
-      const status = error.statusCode || (
-        error.message?.includes("no encontrad") ? 404 :
-        error.message?.includes("archivado") || error.message?.includes("vacío") ? 400 :
-        error.message?.includes("Ya existe") ? 409 : 500
-      );
-      return res.status(status).json({ success: false, error: error.message || "Error al actualizar presupuesto." });
+      return handleArchitectureError(res, error, "Error al actualizar presupuesto.");
+    }
+  }
+
+  public static async updateBudgetWithItems(req: Request, res: Response) {
+    try {
+      const orgId = ArchitectureController.getOrgId(req, res);
+      if (!orgId) {
+        return res.status(400).json({ success: false, error: "Organización no identificada." });
+      }
+
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
+      const budgetId = parseInt(String(req.params.budgetId || req.params.id), 10);
+      if (isNaN(budgetId) || budgetId <= 0) {
+        return res.status(400).json({ success: false, error: "ID de presupuesto inválido." });
+      }
+
+      const budget = await ArchitectureService.updateBudgetWithItems(orgId, userId, budgetId, req.body);
+      return res.status(200).json({ success: true, data: budget });
+    } catch (error: any) {
+      return handleArchitectureError(res, error, "Error al guardar presupuesto y rubros.");
     }
   }
 
@@ -1310,7 +1171,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const budgetId = parseInt(String(req.params.budgetId || req.params.id), 10);
       if (isNaN(budgetId) || budgetId <= 0) {
         return res.status(400).json({ success: false, error: "ID de presupuesto inválido." });
@@ -1319,13 +1181,7 @@ export class ArchitectureController {
       const budget = await ArchitectureService.approveBudget(orgId, userId, budgetId);
       return res.status(200).json({ success: true, data: budget });
     } catch (error: any) {
-      console.error("[ArchitectureController.approveBudget] Error:", error);
-      const status = error.statusCode || (
-        error.message?.includes("no encontrad") ? 404 :
-        error.message?.includes("archivado") ? 400 :
-        error.message?.includes("Ya existe") ? 409 : 500
-      );
-      return res.status(status).json({ success: false, error: error.message || "Error al aprobar presupuesto." });
+      return handleArchitectureError(res, error, "Error al aprobar presupuesto.");
     }
   }
 
@@ -1336,7 +1192,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const budgetId = parseInt(String(req.params.budgetId || req.params.id), 10);
       if (isNaN(budgetId) || budgetId <= 0) {
         return res.status(400).json({ success: false, error: "ID de presupuesto inválido." });
@@ -1345,12 +1202,7 @@ export class ArchitectureController {
       const item = await ArchitectureService.addBudgetItem(orgId, userId, budgetId, req.body);
       return res.status(201).json({ success: true, data: item });
     } catch (error: any) {
-      console.error("[ArchitectureController.addBudgetItem] Error:", error);
-      const status = error.statusCode || (
-        error.message?.includes("no encontrad") ? 404 :
-        error.message?.includes("archivado") || error.message?.includes("obligatori") || error.message?.includes("negativ") ? 400 : 500
-      );
-      return res.status(status).json({ success: false, error: error.message || "Error al agregar rubro al presupuesto." });
+      return handleArchitectureError(res, error, "Error al agregar rubro al presupuesto.");
     }
   }
 
@@ -1361,7 +1213,8 @@ export class ArchitectureController {
         return res.status(400).json({ success: false, error: "Organización no identificada." });
       }
 
-      const userId = ArchitectureController.getUserId(req, res);
+      const userId = getArchitectureUserId(req, res);
+      if (userId === null) return;
       const budgetId = parseInt(String(req.params.budgetId || req.params.id), 10);
       const itemId = parseInt(String(req.params.itemId), 10);
       if (isNaN(budgetId) || budgetId <= 0 || isNaN(itemId) || itemId <= 0) {
@@ -1371,12 +1224,7 @@ export class ArchitectureController {
       const item = await ArchitectureService.updateBudgetItem(orgId, userId, budgetId, itemId, req.body);
       return res.status(200).json({ success: true, data: item });
     } catch (error: any) {
-      console.error("[ArchitectureController.updateBudgetItem] Error:", error);
-      const status = error.statusCode || (
-        error.message?.includes("no encontrad") ? 404 :
-        error.message?.includes("archivado") || error.message?.includes("vací") || error.message?.includes("negativ") ? 400 : 500
-      );
-      return res.status(status).json({ success: false, error: error.message || "Error al actualizar rubro." });
+      return handleArchitectureError(res, error, "Error al actualizar rubro.");
     }
   }
 
@@ -1395,17 +1243,18 @@ export class ArchitectureController {
         : undefined;
       const startDate = req.query.startDate ? String(req.query.startDate) : undefined;
       const endDate = req.query.endDate ? String(req.query.endDate) : undefined;
+      const sourceType = req.query.sourceType ? (String(req.query.sourceType) as any) : undefined;
 
       const events = await ArchitectureService.getCalendarEvents(orgId, {
         startDate,
         endDate,
         projectId,
+        sourceType,
       });
 
       return res.status(200).json({ success: true, data: events });
     } catch (error: any) {
-      console.error("[ArchitectureController.getCalendarEvents] Error:", error);
-      return res.status(500).json({ success: false, error: error.message || "Error al obtener eventos de calendario." });
+      return handleArchitectureError(res, error, "Error al obtener eventos de calendario.");
     }
   }
 
@@ -1419,8 +1268,7 @@ export class ArchitectureController {
       const dashboard = await ArchitectureService.getDashboardData(orgId);
       return res.status(200).json({ success: true, data: dashboard });
     } catch (error: any) {
-      console.error("[ArchitectureController.getDashboardData] Error:", error);
-      return res.status(500).json({ success: false, error: error.message || "Error al obtener métricas del dashboard." });
+      return handleArchitectureError(res, error, "Error al obtener métricas del dashboard.");
     }
   }
 
@@ -1434,8 +1282,7 @@ export class ArchitectureController {
       const reports = await ArchitectureService.getReportsSummary(orgId);
       return res.status(200).json({ success: true, data: reports });
     } catch (error: any) {
-      console.error("[ArchitectureController.getReportsSummary] Error:", error);
-      return res.status(500).json({ success: false, error: error.message || "Error al obtener resumen de reportes." });
+      return handleArchitectureError(res, error, "Error al obtener resumen de reportes.");
     }
   }
 }

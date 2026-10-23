@@ -55,6 +55,13 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     return matchesSearch && matchesType && matchesStatus;
   });
 
+  const getBudgetLabel = (project: Project) => {
+    if (project.estimatedBudget !== null) {
+      return `$${project.estimatedBudget.toLocaleString()}`;
+    }
+    return project.financialStatus === 'ambiguous' ? 'Criterio pendiente' : 'Sin presupuesto';
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Filter and Action Bar */}
@@ -189,7 +196,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               <div className="px-5 py-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs">
                 <div className="font-mono">
                   <span className="text-[10px] text-slate-400 block uppercase">Presupuesto</span>
-                  <span className="font-bold text-slate-800">${proj.estimatedBudget.toLocaleString()}</span>
+                  <span className="font-bold text-slate-800">{getBudgetLabel(proj)}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -258,7 +265,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       <ProgressBar progress={p.progress} size="sm" />
                     </td>
                     <td className="py-3 px-4 font-mono font-semibold text-slate-800">
-                      ${p.estimatedBudget.toLocaleString()}
+                      {getBudgetLabel(p)}
                     </td>
                     <td className="py-3 px-4 text-right space-x-2">
                       <button

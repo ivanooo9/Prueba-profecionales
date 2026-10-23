@@ -661,6 +661,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         {/* ==================================================================== */}
         {!isLoading && activeReport === 'grades' && gradeData && (
           <div className="space-y-6">
+            {/* Banner de estado de provisionalidad */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-700">Estado del Reporte:</span>
+                {gradeData.summary.finalityStatus === 'FINAL' ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Definitivo · Periodo Cerrado
+                  </span>
+                ) : gradeData.summary.finalityStatus === 'UNDETERMINED' ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                    Histórico · Estado final no determinado
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    Provisional · Periodo en Curso / Notas Pendientes
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-400">
+                {gradeData.summary.isProvisional ? 'Cálculos sujetos a variación hasta el cierre formal del periodo.' : 'Calificaciones y promedios consolidados formalmente.'}
+              </span>
+            </div>
+
             {/* Métricas de calificaciones */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
@@ -703,12 +726,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     ))}
                     <th className="py-2.5 px-3 text-right bg-slate-100 font-mono">Promedio</th>
                     <th className="py-2.5 px-3 text-right bg-indigo-50 text-indigo-800 font-mono">% Rend.</th>
+                    <th className="py-2.5 px-3 text-center bg-slate-50 text-slate-700">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {gradeData.students.length === 0 ? (
                     <tr>
-                      <td colSpan={gradeData.activities.length + 3} className="py-6 text-center text-slate-400 italic">
+                      <td colSpan={gradeData.activities.length + 4} className="py-6 text-center text-slate-400 italic">
                         No hay estudiantes o actividades registradas para este curso.
                       </td>
                     </tr>
@@ -739,6 +763,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold bg-indigo-50/50 text-indigo-700">
                           {st.normalizedPerformance !== null ? `${st.normalizedPerformance}%` : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          {st.finalityStatus === 'FINAL' ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Final
+                            </span>
+                          ) : st.finalityStatus === 'UNDETERMINED' ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                              Histórico
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                              Provisional
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -816,9 +855,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
               {/* Bloque Rendimiento Académico */}
               <div className="p-4 rounded-xl border border-slate-200 space-y-3">
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4 text-purple-600" /> Rendimiento Académico
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-purple-600" /> Rendimiento Académico
+                  </h4>
+                  {studentData.grades.summary.finalityStatus === 'FINAL' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      Final
+                    </span>
+                  ) : studentData.grades.summary.finalityStatus === 'UNDETERMINED' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                      Histórico
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      Provisional
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-600">Promedio General:</span>
                   <span className="font-bold font-mono text-purple-700 text-sm">
@@ -850,13 +904,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       <th className="py-2 px-3">Materia</th>
                       <th className="py-2 px-3">Fecha</th>
                       <th className="py-2 px-3 text-center">Puntaje Obtenido</th>
+                      <th className="py-2 px-3 text-center">Estado</th>
                       <th className="py-2 px-3">Observaciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {studentData.grades.history.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-6 text-center text-slate-400 italic">
+                        <td colSpan={6} className="py-6 text-center text-slate-400 italic">
                           No existen calificaciones registradas para este estudiante.
                         </td>
                       </tr>
@@ -867,10 +922,31 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                           <td className="py-2 px-3 text-slate-600">{g.subjectName}</td>
                           <td className="py-2 px-3 text-slate-500 font-mono text-[11px]">{g.gradedAt || '—'}</td>
                           <td className="py-2 px-3 text-center font-mono font-bold">
-                            <span className={g.score >= 7.0 ? 'text-emerald-700' : 'text-rose-600'}>
-                              {g.score.toFixed(1)}
-                            </span>
-                            <span className="text-slate-400 font-normal"> / {g.maxScore}</span>
+                            {g.score !== null ? (
+                              <>
+                                <span className={g.score >= 7.0 ? 'text-emerald-700' : 'text-rose-600'}>
+                                  {g.score.toFixed(1)}
+                                </span>
+                                <span className="text-slate-400 font-normal"> / {g.maxScore}</span>
+                              </>
+                            ) : (
+                              <span className="text-slate-400 font-normal">Sin calificar</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            {g.finalityStatus === 'FINAL' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                Final
+                              </span>
+                            ) : g.finalityStatus === 'UNDETERMINED' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                                Histórico
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                Provisional
+                              </span>
+                            )}
                           </td>
                           <td className="py-2 px-3 text-slate-500 text-[11px]">{g.comments || '—'}</td>
                         </tr>

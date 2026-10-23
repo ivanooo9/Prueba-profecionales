@@ -9,13 +9,14 @@ import {
   Compass,
   ArrowRight
 } from 'lucide-react';
-import type { Project, Task, Deliverable, Meeting } from '../types';
+import type { Project, Task, Deliverable, Meeting, DashboardData } from '../types';
 
 interface DashboardViewProps {
   projects?: Project[];
   tasks?: Task[];
   deliverables?: Deliverable[];
   meetings?: Meeting[];
+  dashboardData?: DashboardData | null;
   onSelectProject?: (project: Project) => void;
   onNavigateToProjects?: () => void;
   onNavigateToAgenda?: () => void;
@@ -30,6 +31,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   tasks = [],
   deliverables = [],
   meetings = [],
+  dashboardData = null,
   onSelectProject = () => { },
   onNavigateToProjects = () => { },
   onNavigateToAgenda = () => { },
@@ -38,48 +40,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenNewTask = () => { },
   onOpenNewMeeting = () => { },
 }) => {
-  // Proyectos activos seguros
+  // Proyectos activos canónicos (excluye Archivados, Cancelados, Entregados y con archivedAt)
   const activeProjects = (projects || []).filter(p => {
     if (!p || !p.status) return false;
-    const s = String(p.status).toLowerCase();
-    return s.includes('progreso') || s.includes('activo') || s.includes('revision') || s.includes('diseno') || s.includes('progress');
+    const s = p.status;
+    return s !== 'Archivado' && s !== 'Cancelado' && s !== 'Entregado' && !p.archivedAt;
   });
 
   // Tareas prioritarias seguras
   const urgentTasks = (tasks || []).filter(t => {
     if (!t || !t.priority) return false;
     const pr = String(t.priority).toLowerCase();
-    return pr.includes('urgente') || pr.includes('alta') || pr.includes('high');
+    return (pr.includes('urgente') || pr.includes('alta') || pr.includes('high')) && !isTaskCompleted(t);
   });
+
+  const urgentTasksCount = dashboardData?.metrics?.urgentTasksCount ?? urgentTasks.length;
+  const upcomingMeetingsCount = dashboardData?.metrics?.upcomingMeetingsCount ?? (meetings || []).length;
+  const activeProjectsCount = dashboardData?.metrics?.activeProjectsCount ?? activeProjects.length;
 
   const upcomingMeetings = (meetings || []).slice(0, 3);
 
-  const isTaskCompleted = (t: Task): boolean => {
+  function isTaskCompleted(t: Task): boolean {
     if (!t || !t.status) return false;
     const s = String(t.status).toLowerCase();
     return s === 'completada' || s === 'completed' || s === 'finalizada' || s === 'done';
-  };
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
 
       {/* 1. ALERTA DE TAREAS URGENTES */}
-      {urgentTasks.length > 0 && urgentTasks[0] && (
+      {urgentTasksCount > 0 && (urgentTasks[0] || dashboardData?.urgentTasks?.[0]) && (
         <section className="bg-rose-50/80 border-2 border-rose-300 rounded-2xl p-5 sm:p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-rose-700">
                 <AlertTriangle className="w-5 h-5 animate-pulse shrink-0" />
                 <span className="text-xs font-black uppercase tracking-wider font-mono">
-                  Atención Prioritaria ({urgentTasks.length} Tareas Críticas)
+                  Atención Prioritaria ({urgentTasksCount} Tareas Críticas)
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                {urgentTasks[0].title}
+                {dashboardData?.urgentTasks?.[0]?.title || urgentTasks[0]?.title}
               </h2>
               <p className="text-xs text-slate-600">
-                Proyecto vinculante: <strong className="text-slate-900">{urgentTasks[0].projectName || 'En Taller'}</strong> · Vence:{' '}
-                <span className="font-semibold text-rose-700">{urgentTasks[0].dueDate || 'Próximamente'}</span>
+                Proyecto vinculante: <strong className="text-slate-900">{dashboardData?.urgentTasks?.[0]?.projectName || urgentTasks[0]?.projectName || 'En Taller'}</strong> · Vence:{' '}
+                <span className="font-semibold text-rose-700">{dashboardData?.urgentTasks?.[0]?.dueDate || urgentTasks[0]?.dueDate || 'Próximamente'}</span>
               </p>
             </div>
 
@@ -107,7 +113,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xl font-bold text-slate-900">{urgentTasks.length} Urgentes</div>
+              <div className="text-xl font-bold text-slate-900">{urgentTasksCount} Urgentes</div>
               <div className="text-xs text-slate-500">Correcciones y entregas</div>
             </div>
           </div>
@@ -123,7 +129,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xl font-bold text-slate-900">{(meetings || []).length} Citas</div>
+              <div className="text-xl font-bold text-slate-900">{upcomingMeetingsCount} Citas</div>
               <div className="text-xs text-slate-500">Reuniones y visitas de obra</div>
             </div>
           </div>
@@ -139,13 +145,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Compass className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xl font-bold text-slate-900">{activeProjects.length} Activos</div>
+              <div className="text-xl font-bold text-slate-900">{activeProjectsCount} Activos</div>
               <div className="text-xs text-slate-500">Proyectos en diseño / obra</div>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </div>
       </div>
+
+      <section aria-label="Resumen financiero" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-500">Presupuesto estimado</p>
+            <p className="text-xl font-bold font-mono text-slate-900">
+              {dashboardData ? `$${dashboardData.budgetSummary.totalEstimated.toLocaleString()} USD` : '—'}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-semibold text-emerald-700">Aprobado</p>
+            <p className="text-lg font-bold font-mono text-emerald-700">
+              {dashboardData ? `$${dashboardData.budgetSummary.totalApproved.toLocaleString()} USD` : '—'}
+            </p>
+          </div>
+        </div>
+        {dashboardData?.budgetSummary.ambiguousProjectsCount ? (
+          <div role="status" className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs text-amber-900">
+            {dashboardData.budgetSummary.ambiguousProjectsCount} proyecto(s) tienen varios presupuestos sin criterio principal; no se incluyen en el estimado.
+          </div>
+        ) : (
+          <div className="bg-white border border-slate-200 p-4 rounded-xl text-xs text-slate-500">
+            {dashboardData ? `${dashboardData.budgetSummary.estimatedProjectsCount} proyectos con importe estimado definido.` : 'Resumen financiero no disponible.'}
+          </div>
+        )}
+      </section>
 
       {/* 3. COLUMNAS PRINCIPALES */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -159,7 +191,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <h3 className="text-sm font-bold text-slate-900">Proyectos con Próxima Acción</h3>
               </div>
               <button onClick={onNavigateToProjects} className="text-xs font-semibold text-amber-600 hover:underline cursor-pointer">
-                Ver todos ({(projects || []).length}) →
+                Ver todos ({dashboardData?.metrics ? dashboardData.metrics.totalProjectsCount : (projects || []).length}) →
               </button>
             </div>
 

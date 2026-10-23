@@ -69,13 +69,19 @@ class LegalService {
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         const orgParam = urlParams.get('orgId') || urlParams.get('organizationId');
-        if (orgParam && !isNaN(Number(orgParam))) {
+        if (orgParam && !isNaN(Number(orgParam)) && Number(orgParam) > 0) {
           this.organizationId = Number(orgParam);
           localStorage.setItem(STORAGE_KEYS.ORG_ID, String(this.organizationId));
         } else {
           const stored = localStorage.getItem(STORAGE_KEYS.ORG_ID);
-          if (stored && !isNaN(Number(stored))) {
+          if (stored && !isNaN(Number(stored)) && Number(stored) > 0) {
             this.organizationId = Number(stored);
+          } else {
+            this.organizationId = null;
+            // Limpieza preventiva de valores corruptos ("null", "undefined", NaN, 0)
+            if (stored !== null) {
+              localStorage.removeItem(STORAGE_KEYS.ORG_ID);
+            }
           }
         }
       }
@@ -89,18 +95,29 @@ class LegalService {
   }
 
   public requireOrgId(): number {
-    if (!this.organizationId) {
+    if (!this.organizationId || isNaN(this.organizationId) || this.organizationId <= 0) {
+      console.error(
+        '[LegalService.requireOrgId] Intento de invocar operación sin un organizationId activo y válido:',
+        { currentOrgId: this.organizationId }
+      );
       throw new Error('No hay una organización activa seleccionada para el despacho jurídico.');
     }
     return this.organizationId;
   }
 
   public setOrganizationId(orgId: number) {
+    if (!orgId || isNaN(orgId) || orgId <= 0) {
+      console.warn('[LegalService.setOrganizationId] ID de organización inválido ignorado:', orgId);
+      return;
+    }
     this.organizationId = orgId;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(STORAGE_KEYS.ORG_ID, String(orgId));
     }
-    this.syncFromApi().catch(() => {});
+    this.notify();
+    this.syncFromApi().catch((err) => {
+      console.warn('[LegalService.setOrganizationId] Error en sincronización inicial:', err);
+    });
   }
 
   private loadState() {
@@ -424,6 +441,11 @@ class LegalService {
   public async addDeadline(
     deadlineData: Omit<ProceduralDeadline, 'id' | 'createdAt'>
   ): Promise<ProceduralDeadline> {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (deadlineData.dueDate && deadlineData.dueDate < todayStr) {
+      throw new Error('La fecha límite no puede ser anterior a hoy.');
+    }
+
     if (deadlineData.caseId && !isNaN(Number(deadlineData.caseId))) {
       try {
         const created = await legalApi.createCaseDeadline(
@@ -490,6 +512,11 @@ class LegalService {
   }
 
   public async addHearing(hearingData: Omit<Hearing, 'id' | 'createdAt'>): Promise<Hearing> {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (hearingData.date && hearingData.date < todayStr) {
+      throw new Error('La fecha de la audiencia no puede ser anterior a hoy.');
+    }
+
     if (hearingData.caseId && !isNaN(Number(hearingData.caseId))) {
       try {
         const created = await legalApi.createCaseHearing(
@@ -543,6 +570,11 @@ class LegalService {
   }
 
   public async addTask(taskData: Omit<LegalTask, 'id' | 'createdAt'>): Promise<LegalTask> {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (taskData.dueDate && taskData.dueDate < todayStr) {
+      throw new Error('La fecha límite no puede ser anterior a hoy.');
+    }
+
     if (taskData.caseId && !isNaN(Number(taskData.caseId))) {
       try {
         const created = await legalApi.createCaseTask(
@@ -978,15 +1010,24 @@ class LegalService {
     agreementId: string,
     paymentData: {
       amount: number;
-      method: string;
+      paymentMethod?: string;
+      method?: string;
       notes?: string;
       reference?: string;
       paidAt?: string;
+      idempotencyKey?: string;
     }
   ): Promise<LegalPayment> {
+    const canonicalMethod = (paymentData.paymentMethod || paymentData.method || 'TRANSFERENCIA').trim();
+    const payload = {
+      ...paymentData,
+      paymentMethod: canonicalMethod,
+      method: canonicalMethod,
+    };
+
     if (!isNaN(Number(caseId)) && !isNaN(Number(agreementId))) {
       try {
-        const res = await legalApi.recordPayment(this.organizationId, caseId, agreementId, paymentData);
+        const res = await legalApi.recordPayment(this.organizationId, caseId, agreementId, payload);
         await this.fetchCaseFeeAgreements(caseId);
         return (res as any)?.payment || res;
       } catch (err) {
@@ -1088,15 +1129,24 @@ class LegalService {
     return this.dashboardData;
   }
 
-  public async fetchDashboard(): Promise<LegalDashboardDTO> {
-    const data = await legalApi.getDashboard(this.organizationId);
+  public async fetchDashboard(): Promise<LegalDashboardDTO | null> {
+    const orgId = this.organizationId;
+    if (!orgId || isNaN(orgId) || orgId <= 0) {
+      this.dashboardData = null;
+      return null;
+    }
+    const data = await legalApi.getDashboard(orgId);
     this.dashboardData = data;
     this.notify();
     return data;
   }
 
-  public async fetchReports(filters?: { from?: string; to?: string }): Promise<LegalReportsDTO> {
-    return await legalApi.getReports(this.organizationId, filters);
+  public async fetchReports(filters?: { from?: string; to?: string }): Promise<LegalReportsDTO | null> {
+    const orgId = this.organizationId;
+    if (!orgId || isNaN(orgId) || orgId <= 0) {
+      return null;
+    }
+    return await legalApi.getReports(orgId, filters);
   }
 
   // --- CIERRE FORMAL Y ARCHIVADO (FASE 8) ---
@@ -1130,6 +1180,15 @@ class LegalService {
       this.saveState();
     }
     return res;
+  }
+
+  // --- MIEMBROS DE LA ORGANIZACIÓN ---
+  public async getMembers(): Promise<Array<{ id: number; userId: number; name: string; email: string; role: string }>> {
+    const orgId = this.organizationId;
+    if (!orgId || isNaN(orgId) || orgId <= 0) {
+      return [];
+    }
+    return await legalApi.getMembers(orgId);
   }
 }
 

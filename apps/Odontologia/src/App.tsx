@@ -15,6 +15,7 @@ import { TreatmentList } from './components/treatments/TreatmentList';
 import { BudgetList } from './components/budgets/BudgetList';
 import { DocumentList } from './components/documents/DocumentList';
 import { ReportsView } from './components/reports/ReportsView';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 const ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg
@@ -308,49 +309,51 @@ export function App() {
             </div>
           )}
 
-          {activeView === 'dashboard' && (
-            <DashboardView
-              onNavigate={handleChangeView}
-              onSelectPatient={handleSelectPatient}
-              onOpenNewPatient={() => {
-                setPatientToEdit(null);
-                setIsPatientModalOpen(true);
-              }}
-              onOpenNewAppointment={() => handleOpenNewAppointment()}
-              currentUser={currentUser}
-            />
-          )}
+          <ErrorBoundary key={activeView}>
+            {activeView === 'dashboard' && (
+              <DashboardView
+                onNavigate={handleChangeView}
+                onSelectPatient={handleSelectPatient}
+                onOpenNewPatient={() => {
+                  setPatientToEdit(null);
+                  setIsPatientModalOpen(true);
+                }}
+                onOpenNewAppointment={() => handleOpenNewAppointment()}
+                currentUser={currentUser}
+              />
+            )}
 
-          {activeView === 'patients' && (
-            <PatientList
-              onSelectPatient={handleSelectPatient}
-              onOpenNewPatientModal={() => {
-                setPatientToEdit(null);
-                setIsPatientModalOpen(true);
-              }}
-            />
-          )}
+            {activeView === 'patients' && (
+              <PatientList
+                onSelectPatient={handleSelectPatient}
+                onOpenNewPatientModal={() => {
+                  setPatientToEdit(null);
+                  setIsPatientModalOpen(true);
+                }}
+              />
+            )}
 
-          {activeView === 'patient-detail' && selectedPatientId && (
-            <PatientDetailView
-              patientId={selectedPatientId}
-              onBack={() => handleChangeView('patients')}
-              onOpenEditModal={handleOpenEditPatient}
-              onOpenNewAppointment={handleOpenNewAppointment}
-            />
-          )}
+            {activeView === 'patient-detail' && selectedPatientId && (
+              <PatientDetailView
+                patientId={selectedPatientId}
+                onBack={() => handleChangeView('patients')}
+                onOpenEditModal={handleOpenEditPatient}
+                onOpenNewAppointment={handleOpenNewAppointment}
+              />
+            )}
 
-          {activeView === 'agenda' && (
-            <AgendaView
-              onSelectPatient={handleSelectPatient}
-              onOpenNewAppointmentModal={() => handleOpenNewAppointment()}
-            />
-          )}
+            {activeView === 'agenda' && (
+              <AgendaView
+                onSelectPatient={handleSelectPatient}
+                onOpenNewAppointmentModal={() => handleOpenNewAppointment()}
+              />
+            )}
 
-          {activeView === 'treatments' && <TreatmentList onSelectPatient={handleSelectPatient} />}
-          {activeView === 'budgets' && <BudgetList onSelectPatient={handleSelectPatient} />}
-          {activeView === 'documents' && <DocumentList />}
-          {activeView === 'reports' && <ReportsView />}
+            {activeView === 'treatments' && <TreatmentList onSelectPatient={handleSelectPatient} />}
+            {activeView === 'budgets' && <BudgetList onSelectPatient={handleSelectPatient} />}
+            {activeView === 'documents' && <DocumentList />}
+            {activeView === 'reports' && <ReportsView />}
+          </ErrorBoundary>
         </main>
       </div>
 

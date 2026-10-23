@@ -51,7 +51,10 @@ export class LegalDocumentService {
     }
 
     // 1. Validar existencia y jerarquía del caso en la organización
-    await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    const legalCase = await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    if (legalCase.status === "Archivado") {
+      throw new Error("No se pueden crear nuevos documentos en un expediente que se encuentra archivado.");
+    }
 
     // 2. Guardar archivo físico en el almacenamiento privado seguro
     const storedFile = await LegalStorageService.saveFile(
@@ -132,7 +135,10 @@ export class LegalDocumentService {
     }
 
     // 1. Validar caso en la organización
-    await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    const legalCase = await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    if (legalCase.status === "Archivado") {
+      throw new Error("No se pueden añadir nuevas versiones documentales a un expediente que se encuentra archivado.");
+    }
 
     // 2. Validar que el documento existe y pertenece a este caso y organización
     const doc = await db.legalDocument.findFirst({
@@ -323,7 +329,10 @@ export class LegalDocumentService {
     documentId: number,
     data: UpdateDocumentInput
   ) {
-    await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    const legalCase = await LegalCaseOperationsService.getCaseInOrganization(organizationId, legalCaseId);
+    if (legalCase.status === "Archivado") {
+      throw new Error("No se pueden modificar documentos de un expediente que se encuentra archivado.");
+    }
 
     const doc = await db.legalDocument.findFirst({
       where: {
