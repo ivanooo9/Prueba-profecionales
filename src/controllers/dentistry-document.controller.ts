@@ -9,6 +9,36 @@ export const dentistryUploadMiddleware = multer({
   limits: {
     fileSize: 25 * 1024 * 1024,
   },
+  fileFilter: (_req, file, cb) => {
+    const ext = (file.originalname ? file.originalname.substring(file.originalname.lastIndexOf(".")) : "").toLowerCase();
+    const disallowed = [
+      ".exe",
+      ".bat",
+      ".cmd",
+      ".sh",
+      ".bin",
+      ".msi",
+      ".dll",
+      ".com",
+      ".vbs",
+      ".ps1",
+      ".py",
+      ".js",
+      ".php",
+      ".cgi",
+      ".jar",
+      ".apk",
+      ".scr",
+    ];
+    if (disallowed.includes(ext)) {
+      return cb(
+        new Error(
+          `Tipo de archivo potencialmente inseguro no permitido en historia clínica (${ext}).`
+        )
+      );
+    }
+    cb(null, true);
+  },
 });
 
 export class DentistryDocumentController {
@@ -123,30 +153,56 @@ export class DentistryDocumentController {
         return res.status(400).json({ success: false, error: "ID de documento inválido." });
       }
 
-      const doc = await DentistryDocumentService.getDocumentById(org.id, documentId);
+      const doc = await DentistryDocumentService.getDocumentById(org.id, documentId).catch(() => null);
       if (!doc) {
-        return res.status(404).json({ success: false, error: "Documento no encontrado." });
+        return res.status(404).json({
+          success: false,
+          error: "Documento odontológico no encontrado.",
+          code: "DOCUMENT_NOT_FOUND",
+        });
       }
 
       const storageKey = doc.fileUrl;
-      const { buffer } = await DentistryStorageService.getFile(
-        org.id,
-        doc.patientId,
-        storageKey
-      );
+      const fileName = doc.fileName || `documento_${doc.id}.pdf`;
+      const mimeType = doc.mimeType || "application/octet-stream";
 
-      res.setHeader("Content-Type", doc.mimeType || "application/octet-stream");
+      let buffer: Buffer;
+      try {
+        const fileResult = await DentistryStorageService.getFile(
+          org.id,
+          doc.patientId,
+          storageKey
+        );
+        buffer = fileResult.buffer;
+      } catch (fileErr) {
+        return res.status(404).json({
+          success: false,
+          error: "El archivo físico no está disponible en el servidor.",
+          code: "FILE_NOT_FOUND",
+        });
+      }
+
+      // Cabeceras de seguridad privadas para historia clínica
+      res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Type", mimeType);
+
+      // RFC 5987 / RFC 6266 Content-Disposition sanitizado
+      const safeAsciiName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const encodedName = encodeURIComponent(fileName);
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(doc.fileName)}"`
+        `attachment; filename="${safeAsciiName}"; filename*=UTF-8''${encodedName}`
       );
       res.setHeader("Content-Length", buffer.length);
       return res.status(200).send(buffer);
     } catch (error: any) {
       console.error("[DentistryDocumentController.downloadDocument] Error:", error);
-      return res.status(404).json({
+      return res.status(500).json({
         success: false,
-        error: error.message || "Archivo no encontrado para descarga.",
+        error: error.message || "Error interno al procesar descarga de documento.",
       });
     }
   }
@@ -236,7 +292,7 @@ export class DentistryDocumentController {
 
   /**
    * DELETE /api/organizations/:id/dentistry/documents/:documentId
-   * Elimina una ficha de documento verificando aislamiento tenant y limpiando archivo físico.
+   * Elimina una ficha de documento verificando aislamiento tenant, permisos/autoría y limpiando archivo físico.
    */
   public static async deleteDocument(req: Request, res: Response) {
     try {
@@ -250,12 +306,56 @@ export class DentistryDocumentController {
         return res.status(400).json({ success: false, error: "ID de documento inválido." });
       }
 
+      const user = (req as any).user || res.locals.user;
+      const member = (req as any).organizationMember || res.locals.organizationMember;
+      const isGlobalAdmin = user?.role?.name === "ADMIN";
+      const orgRole = member?.role;
+
       const doc = await DentistryDocumentService.getDocumentById(org.id, documentId).catch(() => null);
+      if (!doc) {
+        return res.status(404).json({
+          success: false,
+          error: "Documento odontológico no encontrado o no pertenece a la organización.",
+          code: "DOCUMENT_NOT_FOUND",
+        });
+      }
+
+      // Control de acceso para eliminación: OWNER y ADMIN pueden eliminar; PROFESSIONAL solo sus propios documentos
+      const isManager = isGlobalAdmin || orgRole === "OWNER" || orgRole === "ADMIN";
+      if (!isManager) {
+        if (orgRole === "PROFESSIONAL") {
+          const authorId = doc.uploadedByUserId;
+          const currentUserId = user?.id ? parseInt(String(user.id), 10) : undefined;
+          if (authorId && currentUserId && authorId !== currentUserId) {
+            return res.status(403).json({
+              success: false,
+              error: "Acceso denegado: solo el profesional autor del documento o un administrador pueden eliminarlo.",
+            });
+          }
+        } else {
+          return res.status(403).json({
+            success: false,
+            error: "Acceso denegado: no cuenta con permisos suficientes para eliminar documentos clínicos.",
+          });
+        }
+      }
 
       const result = await DentistryDocumentService.deleteDocument(org.id, documentId);
 
       if (doc?.fileUrl) {
-        await DentistryStorageService.deleteFile(org.id, doc.patientId, doc.fileUrl).catch(() => {});
+        try {
+          await DentistryStorageService.deleteFile(org.id, doc.patientId, doc.fileUrl);
+        } catch (storageErr: any) {
+          console.error(
+            `[AUDIT_STORAGE_ORPHAN] Error al eliminar archivo físico para documento ID ${documentId} (org: ${org.id}, patient: ${doc.patientId}, storageKey: ${doc.fileUrl}):`,
+            storageErr?.message || storageErr
+          );
+          return res.status(200).json({
+            ...result,
+            warning:
+              "El registro clínico fue eliminado, pero ocurrió un error al remover el archivo físico del almacenamiento.",
+          });
+        }
       }
 
       return res.status(200).json(result);

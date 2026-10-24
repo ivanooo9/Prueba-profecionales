@@ -73,13 +73,18 @@ export class DentistryDocumentService {
       throw new Error("Paciente no encontrado en esta organización.");
     }
 
-    // 2. Validar expediente odontológico
-    const dentalRecord = await client.dentalRecord.findFirst({
+    // 2. Acción explícita de escritura: Si el paciente aún no tiene DentalRecord, lo crea atómicamente
+    let dentalRecord = await client.dentalRecord.findFirst({
       where: { patientId, organizationId },
     });
 
     if (!dentalRecord) {
-      throw new Error("Expediente odontológico no encontrado para el paciente.");
+      dentalRecord = await client.dentalRecord.create({
+        data: {
+          organizationId,
+          patientId,
+        },
+      });
     }
 
     // 3. Validaciones de vínculos clínicos opcionales

@@ -50,6 +50,18 @@ const requireFinancialRole = [
   requireOrganizationRole(["OWNER", "ADMIN", "PROFESSIONAL", "BILLING"]),
 ];
 
+// Middleware para lectura de metadatos de documentos clínicos (RBAC)
+const requireDocumentReadRole = [
+  ...requireDentistryModule,
+  requireOrganizationRole(["OWNER", "ADMIN", "PROFESSIONAL", "ASSISTANT", "SECRETARY"]),
+];
+
+// Middleware para descarga y subida de archivos clínicos (RBAC - excluye SECRETARY)
+const requireDocumentFileRole = [
+  ...requireDentistryModule,
+  requireOrganizationRole(["OWNER", "ADMIN", "PROFESSIONAL", "ASSISTANT"]),
+];
+
 // -------------------------------------------------------------
 // PACIENTES COMPARTIDOS (MÓDULO DENTISTRY)
 // Opera sobre la entidad central Patient (tabla "MedicalPatient")
@@ -385,43 +397,43 @@ router.post(
 // Listar documentos clínicos del paciente
 router.get(
   "/api/organizations/:id/dentistry/patients/:patientId/documents",
-  requireDentistryModule,
+  requireDocumentReadRole,
   DentistryDocumentController.listDocuments
 );
 
 // Listar todos los documentos de la organización odontológica
 router.get(
   "/api/organizations/:id/dentistry/documents",
-  requireDentistryModule,
+  requireDocumentReadRole,
   DentistryDocumentController.listDocuments
 );
 
 // Obtener detalle de un documento específico
 router.get(
   "/api/organizations/:id/dentistry/documents/:documentId",
-  requireDentistryModule,
+  requireDocumentReadRole,
   DentistryDocumentController.getDocumentById
 );
 
-// Descargar archivo físico de documento odontológico
+// Descargar archivo físico de documento odontológico (excluye SECRETARY)
 router.get(
   "/api/organizations/:id/dentistry/documents/:documentId/download",
-  requireDentistryModule,
+  requireDocumentFileRole,
   DentistryDocumentController.downloadDocument
 );
 
 // Registrar nueva ficha de documento para un paciente (soporta multipart con archivo físico y JSON)
 router.post(
   "/api/organizations/:id/dentistry/patients/:patientId/documents",
-  requireDentistryModule,
+  requireDocumentFileRole,
   dentistryUploadMiddleware.single("file"),
   DentistryDocumentController.createDocument
 );
 
-// Eliminar ficha de documento
+// Eliminar ficha de documento (requiere rol clínico y autoría)
 router.delete(
   "/api/organizations/:id/dentistry/documents/:documentId",
-  requireDentistryModule,
+  requireClinicalRole,
   DentistryDocumentController.deleteDocument
 );
 

@@ -54,9 +54,18 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const [activeTab, setActiveTab] = useState<PatientTab>('summary');
   const [sectionToEdit, setSectionToEdit] = useState<'personal' | 'anamnesis' | 'emergency' | null>(null);
   const [patientOverride, setPatientOverride] = useState<Patient | null>(null);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     setPatientOverride(null);
+  }, [patientId]);
+
+  // Suscribirse a cambios en dentalService para sincronización en tiempo real
+  useEffect(() => {
+    const unsubscribe = dentalService.subscribe(() => {
+      setTick(t => t + 1);
+    });
+    return unsubscribe;
   }, [patientId]);
 
   const patient = patientOverride?.id === patientId
@@ -67,11 +76,31 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const budgets = dentalService.getBudgetsByPatient(patientId);
   const evolutions = dentalService.getEvolution(patientId);
 
+  const allergyStatus = React.useMemo(() => {
+    if (!patient) return { type: 'unconfirmed' as const, text: 'No evaluadas' };
+    const clinicalHist = dentalService.getClinicalHistory(patientId);
+    const rawAllergies = (patient.anamnesis?.allergies || clinicalHist?.allergies || '').trim();
+
+    if (patient.medicalNotes) {
+      return { type: 'active' as const, text: patient.medicalNotes };
+    }
+    if (!rawAllergies) {
+      return { type: 'unconfirmed' as const, text: 'No evaluadas' };
+    }
+    if (/^(ningun[oa]|niega|sin alergia|no refiere|no presenta|negativ[oa]|no\b)/i.test(rawAllergies)) {
+      return { type: 'none' as const, text: 'Sin alergias conocidas' };
+    }
+    return {
+      type: 'active' as const,
+      text: rawAllergies.startsWith('Alergias') ? rawAllergies : `Alergias: ${rawAllergies}`
+    };
+  }, [patient, patientId]);
+
   if (!patient) {
     return (
       <div className="p-8 text-center text-slate-500">
         Paciente no encontrado.{' '}
-        <button onClick={onBack} className="text-cyan-600 font-bold underline">Volver</button>
+        <button onClick={onBack} className="text-cyan-600 font-bold underline cursor-pointer">Volver</button>
       </div>
     );
   }
@@ -137,78 +166,79 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   ];
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in text-left">
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" /> Volver a pacientes
       </button>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="flex items-center gap-4 min-w-0">
+      {/* Cabecera Compacta del Paciente */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3.5 min-w-0">
             {patient.avatarUrl ? (
               <img
                 src={patient.avatarUrl}
                 alt={`${patient.names} ${patient.surnames}`}
-                className="w-14 h-14 rounded-full object-cover border-2 border-cyan-500/20 shrink-0"
+                className="w-12 h-12 rounded-full object-cover border-2 border-cyan-500/20 shrink-0"
               />
             ) : (
-              <div className="w-14 h-14 rounded-full bg-cyan-600 text-white font-bold text-lg flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-full bg-cyan-600 text-white font-bold text-base flex items-center justify-center shrink-0">
                 {patient.names.charAt(0)}{patient.surnames.charAt(0)}
               </div>
             )}
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-bold text-slate-900 truncate">{patient.names} {patient.surnames}</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate leading-tight">
+                  {patient.names} {patient.surnames}
+                </h2>
                 <StatusBadge status={patient.status} />
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mt-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500 mt-1">
                 <span>{calculateAge(patient.birthDate) !== null ? `${calculateAge(patient.birthDate)} años` : 'Edad no disponible'}</span>
                 <span>·</span>
-                <span className="font-mono">CI {patient.identification}</span>
+                <span className="font-mono">CI: {patient.identification || 'S/N'}</span>
                 <span>·</span>
-                <span>{patient.phone}</span>
+                <span>{patient.phone || 'Sin teléfono'}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* Badge de Seguridad de Alergias */}
+            {allergyStatus.type === 'active' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-xs">
+                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="max-w-[240px] truncate">{allergyStatus.text}</span>
+              </span>
+            )}
+            {allergyStatus.type === 'none' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Sin alergias conocidas</span>
+              </span>
+            )}
+            {allergyStatus.type === 'unconfirmed' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Alergias: No evaluadas</span>
+              </span>
+            )}
+
             <button
               onClick={() => onOpenEditModal(patient.id)}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5" /> Editar
             </button>
           </div>
         </div>
-
-        {patient.medicalNotes ? (
-          <div className="mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 shadow-xs animate-fade-in">
-            <div className="p-1.5 bg-rose-100 text-rose-600 rounded-xl shrink-0 mt-0.5">
-              <ShieldAlert className="w-4 h-4 text-rose-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">Alerta Médica Crítica</span>
-                <span className="px-1.5 py-0.5 text-[9px] font-black uppercase rounded bg-rose-200 text-rose-800">Riesgo Clínico</span>
-              </div>
-              <p className="text-xs font-semibold text-rose-900 mt-0.5 break-words">{patient.medicalNotes}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-3 flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Sin alergias conocidas registradas</span>
-            </span>
-          </div>
-        )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-1.5 flex items-center gap-1 overflow-x-auto">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-1.5 flex items-center gap-1 overflow-x-auto">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

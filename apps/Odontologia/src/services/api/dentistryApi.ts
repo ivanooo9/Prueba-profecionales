@@ -755,6 +755,7 @@ export const dentistryApi = {
     const res = await apiClient.get<any[]>(endpoint);
     return (res.data || []).map((doc) => ({
       ...doc,
+      patientName: doc.patientName || doc.patient?.name || undefined,
       date: typeof doc.date === 'string' ? doc.date.split('T')[0] : new Date(doc.date).toISOString().split('T')[0],
     }));
   },
@@ -769,7 +770,12 @@ export const dentistryApi = {
     const res = await apiClient.get<any>(
       `/api/organizations/${organizationId}/dentistry/documents/${documentId}`
     );
-    return res.data || null;
+    if (!res.data) return null;
+    return {
+      ...res.data,
+      patientName: res.data.patientName || res.data.patient?.name || undefined,
+      date: typeof res.data.date === 'string' ? res.data.date.split('T')[0] : new Date(res.data.date).toISOString().split('T')[0],
+    };
   },
 
   /**
@@ -787,6 +793,7 @@ export const dentistryApi = {
     const doc = res.data!;
     return {
       ...doc,
+      patientName: doc.patientName || doc.patient?.name || undefined,
       date: typeof doc.date === 'string' ? doc.date.split('T')[0] : new Date(doc.date).toISOString().split('T')[0],
     };
   },

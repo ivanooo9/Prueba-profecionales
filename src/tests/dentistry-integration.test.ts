@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { validateEcuadorianId } from "../lib/ecuador-validators";
 import { derivePaymentStatus } from "../services/dentistry-budget.service";
+import { normalizeDocumentType, DentistryDocumentService } from "../services/dentistry-document.service";
 
 test("H-06: Validador de Cédula Ecuatoriana (Módulo 10 del Registro Civil)", async (t) => {
   await t.test("acepta cédulas válidas de diferentes provincias del Ecuador", () => {
@@ -62,6 +63,37 @@ test("H-01: Persistencia de Antecedentes Médicos y Alergias en OdontoCarePro", 
     assert.match(mockDentalRecordInput.allergies, /Penicilina/);
     assert.match(mockDentalRecordInput.medicalBackground, /Hipertensión/);
     assert.match(mockDentalRecordInput.currentMedication, /Losartán/);
+  });
+
+  await t.test("heurística clínica tri-state de alergias (activa vs confirmada ausente vs no evaluada)", () => {
+    const isNegative = (str: string) => /^(ningun[oa]|niega|sin alergia|no refiere|no presenta|negativ[oa]|no\b)/i.test(str.trim());
+    const classifyAllergies = (allergies?: string | null): "active" | "none" | "unconfirmed" => {
+      const clean = (allergies || "").trim();
+      if (!clean) return "unconfirmed";
+      if (isNegative(clean)) return "none";
+      return "active";
+    };
+
+    // Casos no evaluados (campo vacío o nulo nunca debe presumir ausencia de alergias)
+    assert.equal(classifyAllergies(null), "unconfirmed");
+    assert.equal(classifyAllergies(""), "unconfirmed");
+    assert.equal(classifyAllergies("   "), "unconfirmed");
+    assert.equal(classifyAllergies(undefined), "unconfirmed");
+
+    // Casos confirmados de ausencia de alergias
+    assert.equal(classifyAllergies("Ninguna"), "none");
+    assert.equal(classifyAllergies("ninguno"), "none");
+    assert.equal(classifyAllergies("Niega alergias a medicamentos"), "none");
+    assert.equal(classifyAllergies("Sin alergias conocidas"), "none");
+    assert.equal(classifyAllergies("No refiere alergias"), "none");
+    assert.equal(classifyAllergies("No presenta"), "none");
+    assert.equal(classifyAllergies("Negativo"), "none");
+
+    // Casos activos (riesgo médico)
+    assert.equal(classifyAllergies("Penicilina"), "active");
+    assert.equal(classifyAllergies("Lidocaína con epinefrina"), "active");
+    assert.equal(classifyAllergies("AINES, Ibuprofeno"), "active");
+    assert.equal(classifyAllergies("Látex"), "active");
   });
 });
 
@@ -136,5 +168,67 @@ test("H-09: Parametrización Segura de Advisory Locks", async (t) => {
     assert.equal(typeof lockKey, "number");
     assert.equal(Number.isInteger(lockKey), true);
     assert.equal(lockKey > 0, true);
+  });
+});
+
+test("H-10: Integridad y Normalización de Documentos Clínicos Odontológicos", async (t) => {
+  await t.test("normaliza tipos de documentos en español e inglés a canon canonical", () => {
+    assert.equal(normalizeDocumentType("Radiografía"), "RADIOGRAPHY");
+    assert.equal(normalizeDocumentType("radiografia"), "RADIOGRAPHY");
+    assert.equal(normalizeDocumentType("Fotografía"), "PHOTOGRAPHY");
+    assert.equal(normalizeDocumentType("Consentimiento"), "CONSENT");
+    assert.equal(normalizeDocumentType("Informe"), "REPORT");
+    assert.equal(normalizeDocumentType("Presupuesto"), "BUDGET_ATTACHMENT");
+    assert.equal(normalizeDocumentType("Otro"), "OTHER");
+    assert.equal(normalizeDocumentType("desconocido"), "OTHER");
+    assert.equal(normalizeDocumentType(null), "OTHER");
+  });
+
+  await t.test("createDocument inicializa atómicamente el DentalRecord si no existe", async () => {
+    let dentalRecordCreated = false;
+    let documentCreated = false;
+
+    const mockDb: any = {
+      patient: {
+        findFirst: async () => ({ id: 99, organizationId: 10 }),
+      },
+      dentalRecord: {
+        findFirst: async () => null, // No existía registro
+        create: async (args: any) => {
+          dentalRecordCreated = true;
+          return { id: 500, patientId: args.data.patientId, organizationId: args.data.organizationId };
+        },
+      },
+      dentalDocument: {
+        create: async (args: any) => {
+          documentCreated = true;
+          assert.equal(args.data.dentalRecordId, 500);
+          assert.equal(args.data.patientId, 99);
+          assert.equal(args.data.title, "Radiografía Panorámica");
+          assert.equal(args.data.type, "RADIOGRAPHY");
+          assert.equal(args.data.fileName, "panoramica.png");
+          assert.equal(args.data.mimeType, "image/png");
+          return { id: 101, ...args.data };
+        },
+      },
+    };
+
+    const doc = await DentistryDocumentService.createDocument(
+      10,
+      99,
+      {
+        title: "Radiografía Panorámica",
+        type: "Radiografía",
+        fileName: "panoramica.png",
+        mimeType: "image/png",
+        fileSize: 2048,
+      },
+      undefined,
+      mockDb
+    );
+
+    assert.equal(dentalRecordCreated, true);
+    assert.equal(documentCreated, true);
+    assert.equal(doc.id, 101);
   });
 });

@@ -117,20 +117,118 @@ export function validarRucEcuador(ruc: string): boolean {
   return false;
 }
 
+export type TipoDocumentoPaciente = 'CEDULA' | 'PASAPORTE';
+
+export interface ResultadoValidacionDocumento {
+  isValid: boolean;
+  error?: string;
+  normalized?: string;
+  tipo?: TipoDocumentoPaciente;
+}
+
+/**
+ * Validador con diagnóstico estructurado para documentos de identidad de pacientes.
+ * No asume que 10 dígitos es automáticamente cédula si el tipo declarado es pasaporte.
+ */
+export function validarDocumentoIdentidad(
+  tipo: TipoDocumentoPaciente | string | null | undefined,
+  valor: string | null | undefined
+): ResultadoValidacionDocumento {
+  if (!valor || typeof valor !== "string" || valor.trim() === "") {
+    return {
+      isValid: false,
+      error: "El número de identificación no puede estar vacío.",
+    };
+  }
+
+  const clean = valor.trim();
+
+  // Si el tipo no es especificado explícitamente, determinamos con precaución
+  if (!tipo) {
+    if (/[A-Za-z-]/.test(clean)) {
+      const validPass = validarPasaporte(clean);
+      return {
+        isValid: validPass,
+        error: validPass ? undefined : "El número de pasaporte debe contener entre 6 y 20 caracteres alfanuméricos válidos.",
+        normalized: clean.toUpperCase(),
+        tipo: 'PASAPORTE',
+      };
+    }
+    if (/^\d{10}$/.test(clean)) {
+      if (validarCedulaEcuador(clean)) {
+        return {
+          isValid: true,
+          normalized: clean,
+          tipo: 'CEDULA',
+        };
+      }
+      return {
+        isValid: false,
+        error: "La identificación de 10 dígitos no cumple con el algoritmo Módulo 10 del Registro Civil del Ecuador.",
+      };
+    }
+    return {
+      isValid: false,
+      error: "Tipo de documento no especificado y formato numérico irreconocible como cédula o pasaporte.",
+    };
+  }
+
+  const tipoNormalizado = String(tipo).toUpperCase().trim();
+
+  if (tipoNormalizado === 'CEDULA') {
+    if (!/^\d+$/.test(clean)) {
+      return {
+        isValid: false,
+        error: "La cédula ecuatoriana debe contener únicamente dígitos numéricos (0-9).",
+        tipo: 'CEDULA',
+      };
+    }
+    if (clean.length !== 10) {
+      return {
+        isValid: false,
+        error: `La cédula ecuatoriana debe tener exactamente 10 dígitos (se recibieron ${clean.length}).`,
+        tipo: 'CEDULA',
+      };
+    }
+    const esValida = validarCedulaEcuador(clean);
+    return {
+      isValid: esValida,
+      error: esValida
+        ? undefined
+        : "La identificación de 10 dígitos proporcionada no es una cédula ecuatoriana válida según el Registro Civil (cédula inválida según el Registro Civil: provincia o dígito verificador incorrecto).",
+      normalized: clean,
+      tipo: 'CEDULA',
+    };
+  }
+
+  if (tipoNormalizado === 'PASAPORTE') {
+    const normalizado = clean.toUpperCase();
+    const esValido = validarPasaporte(normalizado);
+    return {
+      isValid: esValido,
+      error: esValido
+        ? undefined
+        : "El número de pasaporte proporcionado no es válido (debe contener entre 6 y 20 caracteres alfanuméricos).",
+      normalized: normalizado,
+      tipo: 'PASAPORTE',
+    };
+  }
+
+  return {
+    isValid: false,
+    error: `Tipo de documento '${tipo}' no soportado para pacientes. Tipos permitidos: CEDULA, PASAPORTE.`,
+  };
+}
+
 /**
  * Validador unificado para documentos de identidad de pacientes.
  */
 export function validarDocumentoPaciente(
-  tipo: 'CEDULA' | 'PASAPORTE',
+  tipo: TipoDocumentoPaciente | string,
   valor: string
 ): boolean {
-  if (tipo === 'CEDULA') {
-    return validarCedulaEcuador(valor);
-  }
-  if (tipo === 'PASAPORTE') {
-    return validarPasaporte(valor);
-  }
-  return false;
+  return validarDocumentoIdentidad(tipo, valor).isValid;
 }
+
 
 

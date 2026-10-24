@@ -1,5 +1,6 @@
 import { Patient, PatientAnamnesis } from '../../types';
 import { ApiPatient, CreateDentistryPatientInput, UpdateDentistryPatientInput } from './dentistryApi';
+import { validarCedulaEcuador } from '../../utils/ecuadorValidators';
 
 /**
  * Heurística segura para extraer nombres y apellidos a partir del nombre completo canónico.
@@ -87,7 +88,7 @@ export function mapApiPatientToDentalPatient(api: ApiPatient): Patient {
     names,
     surnames,
     identification: api.idNumber || '',
-    idType: api.idNumber && /^\d{10}$/.test(api.idNumber) ? 'CEDULA' : 'PASAPORTE',
+    idType: api.idNumber && /^\d{10}$/.test(api.idNumber) && validarCedulaEcuador(api.idNumber) ? 'CEDULA' : 'PASAPORTE',
     birthDate: api.birthDate ? api.birthDate.split('T')[0] : '',
     gender: mappedGender,
     phone: api.phone || '',

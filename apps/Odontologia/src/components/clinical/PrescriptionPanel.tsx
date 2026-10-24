@@ -77,63 +77,80 @@ export const PrescriptionPanel: React.FC<PrescriptionPanelProps> = ({ patientId,
   };
 
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-cyan-600" />
-            {mode === 'history' ? 'Recetas anteriores' : 'Recetas'}
-          </h3>
-          {mode === 'treatment' && <p className="text-xs text-slate-500 mt-1">Recetas asociadas a la atención del paciente.</p>}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden text-left">
+      <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-700 shrink-0">
+            <FileText className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              {mode === 'history' ? '4. Historial de Recetas Emitidas' : 'Recetas'}
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              {mode === 'history'
+                ? 'Prescripciones farmacológicas emitidas previamente (Modo consulta)'
+                : 'Recetas asociadas a la atención del paciente.'}
+            </p>
+          </div>
         </div>
+
         {mode === 'treatment' && (
           <button
             type="button"
             onClick={() => openPrescription()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
           >
             <Plus className="w-3.5 h-3.5" /> Crear receta
           </button>
         )}
       </div>
 
-      {visiblePrescriptions.length > 0 ? (
-        <div className="divide-y divide-slate-100">
-          {visiblePrescriptions.map(prescription => (
-            <div key={prescription.id} className="py-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-slate-700">{prescription.id}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                    (prescription.status === 'issued' || prescription.status === 'ISSUED')
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : (prescription.status === 'cancelled' || prescription.status === 'CANCELLED')
-                        ? 'bg-rose-50 text-rose-700'
-                        : 'bg-amber-50 text-amber-700'
-                  }`}>
-                    {statusLabel[prescription.status] || prescription.status}
-                  </span>
+      <div className="p-4 sm:p-5">
+        {visiblePrescriptions.length > 0 ? (
+          <div className="divide-y divide-slate-100">
+            {visiblePrescriptions.map(prescription => (
+              <div key={prescription.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-slate-800">{prescription.id}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      (prescription.status === 'issued' || prescription.status === 'ISSUED')
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : (prescription.status === 'cancelled' || prescription.status === 'CANCELLED')
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {statusLabel[prescription.status] || prescription.status}
+                    </span>
+                    <span className="text-[11px] text-slate-400">·</span>
+                    <span className="text-[11px] text-slate-500">{formatDate(prescription.issuedAt || prescription.createdAt)}</span>
+                  </div>
+                  <div className="text-xs text-slate-700 mt-1 truncate font-medium">
+                    {prescription.medications.map(medication => medication.genericName || (medication as any).medicationName).filter(Boolean).join(', ') || 'Sin medicamentos agregados'}
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1">{formatDate(prescription.issuedAt || prescription.createdAt)}</div>
-                <div className="text-xs text-slate-800 mt-1 truncate">
-                  {prescription.medications.map(medication => medication.genericName || (medication as any).medicationName).filter(Boolean).join(', ') || 'Sin medicamentos agregados'}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => openPrescription(prescription)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 rounded-xl border border-cyan-100 transition-colors cursor-pointer shrink-0"
+                >
+                  <Eye className="w-3.5 h-3.5" /> {(prescription.status === 'draft' || prescription.status === 'DRAFT') ? 'Continuar' : 'Ver detalle'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => openPrescription(prescription)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 rounded-lg shrink-0"
-              >
-                <Eye className="w-3.5 h-3.5" /> {(prescription.status === 'draft' || prescription.status === 'DRAFT') ? 'Continuar' : 'Ver'}
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="py-3 text-xs text-slate-500">
-          {mode === 'history' ? 'No se han emitido recetas para este paciente.' : 'No se han emitido recetas en esta atención.'}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : (
+          <div className="p-3.5 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex items-center gap-2.5 text-xs text-slate-500">
+            <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+            <span>
+              {mode === 'history'
+                ? 'No se han emitido recetas farmacológicas para este paciente.'
+                : 'No se han emitido recetas en esta atención.'}
+            </span>
+          </div>
+        )}
+      </div>
 
       <PrescriptionModal
         isOpen={isModalOpen}

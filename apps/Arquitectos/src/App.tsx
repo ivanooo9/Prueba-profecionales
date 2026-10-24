@@ -87,6 +87,7 @@ export const App: React.FC = () => {
 
   const [defaultTaskProjectId, setDefaultTaskProjectId] = useState<string>();
   const [defaultMeetingProjectId, setDefaultMeetingProjectId] = useState<string>();
+  const [defaultMeetingDate, setDefaultMeetingDate] = useState<string>();
   const [defaultDeliverableProjectId, setDefaultDeliverableProjectId] = useState<string>();
   const [defaultDocumentProjectId, setDefaultDocumentProjectId] = useState<string>();
   const [defaultBudgetProjectId, setDefaultBudgetProjectId] = useState<string>();
@@ -276,9 +277,10 @@ export const App: React.FC = () => {
     setIsTaskModalOpen(true);
   };
 
-  const openNewMeeting = (projectId?: string | number) => {
+  const openNewMeeting = (projectId?: string | number, defaultDate?: string) => {
     setEditingMeeting(null);
     setDefaultMeetingProjectId(projectId !== undefined ? String(projectId) : undefined);
+    setDefaultMeetingDate(defaultDate);
     setIsMeetingModalOpen(true);
   };
 
@@ -479,12 +481,15 @@ export const App: React.FC = () => {
             <MeetingList
               meetings={meetings}
               projects={projects}
+              tasks={tasks}
+              deliverables={deliverables}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              onOpenCreateModal={() => openNewMeeting()}
+              onOpenCreateModal={(defaultDate) => openNewMeeting(undefined, defaultDate)}
               onEditMeeting={(meeting) => {
                 setEditingMeeting(meeting);
                 setDefaultMeetingProjectId(undefined);
+                setDefaultMeetingDate(undefined);
                 setIsMeetingModalOpen(true);
               }}
               onCancelMeeting={async (id) => {
@@ -567,11 +572,31 @@ export const App: React.FC = () => {
           )}
 
           {currentView === 'calendar' && (
-            <CalendarView
+            <MeetingList
+              meetings={meetings}
               projects={projects}
               tasks={tasks}
               deliverables={deliverables}
-              meetings={meetings}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              initialViewMode="calendar"
+              onOpenCreateModal={(defaultDate) => openNewMeeting(undefined, defaultDate)}
+              onEditMeeting={(meeting) => {
+                setEditingMeeting(meeting);
+                setDefaultMeetingProjectId(undefined);
+                setDefaultMeetingDate(undefined);
+                setIsMeetingModalOpen(true);
+              }}
+              onCancelMeeting={async (id) => {
+                if (confirm('¿Está seguro de cancelar esta reunión?')) {
+                  try {
+                    await architectureService.cancelMeeting(id);
+                    loadAllData();
+                  } catch (err: any) {
+                    alert(err?.message || 'Error al cancelar la reunión');
+                  }
+                }
+              }}
             />
           )}
 
@@ -667,11 +692,13 @@ export const App: React.FC = () => {
             setIsMeetingModalOpen(false);
             setEditingMeeting(null);
             setDefaultMeetingProjectId(undefined);
+            setDefaultMeetingDate(undefined);
           }}
           projects={projects}
           clients={clients}
           assignableUsers={assignableUsers}
           defaultProjectId={defaultMeetingProjectId}
+          defaultDate={defaultMeetingDate}
           initialData={editingMeeting}
           onSave={async (meeting) => {
             try {
@@ -679,6 +706,7 @@ export const App: React.FC = () => {
               setIsMeetingModalOpen(false);
               setEditingMeeting(null);
               setDefaultMeetingProjectId(undefined);
+              setDefaultMeetingDate(undefined);
               loadAllData();
             } catch (err: any) {
               alert(err?.message || 'Error al agendar la reunión');

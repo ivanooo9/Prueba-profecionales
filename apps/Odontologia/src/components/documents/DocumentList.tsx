@@ -13,6 +13,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
   const [documents, setDocuments] = useState<DocumentItem[]>(
     patientIdFilter ? dentalService.getDocumentsByPatient(patientIdFilter) : dentalService.getDocuments()
   );
+  const [patients, setPatients] = useState(dentalService.getPatients());
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(patientIdFilter || '');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [type, setType] = useState<DocumentType>('Radiografía');
@@ -23,10 +25,25 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
 
   useEffect(() => {
     dentalService.loadRealDocuments(patientIdFilter).catch(console.error);
+
+    const currentPatients = dentalService.getPatients();
+    setPatients(currentPatients);
+    if (!patientIdFilter && currentPatients.length === 0 && dentalService.getOrganizationId()) {
+      dentalService.loadPatients().then(pts => {
+        setPatients(pts);
+        if (pts.length > 0 && !selectedPatientId) {
+          setSelectedPatientId(pts[0].id);
+        }
+      }).catch(console.error);
+    } else if (!patientIdFilter && currentPatients.length > 0 && !selectedPatientId) {
+      setSelectedPatientId(currentPatients[0].id);
+    }
+
     const refresh = () => {
       setDocuments(
         patientIdFilter ? dentalService.getDocumentsByPatient(patientIdFilter) : dentalService.getDocuments()
       );
+      setPatients(dentalService.getPatients());
     };
     refresh();
     return dentalService.subscribe(refresh);
@@ -36,6 +53,17 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
     e.preventDefault();
     if (!title.trim() || isSubmitting) return;
 
+    const targetPatientId = patientIdFilter || selectedPatientId;
+    if (!targetPatientId) {
+      alert('Debe seleccionar un paciente para asociar el documento.');
+      return;
+    }
+
+    if (selectedFile && selectedFile.size > 25 * 1024 * 1024) {
+      alert('El archivo seleccionado excede el tamaño máximo permitido de 25 MB.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (selectedFile) {
@@ -44,18 +72,31 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
         formData.append('title', title.trim());
         formData.append('type', type);
         formData.append('date', new Date().toISOString().split('T')[0]);
+        formData.append('fileName', selectedFile.name);
+        formData.append('fileSize', String(selectedFile.size));
+        formData.append('mimeType', selectedFile.type || 'application/octet-stream');
         if (description.trim()) {
           formData.append('description', description.trim());
         }
-        await dentalService.createRealDocument(patientIdFilter || 'PAT-001', formData);
+        await dentalService.createRealDocument(targetPatientId, formData, {
+          file: selectedFile,
+          title: title.trim(),
+          type,
+          fileName: selectedFile.name,
+          fileSize: `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`,
+          mimeType: selectedFile.type || 'application/octet-stream',
+          description: description.trim() || undefined,
+          date: new Date().toISOString().split('T')[0],
+        });
       } else {
-        await dentalService.createRealDocument(patientIdFilter || 'PAT-001', {
+        await dentalService.createRealDocument(targetPatientId, {
           title: title.trim(),
           type,
           date: new Date().toISOString().split('T')[0],
           description: description.trim() || null,
           fileName: `${title.trim().replace(/\s+/g, '_')}.pdf`,
           fileSize: 1024,
+          mimeType: 'application/pdf',
         });
       }
 
@@ -63,6 +104,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
       setDescription('');
       setSelectedFile(null);
       setIsModalOpen(false);
+
+      // Refrescar documentos inmediatamente
+      await dentalService.loadRealDocuments(patientIdFilter);
+      setDocuments(
+        patientIdFilter ? dentalService.getDocumentsByPatient(patientIdFilter) : dentalService.getDocuments()
+      );
     } catch (err: any) {
       alert(err.message || 'Error al guardar el documento.');
     } finally {
@@ -77,7 +124,19 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = doc.fileName || `${doc.title.replace(/\s+/g, '_')}.pdf`;
+
+      // Respetar estrictamente el nombre y la extensión con la que se subió (jpg, png, pdf, etc.)
+      let downloadFileName = doc.fileName;
+      if (!downloadFileName) {
+        let ext = '.pdf';
+        if (blob.type.includes('png')) ext = '.png';
+        else if (blob.type.includes('jpeg') || blob.type.includes('jpg')) ext = '.jpg';
+        else if (blob.type.includes('webp')) ext = '.webp';
+        else if (blob.type.includes('text')) ext = '.txt';
+        downloadFileName = `${doc.title.replace(/\s+/g, '_')}${ext}`;
+      }
+
+      a.download = downloadFileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -159,6 +218,13 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
                   <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                     {formatDisplayType(doc.type)} · {doc.date} · {doc.fileSize ? (typeof doc.fileSize === 'number' ? `${(doc.fileSize / (1024 * 1024)).toFixed(1)} MB` : doc.fileSize) : '1.5 MB'}
                   </div>
+                  {!patientIdFilter && (doc.patientName || (doc as any).patient?.name) && (
+                    <div className="mt-1">
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-cyan-50 text-cyan-700 font-semibold border border-cyan-100">
+                        Paciente: {doc.patientName || (doc as any).patient?.name}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-xs text-slate-600 mt-1">{doc.description}</p>
                 </div>
               </div>
@@ -202,13 +268,40 @@ export const DocumentList: React.FC<DocumentListProps> = ({ patientIdFilter }) =
         maxWidth="md"
       >
         <form onSubmit={handleAddDocument} className="space-y-3">
+          {!patientIdFilter && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Paciente Asociado *</label>
+              <select
+                value={selectedPatientId}
+                onChange={(e) => setSelectedPatientId(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                required
+              >
+                <option value="">-- Seleccionar Paciente --</option>
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.names} {p.surnames} ({p.identification ? `CI: ${p.identification}` : 'Sin CI'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Archivo Digital (PDF, Imagen, Radiografía)</label>
             <input
               type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff,.tif,.dcm,.docx,.doc,.xlsx,.xls,.txt"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) {
+                  const maxBytes = 25 * 1024 * 1024;
+                  if (f.size > maxBytes) {
+                    alert(`El archivo seleccionado (${(f.size / (1024 * 1024)).toFixed(1)} MB) excede el tamaño máximo permitido de 25 MB.`);
+                    e.target.value = '';
+                    setSelectedFile(null);
+                    return;
+                  }
                   setSelectedFile(f);
                   if (!title.trim()) {
                     setTitle(f.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));

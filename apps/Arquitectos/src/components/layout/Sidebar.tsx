@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             {mainItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentView === item.id;
+              const isActive = currentView === item.id || (item.id === 'agenda' && currentView === 'calendar');
               return (
                 <button
                   key={item.id}

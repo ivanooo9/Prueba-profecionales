@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Patient, PatientAnamnesis } from '../../types';
 import { dentalService } from '../../services/dentalService';
-import { validarCedulaEcuador, validarPasaporte } from '../../utils/ecuadorValidators';
+import { validarCedulaEcuador, validarPasaporte, validarDocumentoIdentidad } from '../../utils/ecuadorValidators';
 import { ChevronDown, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 
 interface PatientFormModalProps {
@@ -121,19 +121,13 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
     if (!fullName.trim()) errs.fullName = 'El nombre completo es obligatorio';
     if (!identification.trim()) {
       errs.identification = docType === 'CEDULA' ? 'La cédula es obligatoria' : 'El pasaporte es obligatorio';
-    } else if (docType === 'CEDULA') {
-      if (!/^\d+$/.test(identification.trim())) {
-        errs.identification = 'La cédula debe contener solo números';
-      } else if (identification.trim().length !== 10) {
-        errs.identification = 'La cédula ecuatoriana debe tener exactamente 10 dígitos';
-      } else if (!validarCedulaEcuador(identification.trim())) {
-        errs.identification = 'Cédula inválida según el Registro Civil de Ecuador (dígito verificador incorrecto)';
-      }
-    } else if (docType === 'PASAPORTE') {
-      if (!validarPasaporte(identification.trim())) {
-        errs.identification = 'El pasaporte debe tener entre 6 y 20 caracteres alfanuméricos válidos';
+    } else {
+      const res = validarDocumentoIdentidad(docType, identification.trim());
+      if (!res.isValid) {
+        errs.identification = res.error || (docType === 'CEDULA' ? 'Cédula inválida' : 'Pasaporte inválido');
       }
     }
+
 
     if (!phone.trim()) {
       errs.phone = 'El teléfono es obligatorio';

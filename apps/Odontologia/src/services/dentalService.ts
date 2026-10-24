@@ -83,6 +83,9 @@ class DentalService {
   private allRealBudgets: DentalBudget[] = [];
   private realPrescriptions: Record<string, Prescription[]> = {};
   private realDocuments: Record<string, DocumentItem[]> = {};
+  private allRealDocuments: DocumentItem[] = [];
+  private hasLoadedAllRealDocuments = false;
+  private mockFileBlobs: Map<string, { blob: Blob; fileName: string; mimeType: string }> = new Map();
   private listeners: Set<Listener> = new Set();
 
   constructor() {
@@ -302,6 +305,11 @@ class DentalService {
             updatedAt: record.updatedAt ? record.updatedAt.split('T')[0] : new Date().toISOString().split('T')[0]
           };
           this.clinicalHistories[patientId] = loaded;
+          this.syncPatientClinicalData(patientId, {
+            allergies: record.allergies || '',
+            medicalBackground: record.medicalBackground || '',
+            currentMedication: record.currentMedication || '',
+          });
           this.notify();
           return loaded;
         } else {
@@ -324,6 +332,27 @@ class DentalService {
       }
     }
     return this.getClinicalHistory(patientId);
+  }
+
+  private syncPatientClinicalData(patientId: string, data: { allergies?: string; medicalBackground?: string; currentMedication?: string }) {
+    const patientIdx = this.patients.findIndex(p => p.id === patientId);
+    if (patientIdx !== -1) {
+      const rawAllergies = (data.allergies || '').trim();
+      let medicalNotes: string | undefined = undefined;
+      if (rawAllergies && !/^(ningun[oa]|niega|sin alergia|no refiere|no presenta|negativ[oa]|no\b)/i.test(rawAllergies)) {
+        medicalNotes = rawAllergies.startsWith('Alergias') ? rawAllergies : `Alergias: ${rawAllergies}`;
+      }
+      this.patients[patientIdx] = {
+        ...this.patients[patientIdx],
+        medicalNotes,
+        anamnesis: {
+          ...(this.patients[patientIdx].anamnesis || {}),
+          allergies: data.allergies !== undefined ? (data.allergies || undefined) : this.patients[patientIdx].anamnesis?.allergies,
+          currentMedications: data.currentMedication !== undefined ? (data.currentMedication || undefined) : this.patients[patientIdx].anamnesis?.currentMedications,
+          personalMedicalHistory: data.medicalBackground !== undefined ? (data.medicalBackground || undefined) : this.patients[patientIdx].anamnesis?.personalMedicalHistory,
+        }
+      };
+    }
   }
 
   public async updateClinicalHistory(patientId: string, history: Partial<ClinicalHistory>): Promise<ClinicalHistory> {
@@ -354,6 +383,11 @@ class DentalService {
           updatedAt: record.updatedAt ? record.updatedAt.split('T')[0] : new Date().toISOString().split('T')[0]
         };
         this.clinicalHistories[patientId] = updated;
+        this.syncPatientClinicalData(patientId, {
+          allergies: record.allergies || '',
+          medicalBackground: record.medicalBackground || '',
+          currentMedication: record.currentMedication || '',
+        });
         this.notify();
         return updated;
       } catch (err) {
@@ -370,6 +404,11 @@ class DentalService {
       updatedAt: new Date().toISOString().split('T')[0]
     };
     this.clinicalHistories[patientId] = updated;
+    this.syncPatientClinicalData(patientId, {
+      allergies: history.allergies,
+      medicalBackground: history.medicalBackground,
+      currentMedication: history.currentMedication,
+    });
     this.saveToStorage('odonto_histories', this.clinicalHistories);
     this.notify();
     return updated;
@@ -1226,19 +1265,31 @@ class DentalService {
       return patientId ? this.getDocumentsByPatient(patientId) : this.getDocuments();
     }
     try {
-      const docs = await dentistryApi.getDocuments(this.currentOrganizationId, patientId && !patientId.startsWith('PAT-') ? patientId : undefined);
+      const docs = await dentistryApi.getDocuments(
+        this.currentOrganizationId,
+        patientId && !patientId.startsWith('PAT-') ? patientId : undefined
+      );
       if (patientId) {
         this.realDocuments[patientId] = docs;
+      } else {
+        this.allRealDocuments = docs;
+        this.hasLoadedAllRealDocuments = true;
       }
       this.notify();
       return docs;
     } catch (err) {
       console.error('[dentalService.loadRealDocuments] Error:', err);
-      return patientId ? (this.realDocuments[patientId] || []) : this.documents;
+      if (patientId) {
+        return this.realDocuments[patientId] || [];
+      }
+      return this.hasLoadedAllRealDocuments ? this.allRealDocuments : this.documents;
     }
   }
 
   public getDocuments(): DocumentItem[] {
+    if (this.currentOrganizationId && this.hasLoadedAllRealDocuments) {
+      return [...this.allRealDocuments];
+    }
     return [...this.documents];
   }
 
@@ -1249,18 +1300,70 @@ class DentalService {
     return this.documents.filter(d => String(d.patientId) === String(patientId));
   }
 
-  public async createRealDocument(patientId: string, data: any): Promise<DocumentItem> {
+  public async createRealDocument(patientId: string, data: any, localMeta?: any): Promise<DocumentItem> {
     if (!this.currentOrganizationId || patientId.startsWith('PAT-')) {
-      return this.addDocument({ ...data, patientId });
+      let file: File | undefined = localMeta?.file;
+      let title = localMeta?.title;
+      let type = localMeta?.type || 'Radiografía';
+      let date = localMeta?.date || new Date().toISOString().split('T')[0];
+      let description = localMeta?.description || '';
+      let fileName = localMeta?.fileName;
+      let fileSize = localMeta?.fileSize || '1.0 MB';
+      let mimeType = localMeta?.mimeType || 'application/octet-stream';
+
+      if (typeof FormData !== 'undefined' && data instanceof FormData) {
+        file = (data.get('file') as File) || file;
+        title = (data.get('title') as string) || title;
+        type = (data.get('type') as any) || type;
+        date = (data.get('date') as string) || date;
+        description = (data.get('description') as string) || description;
+        fileName = (data.get('fileName') as string) || file?.name || fileName;
+        mimeType = (data.get('mimeType') as string) || file?.type || mimeType;
+        if (file) {
+          fileSize = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+        }
+      }
+
+      const patient = this.getPatientById(patientId);
+      const newDoc = this.addDocument({
+        patientId,
+        patientName: patient ? `${patient.names} ${patient.surnames}` : 'Paciente',
+        title: title || 'Documento Clínico',
+        type,
+        date,
+        description,
+        fileName: fileName || (file ? file.name : `${title}.pdf`),
+        fileSize,
+      });
+
+      if (file) {
+        this.mockFileBlobs.set(String(newDoc.id), {
+          blob: file,
+          fileName: newDoc.fileName || file.name,
+          mimeType: file.type || mimeType,
+        });
+      }
+
+      if (this.hasLoadedAllRealDocuments) {
+        this.allRealDocuments = [newDoc, ...this.allRealDocuments];
+      }
+      this.notify();
+      return newDoc;
     }
+
     const created = await dentistryApi.createDocument(this.currentOrganizationId, patientId, data);
     await this.loadRealDocuments(patientId);
+    await this.loadRealDocuments();
     return created;
   }
 
   public async deleteRealDocument(documentId: number | string, patientId?: string): Promise<void> {
-    if (!this.currentOrganizationId || String(documentId).startsWith('DOC-')) {
-      this.documents = this.documents.filter(d => String(d.id) !== String(documentId));
+    const docIdStr = String(documentId);
+    this.mockFileBlobs.delete(docIdStr);
+
+    if (!this.currentOrganizationId || docIdStr.startsWith('DOC-')) {
+      this.documents = this.documents.filter(d => String(d.id) !== docIdStr);
+      this.allRealDocuments = this.allRealDocuments.filter(d => String(d.id) !== docIdStr);
       this.saveToStorage('odonto_documents', this.documents);
       this.notify();
       return;
@@ -1269,13 +1372,46 @@ class DentalService {
     if (patientId) {
       await this.loadRealDocuments(patientId);
     }
+    await this.loadRealDocuments();
   }
 
   public async downloadRealDocument(documentId: number | string): Promise<Blob> {
-    if (!this.currentOrganizationId) {
-      throw new Error("No hay una organización activa seleccionada.");
+    const docIdStr = String(documentId);
+
+    // 1. Documentos demostrativos locales (inician con 'DOC-' o sin organización activa)
+    if (docIdStr.startsWith('DOC-') || !this.currentOrganizationId) {
+      if (this.mockFileBlobs.has(docIdStr)) {
+        return this.mockFileBlobs.get(docIdStr)!.blob;
+      }
+
+      const doc = this.documents.find(d => String(d.id) === docIdStr);
+      const title = doc?.title || 'Documento Clínico';
+      const patient = doc?.patientName || 'Paciente';
+      const fileName = (doc?.fileName || '').toLowerCase();
+
+      if (fileName.endsWith('.png') || doc?.type === 'Radiografía' || doc?.type === 'RADIOGRAPHY') {
+        return createDemoImageBlob(title, patient, 'image/png');
+      } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || doc?.type === 'Fotografía' || doc?.type === 'PHOTOGRAPHY') {
+        return createDemoImageBlob(title, patient, 'image/jpeg');
+      } else {
+        return createDemoPdfBlob(title, patient);
+      }
     }
-    return dentistryApi.downloadDocument(this.currentOrganizationId, documentId);
+
+    // 2. Documentos clínicos reales de base de datos en organización activa
+    try {
+      return await dentistryApi.downloadDocument(this.currentOrganizationId, documentId);
+    } catch (err: any) {
+      if (
+        err?.response?.status === 404 ||
+        err?.message?.includes('404') ||
+        err?.code === 'FILE_NOT_FOUND' ||
+        err?.message?.includes('no está disponible')
+      ) {
+        throw new Error('El documento no cuenta con un archivo físico disponible en el servidor.');
+      }
+      throw err;
+    }
   }
 
   public addDocument(doc: Omit<DocumentItem, 'id'>): DocumentItem {
@@ -1313,6 +1449,116 @@ class DentalService {
       totalBudgetsApproved: this.budgets.filter(b => b.status === 'Aprobado').reduce((acc, b) => acc + b.totalAmount, 0)
     };
   }
+}
+
+function createDemoImageBlob(title: string, patient: string, mime: string): Promise<Blob> {
+  return new Promise((resolve) => {
+    if (typeof document !== 'undefined') {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, 800, 600);
+
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(20, 20, 760, 560);
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'bold 24px sans-serif';
+          ctx.fillText('ODONTOCARE PRO - ARCHIVO CLÍNICO', 50, 80);
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 20px sans-serif';
+          ctx.fillText(title, 50, 140);
+
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '16px sans-serif';
+          ctx.fillText(`Paciente: ${patient}`, 50, 190);
+          ctx.fillText(`Fecha: ${new Date().toISOString().split('T')[0]}`, 50, 220);
+          ctx.fillText('Archivo demostrativo precargado en OdontoCare Pro', 50, 260);
+
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1;
+          for (let x = 50; x < 750; x += 50) {
+            ctx.beginPath();
+            ctx.moveTo(x, 300);
+            ctx.lineTo(x, 530);
+            ctx.stroke();
+          }
+          for (let y = 300; y < 550; y += 50) {
+            ctx.beginPath();
+            ctx.moveTo(50, y);
+            ctx.lineTo(750, y);
+            ctx.stroke();
+          }
+
+          canvas.toBlob((b) => {
+            if (b) return resolve(b);
+            resolve(fallbackBinaryBlob(mime));
+          }, mime);
+          return;
+        }
+      } catch {
+        // En caso de fallo con canvas, usa fallback binario
+      }
+    }
+    resolve(fallbackBinaryBlob(mime));
+  });
+}
+
+function fallbackBinaryBlob(mime: string): Blob {
+  if (mime === 'image/jpeg') {
+    const minimalJpg = new Uint8Array([
+      255, 216, 255, 224, 0, 16, 74, 70, 73, 70, 0, 1, 1, 1, 0, 72, 0, 72, 0, 0, 255, 219, 0, 67, 0, 8, 6, 6, 7, 6, 5, 8, 7, 7, 7, 9, 9, 8, 10, 12, 20, 13, 12, 11, 11, 12, 25, 18, 19, 15, 20, 29, 26, 31, 30, 29, 26, 28, 28, 32, 36, 46, 39, 32, 34, 44, 35, 28, 28, 40, 55, 41, 44, 48, 49, 52, 52, 52, 31, 39, 57, 61, 56, 50, 60, 46, 51, 52, 50, 255, 192, 0, 11, 8, 0, 1, 0, 1, 1, 1, 17, 0, 255, 218, 0, 8, 1, 1, 0, 0, 63, 0, 191, 255, 217
+    ]);
+    return new Blob([minimalJpg], { type: 'image/jpeg' });
+  }
+  const minimalPng = new Uint8Array([
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0, 0, 5, 0, 1, 13, 10, 45, 180, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130
+  ]);
+  return new Blob([minimalPng], { type: 'image/png' });
+}
+
+function createDemoPdfBlob(title: string, patient: string): Blob {
+  const cleanTitle = title.replace(/[()\r\n]/g, '');
+  const cleanPatient = patient.replace(/[()\r\n]/g, '');
+  const content = `%PDF-1.4
+1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj
+2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj
+3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>> endobj
+4 0 obj <</Length 200>> stream
+BT
+/F1 18 Tf
+50 720 Td
+(ODONTOCARE PRO - EXPEDIENTE CLINICO) Tj
+/F1 12 Tf
+0 -30 Td
+(Documento: ${cleanTitle}) Tj
+0 -20 Td
+(Paciente: ${cleanPatient}) Tj
+0 -20 Td
+(Fecha: ${new Date().toISOString().split('T')[0]}) Tj
+ET
+endstream
+endobj
+5 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000244 00000 n 
+0000000495 00000 n 
+trailer <</Size 6 /Root 1 0 R>>
+startxref
+574
+%%EOF`;
+  return new Blob([content], { type: 'application/pdf' });
 }
 
 export const dentalService = new DentalService();

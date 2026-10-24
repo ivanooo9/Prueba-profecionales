@@ -12,6 +12,7 @@ interface MeetingFormModalProps {
   clients: Client[];
   assignableUsers: ArchitectureAssignableUser[];
   defaultProjectId?: string | number;
+  defaultDate?: string;
   initialData?: Meeting | null;
 }
 
@@ -23,6 +24,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   clients: _clients,
   assignableUsers,
   defaultProjectId,
+  defaultDate,
   initialData
 }) => {
   const todayStr = getTodayCalendarDate();
@@ -34,7 +36,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     projectId: initialProjectId,
     clientId: matchingProject?.clientId ? String(matchingProject.clientId) : undefined,
     title: '',
-    date: getTodayCalendarDate(),
+    date: defaultDate || getTodayCalendarDate(),
     time: '10:00',
     location: 'Estudio de Arquitectura',
     modality: 'Presencial',
@@ -48,7 +50,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     if (initialData) {
       setFormData({
         ...initialData,
-        date: initialData.date ? initialData.date.slice(0, 10) : getTodayCalendarDate(),
+        date: initialData.date ? initialData.date.slice(0, 10) : (defaultDate || getTodayCalendarDate()),
         time: initialData.time || '10:00',
       });
     } else {
@@ -58,7 +60,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
         projectId: selectedProjId,
         clientId: proj?.clientId ? String(proj.clientId) : undefined,
         title: '',
-        date: getTodayCalendarDate(),
+        date: defaultDate || getTodayCalendarDate(),
         time: '10:00',
         location: 'Estudio de Arquitectura',
         modality: 'Presencial',
@@ -67,7 +69,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
         notes: ''
       });
     }
-  }, [initialData, defaultProjectId, projects, isOpen]);
+  }, [initialData, defaultProjectId, defaultDate, projects, isOpen]);
 
   const handleProjectChange = (newProjectId: string) => {
     const selectedProj = projects.find((p) => String(p.id) === String(newProjectId));

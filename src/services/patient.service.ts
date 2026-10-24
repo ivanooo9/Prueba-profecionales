@@ -1,5 +1,5 @@
 import { db } from "../lib/db";
-import { validarCedulaEcuador, validarPasaporte } from "../lib/ecuador-validators";
+import { validarCedulaEcuador, validarPasaporte, validarDocumentoIdentidad } from "../lib/ecuador-validators";
 
 export interface EmergencyContactInput {
   name?: string;
@@ -138,36 +138,26 @@ export class PatientService {
       throw new Error("El nombre del paciente es obligatorio.");
     }
 
+    let normalizedIdNumber: string | null = null;
+
     if (data.idNumber && data.idNumber.trim() !== "") {
       const cleanId = data.idNumber.trim();
-      const detectedType =
-        data.idType ||
-        (cleanId.length === 10 && /^\d{10}$/.test(cleanId) ? "CEDULA" : "PASAPORTE");
-
-      if (detectedType === "CEDULA") {
-        if (!validarCedulaEcuador(cleanId)) {
-          throw new Error(
-            "La identificación de 10 dígitos proporcionada no es una cédula ecuatoriana válida según el Registro Civil."
-          );
-        }
-      } else if (detectedType === "PASAPORTE") {
-        if (!validarPasaporte(cleanId)) {
-          throw new Error(
-            "El número de pasaporte proporcionado no es válido (debe contener entre 6 y 20 caracteres alfanuméricos)."
-          );
-        }
+      const validation = validarDocumentoIdentidad(data.idType, cleanId);
+      if (!validation.isValid) {
+        throw new Error(validation.error || "Documento de identificación inválido.");
       }
+      normalizedIdNumber = validation.normalized || cleanId;
 
       const existing = await client.patient.findFirst({
         where: {
           organizationId,
-          idNumber: cleanId,
+          idNumber: normalizedIdNumber,
         },
       });
 
       if (existing) {
         throw new Error(
-          `Ya existe un paciente registrado con la identificación '${cleanId}' en esta organización.`
+          `Ya existe un paciente registrado con la identificación '${normalizedIdNumber}' en esta organización.`
         );
       }
     }
@@ -178,7 +168,7 @@ export class PatientService {
       data: {
         organizationId,
         name: data.name.trim(),
-        idNumber: data.idNumber?.trim() || null,
+        idNumber: normalizedIdNumber,
         birthDate: birthDate && !isNaN(birthDate.getTime()) ? birthDate : null,
         gender: data.gender || "UNSPECIFIED",
         bloodType: data.bloodType?.trim() || null,
@@ -210,58 +200,62 @@ export class PatientService {
       throw new Error("Paciente no encontrado en esta organización.");
     }
 
-    if (data.idNumber && data.idNumber.trim() !== patient.idNumber) {
-      const cleanId = data.idNumber.trim();
-      const detectedType =
-        data.idType ||
-        (cleanId.length === 10 && /^\d{10}$/.test(cleanId) ? "CEDULA" : "PASAPORTE");
+    let normalizedIdNumber: string | null = patient.idNumber;
 
-      if (detectedType === "CEDULA") {
-        if (!validarCedulaEcuador(cleanId)) {
-          throw new Error(
-            "La identificación de 10 dígitos proporcionada no es una cédula ecuatoriana válida según el Registro Civil."
-          );
+    if (data.idNumber !== undefined) {
+      if (data.idNumber === null || data.idNumber.trim() === "") {
+        normalizedIdNumber = null;
+      } else {
+        const cleanId = data.idNumber.trim();
+        const isChanging = cleanId !== patient.idNumber;
+        if (isChanging || data.idType) {
+          const validation = validarDocumentoIdentidad(data.idType, cleanId);
+          if (!validation.isValid) {
+            throw new Error(validation.error || "Documento de identificación inválido.");
+          }
+          normalizedIdNumber = validation.normalized || cleanId;
+        } else {
+          normalizedIdNumber = cleanId;
         }
-      } else if (detectedType === "PASAPORTE") {
-        if (!validarPasaporte(cleanId)) {
-          throw new Error(
-            "El número de pasaporte proporcionado no es válido (debe contener entre 6 y 20 caracteres alfanuméricos)."
-          );
+
+        if (normalizedIdNumber && normalizedIdNumber !== patient.idNumber) {
+          const existing = await client.patient.findFirst({
+            where: {
+              organizationId,
+              idNumber: normalizedIdNumber,
+              NOT: { id: patientId },
+            },
+          });
+
+          if (existing) {
+            throw new Error(
+              `Ya existe otro paciente con la identificación '${normalizedIdNumber}' en esta organización.`
+            );
+          }
         }
-      }
-
-      const existing = await client.patient.findFirst({
-        where: {
-          organizationId,
-          idNumber: cleanId,
-          NOT: { id: patientId },
-        },
-      });
-
-      if (existing) {
-        throw new Error(
-          `Ya existe otro paciente con la identificación '${cleanId}' en esta organización.`
-        );
       }
     }
 
     const birthDate = data.birthDate ? new Date(data.birthDate) : undefined;
 
+    const updateData: any = {};
+    if (data.name !== undefined) updateData.name = data.name.trim();
+    if (data.idNumber !== undefined) updateData.idNumber = normalizedIdNumber;
+    if (birthDate !== undefined) updateData.birthDate = birthDate && !isNaN(birthDate.getTime()) ? birthDate : null;
+    if (data.gender !== undefined) updateData.gender = data.gender;
+    if (data.bloodType !== undefined) updateData.bloodType = data.bloodType ? data.bloodType.trim() : null;
+    if (data.phone !== undefined) updateData.phone = data.phone ? data.phone.trim() : null;
+    if (data.email !== undefined) updateData.email = data.email ? data.email.trim() : null;
+    if (data.address !== undefined) updateData.address = data.address ? data.address.trim() : null;
+    if (data.emergencyContact !== undefined) updateData.emergencyContact = (data.emergencyContact as any) || null;
+    if (data.status !== undefined) updateData.status = data.status;
+
     await client.patient.update({
       where: { id: patientId },
-      data: {
-        name: data.name !== undefined ? data.name.trim() : undefined,
-        idNumber: data.idNumber !== undefined ? (data.idNumber ? data.idNumber.trim() : null) : undefined,
-        birthDate: birthDate !== undefined ? (birthDate && !isNaN(birthDate.getTime()) ? birthDate : null) : undefined,
-        gender: data.gender !== undefined ? data.gender : undefined,
-        bloodType: data.bloodType !== undefined ? (data.bloodType ? data.bloodType.trim() : null) : undefined,
-        phone: data.phone !== undefined ? (data.phone ? data.phone.trim() : null) : undefined,
-        email: data.email !== undefined ? (data.email ? data.email.trim() : null) : undefined,
-        address: data.address !== undefined ? (data.address ? data.address.trim() : null) : undefined,
-        emergencyContact: data.emergencyContact !== undefined ? ((data.emergencyContact as any) || null) : undefined,
-        status: data.status !== undefined ? data.status : undefined,
-      },
+      data: updateData,
     });
+
+
 
     return this.getPatientById(organizationId, patientId, client);
   }
